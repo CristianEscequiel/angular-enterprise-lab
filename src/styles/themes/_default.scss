@@ -1,0 +1,28 @@
+@use '../abstracts' as a;
+
+:root {
+  --color-primary: #{a.$color-primary};
+  --color-primary-hover: #{a.$color-primary-hover};
+  --color-primary-active: #{a.$color-primary-active};
+
+  --color-background: #{a.$color-background};
+  --color-surface: #{a.$color-surface};
+  --color-surface-light: #{a.$color-surface-light};
+  --color-surface-hover: #{a.$color-surface-hover};
+
+  --color-text: #{a.$color-text};
+  --color-text-muted: #{a.$color-text-muted};
+  --color-text-disabled: #{a.$color-text-disabled};
+
+  --color-border: #{a.$color-border};
+  --color-border-subtle: #{a.$color-border-subtle};
+
+  --color-success: #{a.$color-success};
+  --color-warning: #{a.$color-warning};
+
+  --color-error: #{a.$color-error};
+  --color-error-active: #{a.$color-error-active};
+  --color-error-hover: #{a.$color-error-hover};
+
+  --color-info: #{a.$color-info};
+}

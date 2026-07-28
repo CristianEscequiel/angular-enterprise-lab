@@ -1,0 +1,41 @@
+@use '../abstracts' as a;
+
+.m-0 {
+  margin: 0;
+}
+
+.mt-sm {
+  margin-top: a.$spacing-sm;
+}
+
+.mt-md {
+  margin-top: a.$spacing-md;
+}
+
+.mt-lg {
+  margin-top: a.$spacing-lg;
+}
+
+.mb-sm {
+  margin-bottom: a.$spacing-sm;
+}
+
+.mb-md {
+  margin-bottom: a.$spacing-md;
+}
+
+.mb-lg {
+  margin-bottom: a.$spacing-lg;
+}
+
+.p-sm {
+  padding: a.$spacing-sm;
+}
+
+.p-md {
+  padding: a.$spacing-md;
+}
+
+.p-lg {
+  padding: a.$spacing-lg;
+}

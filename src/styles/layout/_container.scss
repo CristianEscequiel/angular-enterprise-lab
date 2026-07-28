@@ -1,0 +1,10 @@
+@use '../abstracts' as a;
+
+.container {
+  width: min(100% - 2rem, 1200px);
+  margin-inline: auto;
+
+  @include a.respond-above(a.$breakpoint-md) {
+    width: min(100% - 3rem, 1200px);
+  }
+}

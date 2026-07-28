@@ -1,0 +1,64 @@
+@use '../abstracts' as a;
+
+.card {
+  padding: a.$spacing-lg;
+
+  background-color: var(--color-surface);
+  border: a.$border-width solid var(--color-border);
+  border-radius: a.$radius-lg;
+  box-shadow: a.$shadow-sm;
+}
+
+.card--interactive {
+  cursor: pointer;
+
+  transition:
+    border-color a.$transition-fast,
+    box-shadow a.$transition-fast,
+    transform a.$transition-fast;
+
+  @include a.focus-visible;
+
+  &:hover {
+    border-color: var(--color-primary);
+    box-shadow: a.$shadow-md;
+    transform: translateY(-2px);
+  }
+
+  &:active {
+    box-shadow: a.$shadow-sm;
+    transform: translateY(0);
+  }
+}
+
+.card__header {
+  margin-bottom: a.$spacing-md;
+}
+
+.card__title {
+  color: var(--color-text);
+  font-size: a.$font-size-lg;
+  font-weight: a.$font-weight-bold;
+  line-height: 1.2;
+}
+
+.card__description {
+  margin-top: a.$spacing-sm;
+  color: var(--color-text-muted);
+}
+
+.card__content {
+  color: var(--color-text);
+}
+
+.card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: a.$spacing-sm;
+
+  margin-top: a.$spacing-lg;
+  padding-top: a.$spacing-md;
+
+  border-top: a.$border-width solid var(--color-border);
+}

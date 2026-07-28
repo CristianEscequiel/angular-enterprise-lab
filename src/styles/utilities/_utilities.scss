@@ -1,0 +1,48 @@
+@use '../abstracts' as a;
+
+.u-hidden {
+  display: none !important;
+}
+
+.u-sr-only {
+  position: absolute;
+
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+
+  border: 0;
+}
+
+.u-text-center {
+  text-align: center;
+}
+
+.u-text-right {
+  text-align: right;
+}
+
+.u-text-muted {
+  color: var(--color-text-muted);
+}
+
+.u-full-width {
+  width: 100%;
+}
+
+.u-mt-sm {
+  margin-top: a.$spacing-sm;
+}
+
+.u-mt-md {
+  margin-top: a.$spacing-md;
+}
+
+.u-mt-lg {
+  margin-top: a.$spacing-lg;
+}

@@ -1,0 +1,105 @@
+@use '../abstracts' as a;
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: a.$spacing-sm;
+
+  min-height: 2.5rem;
+  padding: a.$spacing-sm a.$spacing-md;
+
+  border: a.$border-width solid transparent;
+  border-radius: a.$radius-md;
+
+  font-weight: a.$font-weight-medium;
+  line-height: 1;
+
+  cursor: pointer;
+  transition:
+    background-color a.$transition-fast,
+    border-color a.$transition-fast,
+    color a.$transition-fast,
+    opacity a.$transition-fast,
+    transform a.$transition-fast;
+
+  @include a.focus-visible;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    cursor: not-allowed;
+    opacity: 0.5;
+    transform: none;
+  }
+}
+
+.btn--primary {
+  color: #ffffff;
+  background-color: var(--color-primary);
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+  }
+
+  &:active:not(:disabled) {
+    background-color: var(--color-primary-active);
+  }
+}
+
+.btn--secondary {
+  color: var(--color-text);
+  background-color: var(--color-surface-light);
+  border-color: var(--color-border);
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-surface);
+  }
+}
+
+.btn--outline {
+  color: var(--color-primary);
+  background-color: transparent;
+  border-color: var(--color-primary);
+
+  &:hover:not(:disabled) {
+    color: #fff;
+    background-color: var(--color-primary);
+  }
+}
+
+.btn--danger {
+  color: #fff;
+  background-color: var(--color-error);
+
+  &:hover:not(:disabled):not([aria-disabled='true']) {
+    background-color: var(--color-error-hover);
+  }
+
+  &:active:not(:disabled):not([aria-disabled='true']) {
+    background-color: var(--color-error-active);
+  }
+}
+
+.btn--sm {
+  min-height: 2rem;
+  padding: a.$spacing-xs a.$spacing-sm;
+  font-size: a.$font-size-sm;
+}
+
+.btn--lg {
+  min-height: 3rem;
+  padding: a.$spacing-md a.$spacing-lg;
+  font-size: a.$font-size-md;
+}
+
+.btn--full {
+  width: 100%;
+}

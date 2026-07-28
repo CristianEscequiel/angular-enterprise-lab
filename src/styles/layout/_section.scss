@@ -1,0 +1,9 @@
+@use '../abstracts' as a;
+
+.section {
+  padding-block: a.$spacing-xl;
+
+  @include a.respond-above(a.$breakpoint-md) {
+    padding-block: a.$spacing-2xl;
+  }
+}
