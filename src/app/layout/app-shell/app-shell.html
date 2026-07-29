@@ -1,0 +1,10 @@
+<app-header (viewSidebar)="openSidebar()"></app-header>
+<div class="sidebar-layout" [class.sidebar-layout--open]="sidebarOpen()">
+  @if (sidebarOpen()) {
+  <app-sidebar (closed)="closeSidebar()" />
+  }
+  <main class="sidebar-layout__content">
+    <p>Content goes here.</p>
+    <router-outlet></router-outlet>
+  </main>
+</div>

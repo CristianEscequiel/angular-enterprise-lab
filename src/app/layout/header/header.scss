@@ -1,0 +1,6 @@
+@use '../../../styles/abstracts' as a;
+
+header {
+  background-color: #{a.$color-background};
+  border: #{a.$border-width} solid #{a.$color-border};
+}

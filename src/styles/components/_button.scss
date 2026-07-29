@@ -41,6 +41,44 @@
   }
 }
 
+.btn-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+
+  background: transparent;
+  color: var(--color-text-muted);
+
+  cursor: pointer;
+  transition: background-color .2s, color .2s;
+
+  &:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  &:active {
+    transform: scale(.96);
+  }
+
+  &:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+}
+
 .btn--primary {
   color: #ffffff;
   background-color: var(--color-primary);
