@@ -6,39 +6,6 @@
   }
   <main class="container p-lg sidebar-layout__content">
     <router-outlet></router-outlet>
-    <app-alert title="Operación completada" message="Los cambios se guardaron correctamente."
-      variant="success"></app-alert>
-    <app-alert title="Operación completada" message="Los cambios se guardaron correctamente."
-      variant="warning"></app-alert>
-    <app-alert title="Operación completada" message="Los cambios se guardaron correctamente."
-      variant="error"></app-alert>
-
-    <app-alert title="Operación completada" message="Los cambios se guardaron correctamente."
-      variant="info"></app-alert>
-
-    <div class="d-flex items-center">
-      <app-button variant="primary" (clicked)="showToast('success', 'Success', 'The operation was successful.')">
-        Show primary
-      </app-button>
-
-      <app-button variant="outline" (clicked)="showToast('error', 'Error', 'The operation failed.')">
-        Show error
-      </app-button>
-
-      <app-button variant="danger" (clicked)="showToast('error', 'Error', 'The operation failed.')">
-        Show danger
-      </app-button>
-
-      <app-toast [open]="toastOpen()" [variant]="toastType()" [title]="toastTitle()" [message]="toastMessage()"
-        (closed)="closeToast()" />
-
-      <app-spinner size="sm" label="Cargando órdenes de trabajo" />
-      <app-spinner size="md" label="Cargando órdenes de trabajo" />
-      <app-spinner size="lg" label="Cargando órdenes de trabajo" />
-
-    </div>
-
-
   </main>
 
 </div>
