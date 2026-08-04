@@ -1,0 +1,42 @@
+@use '../abstracts' as a;
+
+.spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &__circle {
+    width: 2rem;
+    aspect-ratio: 1;
+    border: 0.2rem solid a.$color-border;
+    border-top-color: a.$color-primary;
+    border-radius: 50%;
+    animation: spinner-rotate 0.7s linear infinite;
+  }
+
+  &--sm .spinner__circle {
+    width: 1rem;
+    border-width: 0.15rem;
+  }
+
+  &--md .spinner__circle {
+    width: 2rem;
+  }
+
+  &--lg .spinner__circle {
+    width: 3rem;
+    border-width: 0.3rem;
+  }
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner__circle {
+    animation-duration: 1.5s;
+  }
+}
