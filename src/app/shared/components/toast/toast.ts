@@ -8,7 +8,7 @@ import { Component, computed, input, output } from '@angular/core';
 })
 export class Toast {
   open = input.required<boolean>();
-  variant = input<'success' | 'error' | 'warning'>('success');
+  variant = input<'success' | 'error' | 'warning' | 'info'>('success');
   title = input.required<string>();
   message = input.required<string>();
 

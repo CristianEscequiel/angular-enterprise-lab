@@ -2,15 +2,11 @@ import { Component, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { Header } from '../header/header';
 import { Sidebar } from '../sidebar/sidebar';
-import { Alert } from '../../shared/components/alert/alert';
-import { Toast } from '../../shared/components/toast/toast';
-import { Button } from '../../shared/components/button/button';
-import { Spinner } from '../../shared/components/spinner/spinner';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, Header, Sidebar, Alert, Toast, Button, Spinner],
+  imports: [RouterOutlet, Header, Sidebar],
   templateUrl: './app-shell.html',
   styleUrl: './app-shell.scss',
 })
