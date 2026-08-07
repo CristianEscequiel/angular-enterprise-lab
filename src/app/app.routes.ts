@@ -1,10 +1,22 @@
 import { Routes } from '@angular/router';
-import { DashboardPage } from './features/dashboard/pages/dashboard-page/dashboard-page';
 
 export const routes: Routes = [
   {
     path: '',
-    component: DashboardPage,
-    title: 'Dashboard',
+    redirectTo: 'dashboard',
+    pathMatch: 'full',
   },
+  {
+    path: 'dashboard',
+    loadComponent: () =>
+      import('./features/dashboard/pages/dashboard-page/dashboard-page')
+        .then((m) => m.DashboardPage),
+  },
+  {
+    path: 'work-orders',
+    loadChildren: () =>
+      import('./features/work-orders/work-orders.routes').then(
+        (m) => m.WORK_ORDERS_ROUTES
+      ),
+  }
 ];
