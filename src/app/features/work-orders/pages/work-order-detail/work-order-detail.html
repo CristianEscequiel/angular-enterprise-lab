@@ -1,1 +1,17 @@
-<p>work-order-detail works!</p>
+@if(loadingService.isLoading()) {
+<app-spinner class="text-center" label="Cargando orden de trabajo" />
+}@else {
+<section class="">
+  <h1 class="p-lg">Detalle de la orden de trabajo</h1>
+  <div class="card">
+    <div class="card__body">
+      <p class="card__header"><strong>{{ workOrderDetail?.title }} </strong></p>
+      <div class="card__content">
+        <p class="card__tittle">{{ workOrderDetail?.asset }}</p>
+        <p class="card__description">{{ workOrderDetail?.description }}</p>
+      </div>
+      <p class="card__footer"> {{ workOrderDetail?.status }}</p>
+    </div>
+  </div>
+</section>
+}
