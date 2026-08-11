@@ -1,1 +1,10 @@
+@if(loadingService.isLoading()) {
+<app-spinner size="lg" class="loading-overlay" label="Cargando orden de trabajo" />
+}
+
+@if (message()) {
+<app-toast [open]="true" [variant]="message()!.variant" [title]="message()!.title" [message]="message()!.message"
+  (closed)="closeToast()" />
+}
+
 <app-shell></app-shell>

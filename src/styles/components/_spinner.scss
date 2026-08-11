@@ -29,6 +29,20 @@
   }
 }
 
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background: rgb(255 255 255 / 0.55);
+  backdrop-filter: blur(2px);
+
+  z-index: 9999;
+}
+
 @keyframes spinner-rotate {
   to {
     transform: rotate(360deg);

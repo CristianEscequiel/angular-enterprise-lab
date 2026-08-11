@@ -1,21 +1,11 @@
 <section class="text-center">
   <h1 class="p-lg">Órdenes de trabajo</h1>
-
-  @if (isLoading()) {
-  <app-spinner class="text-center" label="Cargando órdenes de trabajo" />
-  } @else if (error()) {
-  @if (message(); as msg) {
-  <app-toast [open]="showToast()" [title]="msg.title" [message]="msg.message" [variant]="msg.variant"
-    (closed)="closeToast()"></app-toast>
-  }
+  @if (error()) {
   <app-alert title="Error" [message]="error()!" variant="error" />
-
   <app-button variant="primary" (clicked)="loadWorkOrders()">
     Reintentar
   </app-button>
-  <app-button variant="secondary" (clicked)="clearMessage()">
-    Limpiar mensaje
-  </app-button>
+
   } @else if (workOrders().length === 0) {
   <app-alert title="Sin órdenes" message="No existen órdenes de trabajo registradas." variant="info" />
   } @else {
