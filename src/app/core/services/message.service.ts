@@ -30,6 +30,13 @@ export class MessageService {
       message,
     });
   }
+  showWarning(message: string, title = 'Precaucion'): void {
+    this._message.set({
+      variant: 'warning',
+      title,
+      message,
+    });
+  }
 
   clear(): void {
     this._message.set(null);

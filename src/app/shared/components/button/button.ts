@@ -11,6 +11,7 @@ export class Button {
   clicked = output<void>();
   variant = input<'primary' | 'secondary' | 'outline' | 'danger'>('primary');
   size = input<'sm' | 'md' | 'lg' | 'full'>('md');
+  disabled = input<boolean>(false);
 
   classes = computed(() => ({
     'btn--primary': this.variant() === 'primary',

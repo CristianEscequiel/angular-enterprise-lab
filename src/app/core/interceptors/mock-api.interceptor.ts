@@ -6,6 +6,7 @@ import {
 import { delay, of, throwError } from 'rxjs';
 
 import { WORK_ORDERS_MOCK } from '../../features/work-orders/data-access/work-order.mock'
+import { WorkOrder, WorkOrderCreateRequest } from '../../features/work-orders/models/work-order.model';
 
 const API_DELAY = 800;
 
@@ -46,6 +47,102 @@ export const mockApiInterceptor: HttpInterceptorFn = (request, next) => {
       new HttpResponse({
         status: 200,
         body: workOrder,
+      }),
+    ).pipe(delay(API_DELAY));
+  }
+
+  if (request.method === 'POST' && request.url === '/api/work-orders') {
+    if (!request.body) {
+      return throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 400,
+            statusText: 'Bad Request',
+            error: {
+              message: 'Cuerpo de solicitud inválido',
+            },
+          }),
+      );
+    }
+    const body = request.body as WorkOrderCreateRequest;
+
+    const newWorkOrder: WorkOrder = {
+      ...body,
+      id: WORK_ORDERS_MOCK.length + 1,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+
+    WORK_ORDERS_MOCK.push(newWorkOrder);
+    return of(
+      new HttpResponse({
+        status: 201,
+        body: newWorkOrder,
+      }),
+    ).pipe(delay(API_DELAY));
+  }
+
+  if (request.method === 'PUT' && detailMatch) {
+    const id = Number(detailMatch[1]);
+    const index = WORK_ORDERS_MOCK.findIndex((item) => item.id === id);
+
+    if (index === -1) {
+      return throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 404,
+            statusText: 'Not Found',
+            error: {
+              message: `No se encontró la orden ${id}`,
+            },
+          }),
+      );
+    }
+    if (!request.body) {
+      return throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 400,
+            statusText: 'Bad Request',
+            error: {
+              message: `Solicitud inválida para la orden ${id}`,
+            },
+          }),
+      );
+    }
+    const updatedWorkOrder: WorkOrder = { ...WORK_ORDERS_MOCK[index], ...request.body };
+    WORK_ORDERS_MOCK[index] = updatedWorkOrder;
+
+    return of(
+      new HttpResponse({
+        status: 200,
+        body: WORK_ORDERS_MOCK[index],
+      }),
+    ).pipe(delay(API_DELAY));
+  }
+
+  if (request.method === 'DELETE' && detailMatch) {
+    const id = Number(detailMatch[1]);
+    const index = WORK_ORDERS_MOCK.findIndex((item) => item.id === id);
+
+    if (index === -1) {
+      return throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 404,
+            statusText: 'Not Found',
+            error: {
+              message: `No se encontró la orden ${id}`,
+            },
+          }),
+      );
+    }
+
+    WORK_ORDERS_MOCK.splice(index, 1);
+
+    return of(
+      new HttpResponse({
+        status: 204,
       }),
     ).pipe(delay(API_DELAY));
   }

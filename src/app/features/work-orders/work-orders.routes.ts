@@ -9,6 +9,20 @@ export const WORK_ORDERS_ROUTES: Routes = [
       ),
   },
   {
+    path: 'new',
+    loadComponent: () =>
+      import('./pages/work-order-create/work-order-create').then(
+        (m) => m.WorkOrderCreate
+      ),
+  },
+  {
+    path: ':id/edit',
+    loadComponent: () =>
+      import('./pages/work-order-edit/work-order-edit').then(
+        (m) => m.WorkOrderEdit
+      ),
+  },
+  {
     path: ':id',
     loadComponent: () =>
       import('./pages/work-order-detail/work-order-detail').then(

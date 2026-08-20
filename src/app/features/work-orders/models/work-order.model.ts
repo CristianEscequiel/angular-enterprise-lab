@@ -10,3 +10,10 @@ export interface WorkOrder {
   status: WorkOrderStatus;
   createdAt: string;
 }
+
+export interface WorkOrderCreateRequest {
+  title: string;
+  description: string;
+  asset: string;
+  priority: WorkOrderPriority;
+}

@@ -1,0 +1,11 @@
+<section>
+  <div class="d-flex justify-between py-lg">
+    <h1>Editar Orden de Trabajo</h1>
+    <app-button variant="primary" (clicked)="navigateToWorkOrdersList()">
+      Volver a Lista
+    </app-button>
+  </div>
+  @if (workOrder(); as workOrder) {
+  <app-form mode="edit" [inputData]="workOrder" (sendData)="onSubmitEdit($event)" />
+  }
+</section>

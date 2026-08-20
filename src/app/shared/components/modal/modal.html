@@ -1,0 +1,29 @@
+@if (isOpen()) {
+<div class="modal-overlay" role="presentation" (click)="onModalOverlayClick($event)">
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-message">
+    <button #modalCloseButton class="modal__close" type="button" aria-label="Cerrar modal" (click)="cancel()">
+      ×
+    </button>
+
+    <div class="modal__content">
+      <h2 id="modal-title" class="modal__title">
+        {{ title() }}
+      </h2>
+
+      <p id="modal-message" class="modal__message">
+        {{ message() }}
+      </p>
+    </div>
+
+    <div class="modal__actions">
+      <button class="btn btn--secondary" type="button" (click)="cancel()">
+        {{ cancelText() }}
+      </button>
+
+      <button class="btn btn--danger" type="button" (click)="confirm()">
+        {{ confirmText() }}
+      </button>
+    </div>
+  </section>
+</div>
+}

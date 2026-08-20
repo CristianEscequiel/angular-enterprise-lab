@@ -2,12 +2,12 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
 
-import { WorkOrderDetail } from './work-order-detail';
+import { WorkOrderEdit } from './work-order-edit';
 import { WorkOrdersService } from '../../data-access/work-order.service';
 
-describe('WorkOrderDetail', () => {
-  let component: WorkOrderDetail;
-  let fixture: ComponentFixture<WorkOrderDetail>;
+describe('WorkOrderEdit', () => {
+  let component: WorkOrderEdit;
+  let fixture: ComponentFixture<WorkOrderEdit>;
 
   const mockWorkOrder = {
     id: 1,
@@ -23,19 +23,17 @@ describe('WorkOrderDetail', () => {
   };
 
   beforeEach(async () => {
-    workOrdersServiceMock.getById.mockClear();
-
     await TestBed.configureTestingModule({
-      imports: [WorkOrderDetail],
+      imports: [WorkOrderEdit],
       providers: [
         {
           provide: ActivatedRoute,
           useValue: {
-            paramMap: of(
-              convertToParamMap({
+            snapshot: {
+              paramMap: convertToParamMap({
                 id: '1',
-              })
-            ),
+              }),
+            },
           },
         },
         {
@@ -45,7 +43,7 @@ describe('WorkOrderDetail', () => {
       ],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(WorkOrderDetail);
+    fixture = TestBed.createComponent(WorkOrderEdit);
     component = fixture.componentInstance;
 
     fixture.detectChanges();

@@ -1,21 +1,31 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { WorkOrdersService } from '../../data-access/work-order.service';
 import { WorkOrder } from '../../models/work-order.model';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { map, switchMap } from 'rxjs';
+import { Button } from '../../../../shared/components/button/button';
 
 @Component({
   selector: 'app-work-order-detail',
-  imports: [],
+  imports: [Button],
   templateUrl: './work-order-detail.html',
   styleUrl: './work-order-detail.scss',
 })
-export class WorkOrderDetail {
+export class WorkOrderDetail implements OnInit {
   private readonly workOrderService = inject(WorkOrdersService);
-  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(ActivatedRoute);
+  private readonly route = inject(Router)
   workOrderDetail = signal<WorkOrder | null>(null);
 
-  constructor() {
-    const id = Number(this.route.snapshot.paramMap.get('id'));
+  ngOnInit() {
+    const id = Number(this.router.paramMap.pipe(
+      map((params) => Number(params.get('id'))),
+      switchMap((id) =>
+        this.workOrderService.getById(id)
+      )
+    ).subscribe((workOrder) => {
+      this.workOrderDetail.set(workOrder);
+    }));
 
     if (Number.isNaN(id)) {
       return;
@@ -34,4 +44,8 @@ export class WorkOrderDetail {
       },
     });
   }
+  navigateToWorkOrdersList(): void {
+    this.route.navigate(['/work-orders']);
+  }
+
 }

@@ -1,0 +1,9 @@
+<section>
+  <div class="d-flex justify-between py-lg">
+    <h1>Crear Orden de Trabajo</h1>
+    <app-button variant="primary" (clicked)="navigateToWorkOrdersList()">
+      Volver a Lista
+    </app-button>
+  </div>
+  <app-form (sendData)="onSubmit($event)"></app-form>
+</section>

@@ -1,0 +1,44 @@
+<form class="form-group form-control" [formGroup]="workOrderForm" (ngSubmit)="onSubmit()">
+  <label for="title">Title:</label>
+  <input [class.form-control--invalid]="isInvalid('title')" class="form-control" id="title" formControlName="title" />
+
+  @if (workOrderForm.get('title')?.invalid && workOrderForm.get('title')?.touched) {
+  <div class="form-error">
+    Title is required and must be at least 3 characters long.
+  </div>
+  }
+
+
+  <label class="form-label" for="description">Description:</label>
+  <textarea [class.form-control--invalid]="isInvalid('description')" class="form-control" id="description"
+    formControlName="description"></textarea>
+  @if (workOrderForm.get('description')?.invalid && workOrderForm.get('description')?.touched) {
+  <div class="form-error">
+    Description is required and must be at least 10 characters long.
+  </div>
+  }
+
+  <label class="form-label" for="asset">Asset:</label>
+  <input [class.form-control--invalid]="isInvalid('asset')" class="form-control" id="asset" formControlName="asset" />
+  @if (workOrderForm.get('asset')?.invalid && workOrderForm.get('asset')?.touched) {
+  <div class="form-error">
+    Asset is required.
+  </div>
+  }
+
+  <label class="form-label" for="priority">Priority:</label>
+  <select [class.form-control--invalid]="isInvalid('priority')" class="form-control" id="priority"
+    formControlName="priority">
+    <option class="" value="low">Low</option>
+    <option value="medium">Medium</option>
+    <option value="high">High</option>
+  </select>
+  @if (workOrderForm.get('priority')?.invalid && workOrderForm.get('priority')?.touched) {
+  <div class="form-error">
+    Priority is required.
+  </div>
+  }
+  <app-button type="submit" size="full" variant="primary" [disabled]="workOrderForm.invalid">Submit Work
+    Order</app-button>
+
+</form>

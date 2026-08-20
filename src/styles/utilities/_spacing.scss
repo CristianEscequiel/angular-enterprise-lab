@@ -28,6 +28,36 @@
   margin-bottom: a.$spacing-lg;
 }
 
+.mx-sm {
+  margin-left: a.$spacing-sm;
+  margin-right: a.$spacing-sm;
+}
+
+.mx-md {
+  margin-left: a.$spacing-md;
+  margin-right: a.$spacing-md;
+}
+
+.mx-lg {
+  margin-left: a.$spacing-lg;
+  margin-right: a.$spacing-lg;
+}
+
+.my-sm {
+  margin-top: a.$spacing-sm;
+  margin-bottom: a.$spacing-sm;
+}
+
+.my-md {
+  margin-top: a.$spacing-md;
+  margin-bottom: a.$spacing-md;
+}
+
+.my-lg {
+  margin-top: a.$spacing-lg;
+  margin-bottom: a.$spacing-lg;
+}
+
 .p-sm {
   padding: a.$spacing-sm;
 }
@@ -38,4 +68,58 @@
 
 .p-lg {
   padding: a.$spacing-lg;
+}
+
+.pb-sm {
+  padding-bottom: a.$spacing-sm;
+}
+
+.pb-md {
+  padding-bottom: a.$spacing-md;
+}
+
+.pb-lg {
+  padding-bottom: a.$spacing-lg;
+}
+
+.pt-sm {
+  padding-top: a.$spacing-sm;
+}
+
+.pt-md {
+  padding-top: a.$spacing-md;
+}
+
+.pt-lg {
+  padding-top: a.$spacing-lg;
+}
+
+.px-sm {
+  padding-left: a.$spacing-sm;
+  padding-right: a.$spacing-sm;
+}
+
+.px-md {
+  padding-left: a.$spacing-md;
+  padding-right: a.$spacing-md;
+}
+
+.px-lg {
+  padding-left: a.$spacing-lg;
+  padding-right: a.$spacing-lg;
+}
+
+.py-sm {
+  padding-top: a.$spacing-sm;
+  padding-bottom: a.$spacing-sm;
+}
+
+.py-md {
+  padding-top: a.$spacing-md;
+  padding-bottom: a.$spacing-md;
+}
+
+.py-lg {
+  padding-top: a.$spacing-lg;
+  padding-bottom: a.$spacing-lg;
 }

@@ -1,5 +1,11 @@
 <section class="">
-  <h1 class="p-lg">Detalle de la orden de trabajo</h1>
+  <div class="d-flex justify-between py-lg">
+    <h1>Detalle de la orden de trabajo</h1>
+    <app-button variant="primary" (clicked)="navigateToWorkOrdersList()">
+      Volver a Lista
+    </app-button>
+  </div>
+
   <div class="card">
     <div class="card__body">
       <p class="card__header"><strong>{{ workOrderDetail()?.title }} </strong></p>

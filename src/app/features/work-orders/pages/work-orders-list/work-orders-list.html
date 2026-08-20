@@ -1,5 +1,11 @@
 <section class="text-center">
-  <h1 class="p-lg">Órdenes de trabajo</h1>
+  <div class="d-flex justify-between py-lg">
+    <h1>Órdenes de trabajo</h1>
+    <app-button variant="primary" (clicked)="navigateToCreateWorkOrder()">
+      Crear orden de trabajo
+    </app-button>
+  </div>
+
   @if (error()) {
   <app-alert title="Error" [message]="error()!" variant="error" />
   <app-button variant="primary" (clicked)="loadWorkOrders()">
@@ -16,7 +22,7 @@
         <th>Título</th>
         <th>Activo</th>
         <th>Estado</th>
-        <th>Acciones</th>
+        <th class="text-center">Acciones</th>
       </tr>
     </thead>
     <tbody>
@@ -29,10 +35,19 @@
             {{ workOrder.status }}
           </app-badge>
         </td>
-        <td>
-          <app-button size="sm" variant="secondary" (clicked)="viewWorkOrder(workOrder.id)">
+        <td class="d-flex justify-center gap-sm">
+          <app-button size="sm" variant="outline" (clicked)="viewWorkOrder(workOrder.id)">
             Ver
           </app-button>
+          <app-button size="sm" variant="secondary" (clicked)="editWorkOrder(workOrder.id)">
+            Editar
+          </app-button>
+          <app-button size="sm" variant="danger" (clicked)="openDeleteModal()">
+            Eliminar
+          </app-button>
+          <app-modal [(isOpen)]="deleteModalOpen" title="Eliminar orden de trabajo"
+            message="¿Estás seguro de que querés eliminar esta orden? Esta acción no se puede deshacer."
+            confirmText="Eliminar" cancelText="Cancelar" (confirmed)="deleteWorkOrder(workOrder.id)" />
         </td>
       </tr>
       }
