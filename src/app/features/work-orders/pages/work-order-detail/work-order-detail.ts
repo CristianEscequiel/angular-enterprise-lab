@@ -2,7 +2,6 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { WorkOrdersService } from '../../data-access/work-order.service';
 import { WorkOrder } from '../../models/work-order.model';
 import { ActivatedRoute, Router } from '@angular/router';
-import { map, switchMap } from 'rxjs';
 import { Button } from '../../../../shared/components/button/button';
 
 @Component({
@@ -18,23 +17,19 @@ export class WorkOrderDetail implements OnInit {
   workOrderDetail = signal<WorkOrder | null>(null);
 
   ngOnInit() {
-    const id = Number(this.router.paramMap.pipe(
-      map((params) => Number(params.get('id'))),
-      switchMap((id) =>
-        this.workOrderService.getById(id)
-      )
-    ).subscribe((workOrder) => {
-      this.workOrderDetail.set(workOrder);
-    }));
-
-    if (Number.isNaN(id)) {
-      return;
-    }
-
-    this.getWorkOrderDetail(id);
+    const id = this.router.snapshot.paramMap.get('id');
+    if (!id) return;
+    this.workOrderService.getById(id).subscribe({
+      next: (workOrder) => {
+        this.workOrderDetail.set(workOrder);
+      },
+      error: (error) => {
+        console.error('Error fetching work order detail:', error);
+      },
+    });
   }
 
-  getWorkOrderDetail(id: number) {
+  getWorkOrderDetail(id: string) {
     this.workOrderService.getById(id).subscribe({
       next: (workOrder) => {
         this.workOrderDetail.set(workOrder);

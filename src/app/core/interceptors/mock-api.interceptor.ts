@@ -27,7 +27,7 @@ export const mockApiInterceptor: HttpInterceptorFn = (request, next) => {
   const detailMatch = request.url.match(/^\/api\/work-orders\/(\d+)$/);
 
   if (request.method === 'GET' && detailMatch) {
-    const id = Number(detailMatch[1]);
+    const id = detailMatch[1];
     const workOrder = WORK_ORDERS_MOCK.find((item) => item.id === id);
 
     if (!workOrder) {
@@ -68,7 +68,7 @@ export const mockApiInterceptor: HttpInterceptorFn = (request, next) => {
 
     const newWorkOrder: WorkOrder = {
       ...body,
-      id: WORK_ORDERS_MOCK.length + 1,
+      id: (Math.max(...WORK_ORDERS_MOCK.map((item) => Number(item.id)), 0) + 1).toString(),
       status: 'pending',
       createdAt: new Date().toISOString(),
     };
@@ -83,7 +83,7 @@ export const mockApiInterceptor: HttpInterceptorFn = (request, next) => {
   }
 
   if (request.method === 'PUT' && detailMatch) {
-    const id = Number(detailMatch[1]);
+    const id = detailMatch[1];
     const index = WORK_ORDERS_MOCK.findIndex((item) => item.id === id);
 
     if (index === -1) {
@@ -122,7 +122,7 @@ export const mockApiInterceptor: HttpInterceptorFn = (request, next) => {
   }
 
   if (request.method === 'DELETE' && detailMatch) {
-    const id = Number(detailMatch[1]);
+    const id = detailMatch[1];
     const index = WORK_ORDERS_MOCK.findIndex((item) => item.id === id);
 
     if (index === -1) {

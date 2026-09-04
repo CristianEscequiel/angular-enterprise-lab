@@ -1,8 +1,10 @@
 <section class="text-center">
   <div class="d-flex justify-between py-lg">
-    <h1>Órdenes de trabajo</h1>
+    <input class="form-control ml-lg" type="search" [formControl]="searchControl" placeholder="Buscar orden de trabajo"
+      aria-label="Buscar orden de trabajo por nombre" />
+    <span class="mx-lg"></span>
     <app-button variant="primary" (clicked)="navigateToCreateWorkOrder()">
-      Crear orden de trabajo
+      Crear Orden de Trabajo
     </app-button>
   </div>
 
@@ -42,16 +44,36 @@
           <app-button size="sm" variant="secondary" (clicked)="editWorkOrder(workOrder.id)">
             Editar
           </app-button>
-          <app-button size="sm" variant="danger" (clicked)="openDeleteModal()">
+          <app-button size="sm" variant="danger" (clicked)="openDeleteModal(workOrder.id)">
             Eliminar
           </app-button>
-          <app-modal [(isOpen)]="deleteModalOpen" title="Eliminar orden de trabajo"
-            message="¿Estás seguro de que querés eliminar esta orden? Esta acción no se puede deshacer."
-            confirmText="Eliminar" cancelText="Cancelar" (confirmed)="deleteWorkOrder(workOrder.id)" />
         </td>
       </tr>
       }
     </tbody>
   </table>
+  <app-modal [(isOpen)]="deleteModalOpen" title="Eliminar orden de trabajo"
+    message="¿Estás seguro de que querés eliminar esta orden? Esta acción no se puede deshacer." confirmText="Eliminar"
+    cancelText="Cancelar" (confirmed)="deleteWorkOrder(workOrderDeleted())" />
+
+  <nav class="pagination mt-lg" aria-label="Paginación de ejemplo">
+    <button class="pagination__item" type="button" aria-label="Página anterior" [disabled]="currentPage() === 1"
+      (click)="goToPage(currentPage() - 1)">
+      ‹
+    </button>
+
+    @for (page of pages(); track page) {
+    <button class="pagination__item" [class.pagination__item--active]="currentPage() === page" type="button"
+      [attr.aria-current]="currentPage() === page ? 'page' : null" [attr.aria-label]="'Ir a la página ' + page"
+      (click)="goToPage(page)">
+      {{ page }}
+    </button>
+    }
+
+    <button class="pagination__item" type="button" aria-label="Página siguiente"
+      [disabled]="currentPage() === pages().length" (click)="goToPage(currentPage() + 1)">
+      ›
+    </button>
+  </nav>
   }
 </section>

@@ -1,28 +1,107 @@
 @use '../abstracts' as a;
 
 :root {
+  // ==============================
+  // BRAND
+  // ==============================
+
   --color-primary: #{a.$color-primary};
   --color-primary-hover: #{a.$color-primary-hover};
   --color-primary-active: #{a.$color-primary-active};
+  --color-primary-subtle: #{a.$color-primary-subtle};
+
+  --color-accent: #{a.$color-accent};
+  --color-accent-hover: #{a.$color-accent-hover};
+  --color-accent-active: #{a.$color-accent-active};
+  --color-accent-subtle: #{a.$color-accent-subtle};
+
+  // ==============================
+  // BACKGROUNDS
+  // ==============================
 
   --color-background: #{a.$color-background};
   --color-surface: #{a.$color-surface};
   --color-surface-light: #{a.$color-surface-light};
   --color-surface-hover: #{a.$color-surface-hover};
+  --color-surface-selected: #{a.$color-surface-selected};
+
+  // ==============================
+  // TEXT
+  // ==============================
 
   --color-text: #{a.$color-text};
   --color-text-muted: #{a.$color-text-muted};
   --color-text-disabled: #{a.$color-text-disabled};
+  --color-text-inverse: #{a.$color-text-inverse};
+
+  // ==============================
+  // BORDERS
+  // ==============================
 
   --color-border: #{a.$color-border};
   --color-border-subtle: #{a.$color-border-subtle};
+  --color-border-strong: #{a.$color-border-strong};
+  --color-border-focus: #{a.$color-border-focus};
+
+  // ==============================
+  // SUCCESS
+  // ==============================
 
   --color-success: #{a.$color-success};
+  --color-success-hover: #{a.$color-success-hover};
+  --color-success-active: #{a.$color-success-active};
+  --color-success-subtle: #{a.$color-success-subtle};
+
+  // ==============================
+  // WARNING
+  // ==============================
+
   --color-warning: #{a.$color-warning};
+  --color-warning-hover: #{a.$color-warning-hover};
+  --color-warning-active: #{a.$color-warning-active};
+  --color-warning-subtle: #{a.$color-warning-subtle};
+
+  // ==============================
+  // ERROR
+  // ==============================
 
   --color-error: #{a.$color-error};
-  --color-error-active: #{a.$color-error-active};
   --color-error-hover: #{a.$color-error-hover};
+  --color-error-active: #{a.$color-error-active};
+  --color-error-subtle: #{a.$color-error-subtle};
+
+  // ==============================
+  // INFO
+  // ==============================
 
   --color-info: #{a.$color-info};
+  --color-info-hover: #{a.$color-info-hover};
+  --color-info-active: #{a.$color-info-active};
+  --color-info-subtle: #{a.$color-info-subtle};
+
+  // ==============================
+  // STATES
+  // ==============================
+
+  --color-focus-ring: #{a.$color-focus-ring};
+  --color-overlay: #{a.$color-overlay};
+
+  --color-disabled-background: #{a.$color-disabled-background};
+  --color-disabled-border: #{a.$color-disabled-border};
+
+  // ==============================
+  // PRIORITIES
+  // ==============================
+
+  --color-priority-low: #{a.$color-priority-low};
+  --color-priority-low-subtle: #{a.$color-priority-low-subtle};
+
+  --color-priority-medium: #{a.$color-priority-medium};
+  --color-priority-medium-subtle: #{a.$color-priority-medium-subtle};
+
+  --color-priority-high: #{a.$color-priority-high};
+  --color-priority-high-subtle: #{a.$color-priority-high-subtle};
+
+  --color-priority-critical: #{a.$color-priority-critical};
+  --color-priority-critical-subtle: #{a.$color-priority-critical-subtle};
 }

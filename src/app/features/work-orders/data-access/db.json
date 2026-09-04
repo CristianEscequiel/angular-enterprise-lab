@@ -1,0 +1,275 @@
+{
+  "work-orders": [
+    {
+      "id": "1",
+      "title": "Revisar motor principal",
+      "description": "El motor presenta vibraciones fuera del rango normal.",
+      "asset": "Línea de producción 01",
+      "priority": "medium",
+      "status": "pending",
+      "createdAt": "2026-08-01T10:30:00"
+    },
+    {
+      "id": "2",
+      "title": "Cambio de filtro hidráulico",
+      "description": "Realizar el cambio preventivo del filtro.",
+      "asset": "Prensa hidráulica 02",
+      "priority": "medium",
+      "status": "in-progress",
+      "createdAt": "2026-08-02T08:15:00"
+    },
+    {
+      "id": "3",
+      "title": "Inspección de tablero eléctrico",
+      "description": "Verificar conexiones y temperatura de componentes.",
+      "asset": "Tablero general",
+      "priority": "low",
+      "status": "completed",
+      "createdAt": "2026-08-03T14:00:00"
+    },
+    {
+      "id": "4",
+      "title": "Reemplazo de rodamiento",
+      "description": "Se detectó ruido anormal en el rodamiento.",
+      "asset": "Transportador 01",
+      "priority": "high",
+      "status": "pending",
+      "createdAt": "2026-08-04T09:20:00"
+    },
+    {
+      "id": "5",
+      "title": "Lubricación de cadena",
+      "description": "Realizar lubricación preventiva de la cadena.",
+      "asset": "Transportador 02",
+      "priority": "low",
+      "status": "completed",
+      "createdAt": "2026-08-05T11:45:00"
+    },
+    {
+      "id": "6",
+      "title": "Control de temperatura",
+      "description": "Verificar temperatura de operación del equipo.",
+      "asset": "Horno industrial 01",
+      "priority": "medium",
+      "status": "in-progress",
+      "createdAt": "2026-08-06T07:30:00"
+    },
+    {
+      "id": "7",
+      "title": "Ajuste de correas",
+      "description": "Las correas presentan pérdida de tensión.",
+      "asset": "Ventilador extractor 01",
+      "priority": "medium",
+      "status": "pending",
+      "createdAt": "2026-08-07T13:10:00"
+    },
+    {
+      "id": "8",
+      "title": "Inspección de bomba",
+      "description": "Controlar posibles pérdidas y presión de trabajo.",
+      "asset": "Bomba centrífuga 03",
+      "priority": "high",
+      "status": "in-progress",
+      "createdAt": "2026-08-08T15:25:00"
+    },
+    {
+      "id": "9",
+      "title": "Limpieza de sensores",
+      "description": "Realizar limpieza y verificación de sensores.",
+      "asset": "Línea de producción 02",
+      "priority": "low",
+      "status": "completed",
+      "createdAt": "2026-08-09T10:00:00"
+    },
+    {
+      "id": "10",
+      "title": "Revisión de contactores",
+      "description": "Verificar desgaste de contactos eléctricos.",
+      "asset": "Tablero línea 03",
+      "priority": "medium",
+      "status": "pending",
+      "createdAt": "2026-08-10T08:40:00"
+    },
+    {
+      "id": "11",
+      "title": "Cambio de aceite",
+      "description": "Realizar cambio de aceite según mantenimiento preventivo.",
+      "asset": "Reductor principal 01",
+      "priority": "medium",
+      "status": "completed",
+      "createdAt": "2026-08-11T12:00:00"
+    },
+    {
+      "id": "12",
+      "title": "Verificar presión neumática",
+      "description": "La presión se encuentra por debajo del valor nominal.",
+      "asset": "Sistema neumático 01",
+      "priority": "high",
+      "status": "in-progress",
+      "createdAt": "2026-08-12T09:10:00"
+    },
+    {
+      "id": "13",
+      "title": "Inspección de cilindro",
+      "description": "Revisar posibles pérdidas en sellos.",
+      "asset": "Cilindro hidráulico 04",
+      "priority": "medium",
+      "status": "pending",
+      "createdAt": "2026-08-13T14:30:00"
+    },
+    {
+      "id": "14",
+      "title": "Calibración de sensor",
+      "description": "Realizar calibración del sensor de posición.",
+      "asset": "Robot industrial 01",
+      "priority": "high",
+      "status": "completed",
+      "createdAt": "2026-08-14T11:00:00"
+    },
+    {
+      "id": "15",
+      "title": "Revisión de válvula",
+      "description": "La válvula presenta dificultad de apertura.",
+      "asset": "Circuito hidráulico 02",
+      "priority": "medium",
+      "status": "in-progress",
+      "createdAt": "2026-08-15T16:20:00"
+    },
+    {
+      "id": "16",
+      "title": "Cambio de fusibles",
+      "description": "Reemplazar fusibles deteriorados.",
+      "asset": "Tablero auxiliar 01",
+      "priority": "high",
+      "status": "pending",
+      "createdAt": "2026-08-16T07:50:00"
+    },
+    {
+      "id": "17",
+      "title": "Alineación de motor",
+      "description": "Realizar alineación entre motor y reductor.",
+      "asset": "Motor secundario 02",
+      "priority": "high",
+      "status": "in-progress",
+      "createdAt": "2026-08-17T10:15:00"
+    },
+    {
+      "id": "18",
+      "title": "Limpieza de ventilación",
+      "description": "Retirar suciedad acumulada en rejillas.",
+      "asset": "Gabinete eléctrico 04",
+      "priority": "low",
+      "status": "completed",
+      "createdAt": "2026-08-18T13:30:00"
+    },
+    {
+      "id": "19",
+      "title": "Control de nivel de aceite",
+      "description": "Verificar nivel y condición del lubricante.",
+      "asset": "Reductor 03",
+      "priority": "low",
+      "status": "pending",
+      "createdAt": "2026-08-19T09:45:00"
+    },
+    {
+      "id": "20",
+      "title": "Revisión de encoder",
+      "description": "El encoder presenta lecturas intermitentes.",
+      "asset": "Motor servo 01",
+      "priority": "high",
+      "status": "in-progress",
+      "createdAt": "2026-08-20T15:10:00"
+    },
+    {
+      "id": "21",
+      "title": "Cambio de manguera hidráulica",
+      "description": "Se detectó deterioro superficial en la manguera.",
+      "asset": "Prensa hidráulica 01",
+      "priority": "high",
+      "status": "pending",
+      "createdAt": "2026-08-21T08:25:00"
+    },
+    {
+      "id": "22",
+      "title": "Inspección de finales de carrera",
+      "description": "Comprobar funcionamiento de finales de carrera.",
+      "asset": "Máquina ensambladora 02",
+      "priority": "medium",
+      "status": "completed",
+      "createdAt": "2026-08-22T12:40:00"
+    },
+    {
+      "id": "23",
+      "title": "Ajuste de acoplamiento",
+      "description": "Verificar juego mecánico y ajustar acoplamiento.",
+      "asset": "Motor bomba 04",
+      "priority": "medium",
+      "status": "in-progress",
+      "createdAt": "2026-08-23T10:20:00"
+    },
+    {
+      "id": "24",
+      "title": "Revisión de resistencia",
+      "description": "Medir resistencia eléctrica y verificar aislamiento.",
+      "asset": "Horno industrial 02",
+      "priority": "high",
+      "status": "pending",
+      "createdAt": "2026-08-24T14:55:00"
+    },
+    {
+      "id": "25",
+      "title": "Limpieza de filtro de aire",
+      "description": "Limpiar filtro y verificar caudal.",
+      "asset": "Compresor 01",
+      "priority": "low",
+      "status": "completed",
+      "createdAt": "2026-08-25T09:35:00"
+    },
+    {
+      "id": "26",
+      "title": "Control de vibraciones",
+      "description": "Medir vibraciones y comparar con valores históricos.",
+      "asset": "Motor principal 03",
+      "priority": "medium",
+      "status": "in-progress",
+      "createdAt": "2026-08-26T11:10:00"
+    },
+    {
+      "id": "27",
+      "title": "Reemplazo de sensor inductivo",
+      "description": "El sensor no detecta correctamente la pieza.",
+      "asset": "Línea de montaje 01",
+      "priority": "high",
+      "status": "pending",
+      "createdAt": "2026-08-27T13:25:00"
+    },
+    {
+      "id": "28",
+      "title": "Inspección de seguridad",
+      "description": "Verificar protecciones y dispositivos de seguridad.",
+      "asset": "Máquina cortadora 02",
+      "priority": "high",
+      "status": "completed",
+      "createdAt": "2026-08-28T08:05:00"
+    },
+    {
+      "id": "29",
+      "title": "Ajuste de presión",
+      "description": "Regular presión de trabajo según especificación.",
+      "asset": "Sistema neumático 03",
+      "priority": "medium",
+      "status": "in-progress",
+      "createdAt": "2026-08-29T16:10:00"
+    },
+    {
+      "id": "30",
+      "title": "Revisión general de equipo",
+      "description": "Realizar inspección general y registrar anomalías.",
+      "asset": "Línea de producción 04",
+      "priority": "low",
+      "status": "pending",
+      "createdAt": "2026-08-30T10:45:00"
+    }
+  ],
+  "$schema": "./node_modules/json-server/schema.json"
+}

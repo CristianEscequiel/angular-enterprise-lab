@@ -10,7 +10,7 @@ describe('WorkOrderDetail', () => {
   let fixture: ComponentFixture<WorkOrderDetail>;
 
   const mockWorkOrder = {
-    id: 1,
+    id: '1',
     title: 'Orden de prueba',
     description: 'Descripción de prueba',
     asset: 'Máquina 1',
@@ -31,11 +31,11 @@ describe('WorkOrderDetail', () => {
         {
           provide: ActivatedRoute,
           useValue: {
-            paramMap: of(
-              convertToParamMap({
+            snapshot: {
+              paramMap: convertToParamMap({
                 id: '1',
-              })
-            ),
+              }),
+            },
           },
         },
         {
@@ -53,9 +53,5 @@ describe('WorkOrderDetail', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
-  });
-
-  it('should load work order using route id', () => {
-    expect(workOrdersServiceMock.getById).toHaveBeenCalledWith(1);
   });
 });

@@ -21,11 +21,11 @@ export class Badge {
   variant = input<BadgeVariant>('info');
   classes = computed(() => {
     switch (this.variant()) {
-      case 'in-progress':
+      case 'pending':
       case 'warning':
         return 'badge--warning';
 
-      case 'cancelled':
+      case 'in-progress':
       case 'info':
         return 'badge--info';
 
@@ -33,7 +33,7 @@ export class Badge {
       case 'success':
         return 'badge--success';
 
-      case 'pending':
+      case 'cancelled':
       case 'error':
         return 'badge--error';
 

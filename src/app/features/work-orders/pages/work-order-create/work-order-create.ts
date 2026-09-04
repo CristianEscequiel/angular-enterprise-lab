@@ -18,20 +18,18 @@ export class WorkOrderCreate {
   private activateRoute = inject(Router)
 
   onSubmit(workOrder: WorkOrderCreateRequest): void {
-
     const workOrderData: WorkOrderCreateRequest = workOrder;
     this.workOrderService.create(workOrderData).subscribe({
-      next: (createdWorkOrder) => {
+      next: () => {
         this.messageService.showSuccess('Work order created successfully.');
-        console.log('Work order created successfully:', createdWorkOrder);
+        this.navigateToWorkOrdersList();
       },
-      error: (error) => {
-        console.error('Error creating work order:', error);
+      error: () => {
+        this.messageService.showError('Error al crear la orden de trabajo.');
       },
     });
   }
   navigateToWorkOrdersList(): void {
     this.activateRoute.navigate(['/work-orders']);
   }
-
 }

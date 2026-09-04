@@ -21,10 +21,8 @@ export class WorkOrderEdit implements OnInit {
   workOrder = signal<WorkOrder | null>(null);
 
   ngOnInit() {
-    const id = Number(this.router.snapshot.paramMap.get('id'));
-
+    const id = this.router.snapshot.paramMap.get('id');
     if (!id) return;
-
     this.workOrdersService.getById(id).subscribe({
       next: workOrder => this.workOrder.set(workOrder)
     });
@@ -56,6 +54,7 @@ export class WorkOrderEdit implements OnInit {
         this.messageService.showSuccess(
           'Orden de trabajo actualizada correctamente'
         );
+        this.navigateToWorkOrdersList();
       },
       error: (error) => {
         this.messageService.showError(
