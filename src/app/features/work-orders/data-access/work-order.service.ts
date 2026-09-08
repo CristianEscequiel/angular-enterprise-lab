@@ -45,11 +45,11 @@ export class WorkOrdersService {
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
-  searchByName(title: string): Observable<PaginatedResponse<WorkOrder>> {
+  searchByName(title: string, page: string, per_page: string): Observable<PaginatedResponse<WorkOrder>> {
     return this.http.get<PaginatedResponse<WorkOrder>>(this.apiUrl, {
       params: {
-        _page: '1',
-        _per_page: '10',
+        _page: page,
+        _per_page: per_page,
         'title:contains': title
       }
     });
