@@ -260,15 +260,6 @@
       "priority": "medium",
       "status": "in-progress",
       "createdAt": "2026-08-29T16:10:00"
-    },
-    {
-      "id": "30",
-      "title": "Revisión general de equipo",
-      "description": "Realizar inspección general y registrar anomalías.",
-      "asset": "Línea de producción 04",
-      "priority": "low",
-      "status": "pending",
-      "createdAt": "2026-08-30T10:45:00"
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"

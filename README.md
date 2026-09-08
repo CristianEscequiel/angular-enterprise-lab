@@ -1,1054 +1,292 @@
 # Angular Enterprise Lab
 
-> Laboratorio de arquitectura Angular moderna orientado a construir una aplicación mantenible, escalable y cercana a un entorno enterprise real.
+Laboratorio de arquitectura Angular aplicado a un sistema de gestión de órdenes de mantenimiento.
 
-**Angular Enterprise Lab** es un proyecto creado para experimentar, estudiar y aplicar buenas prácticas de desarrollo frontend utilizando las versiones más recientes de Angular.
+El proyecto busca construir una aplicación pequeña y mantenible que sirva como referencia técnica, base de aprendizaje y material para explicar decisiones de desarrollo. El foco está en la separación de responsabilidades, la reutilización, el manejo de estado, las pruebas y la documentación.
 
-El objetivo no es solamente construir funcionalidades, sino también documentar y poner en práctica decisiones relacionadas con:
-
-- arquitectura;
-- separación de responsabilidades;
-- componentes reutilizables;
-- manejo de estado;
-- HTTP e interceptores;
-- formularios;
-- routing;
-- testing;
-- estilos;
-- calidad de código.
-
-El dominio elegido para el laboratorio es un pequeño sistema de **gestión de órdenes de mantenimiento**, permitiendo trabajar sobre escenarios similares a una aplicación empresarial real.
-
----
+**Estado:** en desarrollo. El flujo CRUD está implementado y la búsqueda con paginación está en proceso de estabilización. La autenticación y los indicadores del dashboard forman parte del roadmap.
 
 ## Stack
 
-- **Angular 22**
-- **TypeScript 6**
-- **RxJS 7**
-- **Angular Signals**
-- **Reactive Forms**
-- **SCSS**
-- **Vitest**
-- **ESLint**
-- **Prettier**
-- **Husky**
-- **pnpm**
-
-Actualmente el backend está simulado mediante un **Mock API Interceptor**, permitiendo desarrollar el frontend manteniendo una arquitectura preparada para consumir posteriormente una API real.
-
----
-
-# Objetivos del proyecto
-
-Este repositorio cumple principalmente tres objetivos.
-
-### Laboratorio Angular
-
-Experimentar con APIs modernas de Angular y comprender cuándo utilizarlas:
-
-```ts
-signal()
-computed()
-effect()
-input()
-output()
-model()
-```
-
-Además de:
-
-```ts
-provideHttpClient()
-withInterceptors()
-loadComponent()
-loadChildren()
-```
-
----
-
-### Proyecto de referencia
-
-Construir una aplicación que pueda servir como referencia para futuros proyectos Angular.
-
-La intención es responder preguntas como:
-
-- ¿Dónde debería vivir un servicio?
-- ¿Qué pertenece a `core`?
-- ¿Qué debería ser `shared`?
-- ¿Qué debería encapsular una feature?
-- ¿Dónde debería manejarse un error HTTP?
-- ¿Cuándo usar Signals?
-- ¿Qué debería testear un componente?
-- ¿Qué debería testear un servicio?
-
----
-
-### Proyecto demostrativo
-
-Aplicar buenas prácticas sobre un proyecto funcional y no únicamente mediante ejemplos aislados.
-
-La arquitectura y las decisiones técnicas tienen tanta importancia como las funcionalidades implementadas.
-
----
-
-# Arquitectura
-
-La aplicación utiliza una arquitectura **feature-first** combinada con capas globales bien definidas.
-
-```text
-src/app
-│
-├── core/
-│   ├── interceptors/
-│   └── services/
-│
-├── features/
-│   ├── dashboard/
-│   └── work-orders/
-│
-├── layout/
-│
-├── shared/
-│   └── components/
-│
-├── app.config.ts
-├── app.routes.ts
-└── app.ts
-```
-
-La regla principal es:
-
-```text
-App
-│
-├── Core      → infraestructura global
-├── Layout    → estructura visual global
-├── Shared    → piezas reutilizables
-└── Features  → lógica funcional del dominio
-```
-
----
-
-# Core
-
-`core/` contiene infraestructura utilizada de manera transversal por toda la aplicación.
-
-Actualmente:
-
-```text
-core/
-├── interceptors/
-│   ├── error.interceptor.ts
-│   ├── loading.interceptor.ts
-│   └── mock-api.interceptor.ts
-│
-└── services/
-    ├── loading.service.ts
-    └── message.service.ts
-```
-
-`core` no debería convertirse en un lugar genérico donde colocar cualquier archivo.
-
-Su responsabilidad es alojar elementos globales o singleton relacionados con la infraestructura de la aplicación.
-
----
-
-## HTTP Interceptors
-
-Los interceptores están registrados globalmente utilizando la API funcional de Angular:
-
-```ts
-provideHttpClient(
-  withInterceptors([
-    loadingInterceptor,
-    errorInterceptor,
-    mockApiInterceptor
-  ])
-)
-```
-
-Cada interceptor tiene una responsabilidad concreta.
-
-### Loading Interceptor
-
-Detecta peticiones HTTP en curso y delega el estado de carga al `LoadingService`.
-
-Esto permite tener un **spinner global** sin repetir lógica en cada componente.
-
-```text
-HTTP Request
-     ↓
-LoadingInterceptor
-     ↓
-LoadingService
-     ↓
-Global Spinner
-```
-
----
-
-### Error Interceptor
-
-Centraliza el manejo de errores HTTP.
-
-Permite evitar código repetido como:
-
-```ts
-error: () => {
-  // interpretar status
-  // decidir mensaje
-  // mostrar toast
-}
-```
-
-en cada componente.
-
-El interceptor puede transformar los diferentes códigos HTTP en mensajes entendibles para la UI.
-
----
-
-### Mock API Interceptor
-
-Actualmente el proyecto no depende de un backend real.
-
-El `mockApiInterceptor` simula endpoints HTTP para poder desarrollar las features manteniendo el mismo flujo que tendría una API REST real.
-
-```text
-Component
-    ↓
-Service
-    ↓
-HttpClient
-    ↓
-MockApiInterceptor
-    ↓
-Mock Response
-```
-
-Esto permite reemplazar posteriormente el mock por una API real sin modificar la arquitectura de los componentes.
-
----
-
-# Shared
-
-`shared/` contiene componentes visuales reutilizables que no conocen reglas específicas del dominio.
-
-Actualmente existen:
-
-```text
-shared/components/
-├── alert/
-├── badge/
-├── button/
-├── modal/
-├── spinner/
-└── toast/
-```
-
-Estos componentes forman progresivamente un pequeño **UI Kit propio**.
-
----
-
-## Principio de los componentes Shared
-
-Un componente compartido debería recibir información y emitir eventos.
-
-Por ejemplo:
-
-```text
-Parent
-  ↓ input
-Button
-  ↓ output
-Parent
-```
-
-El componente `Button` no debería conocer:
-
-- Work Orders;
-- servicios HTTP;
-- rutas específicas;
-- reglas de negocio.
-
-Esto mantiene bajo el acoplamiento.
-
----
-
-## Button
-
-Componente reutilizable para evitar repetir estilos y comportamiento de botones en toda la aplicación.
-
-Permite trabajar con variantes visuales como:
-
-```text
-primary
-secondary
-outline
-danger
-close
-```
-
----
-
-## Badge
-
-Representa estados mediante variantes visuales.
-
-Los badges pueden representar tanto estados semánticos generales:
-
-```text
-success
-warning
-error
-info
-```
-
-como estados propios del dominio cuando sea necesario.
-
-La intención es mantener separado:
-
-```text
-estado del dominio
-        ↓
-representación visual
-```
-
----
-
-## Alert
-
-Componente utilizado para representar mensajes persistentes dentro de una vista.
-
-Se diferencia del Toast principalmente por su comportamiento:
-
-```text
-Toast → notificación temporal
-
-Alert → mensaje persistente dentro del layout
-```
-
----
-
-## Toast
-
-Sistema de notificaciones globales utilizado junto con `MessageService`.
-
-Ejemplo conceptual:
-
-```ts
-messageService.showSuccess(
-  'Orden de trabajo actualizada correctamente'
-);
-```
-
-La feature solicita mostrar el mensaje pero no necesita conocer cómo se renderiza.
-
-```text
-Feature
-   ↓
-MessageService
-   ↓
-Toast
-```
-
----
-
-## Spinner
-
-Indicador de carga global conectado al estado generado por las peticiones HTTP.
-
-La intención es evitar implementar:
-
-```ts
-loading = true;
-```
-
-en cada página solamente para representar peticiones HTTP globales.
-
----
-
-## Modal
-
-Componente genérico de confirmación.
-
-Permite:
-
-- abrir y cerrar el diálogo;
-- personalizar el mensaje;
-- cancelar una acción;
-- emitir la confirmación hacia el componente padre.
-
-La acción real permanece fuera del modal.
-
-```text
-Modal
-  ↓ confirm
-Page
-  ↓
-Business Action
-```
-
-De esta forma el componente puede reutilizarse para eliminar órdenes u otras futuras entidades.
-
----
-
-# Layout
-
-`layout/` representa la estructura visual general de la aplicación.
-
-Aquí viven componentes relacionados con la composición de la interfaz, por ejemplo:
-
-```text
-App Shell
-├── Header
-├── Sidebar
-└── Router Outlet
-```
-
-El layout organiza la aplicación pero no debería contener lógica específica de una feature.
-
----
-
-# Features
-
-Las funcionalidades se organizan por dominio.
-
-Actualmente:
-
-```text
-features/
-├── dashboard/
-└── work-orders/
-```
-
-Cada feature debería ser lo suficientemente independiente como para contener sus propias:
-
-```text
-pages
-components
-models
-services
-routes
-```
-
-cuando sean necesarias.
-
----
-
-# Work Orders
-
-`work-orders` es actualmente la feature principal del laboratorio.
-
-Representa la gestión de órdenes de mantenimiento.
-
-Las rutas disponibles son:
-
-```text
-/work-orders
-/work-orders/new
-/work-orders/:id
-/work-orders/:id/edit
-```
-
-Angular carga estas vistas mediante lazy loading.
-
----
-
-## Routing
-
-La aplicación utiliza lazy loading tanto a nivel de feature como de componente.
-
-Ejemplo:
-
-```ts
-{
-  path: 'work-orders',
-  loadChildren: () =>
-    import('./features/work-orders/work-orders.routes')
-      .then(m => m.WORK_ORDERS_ROUTES)
-}
-```
-
-Dentro de la feature:
-
-```ts
-{
-  path: ':id/edit',
-  loadComponent: () =>
-    import('./pages/work-order-edit/work-order-edit')
-      .then(m => m.WorkOrderEdit)
-}
-```
-
-Esto mantiene separadas las features y evita cargar código que todavía no es necesario.
-
----
-
-# Create y Edit
-
-Crear y editar son dos casos de uso diferentes pero comparten gran parte de la interfaz.
-
-Por eso la arquitectura favorece:
-
-```text
-Create Page ─┐
-             ├── WorkOrderForm
-Edit Page ───┘
-```
-
-Las páginas se encargan de:
-
-- obtener datos;
-- llamar servicios;
-- navegar;
-- manejar el resultado de la operación.
-
-El formulario se encarga de:
-
-- representar inputs;
-- validaciones;
-- emitir los datos ingresados.
-
-Esto evita duplicar formularios sin mezclar responsabilidades.
-
----
-
-## Edición mediante ID
-
-Cuando se navega a:
-
-```text
-/work-orders/:id/edit
-```
-
-la página obtiene nuevamente la orden mediante su identificador.
-
-Conceptualmente:
-
-```text
-URL
- ↓
-:id
- ↓
-WorkOrderEdit
- ↓
-WorkOrdersService.getById(id)
-```
-
-Se evita depender de haber navegado previamente desde otra pantalla pasando el objeto completo.
-
-Esto permite:
-
-- refrescar el navegador;
-- compartir la URL;
-- entrar directamente mediante un enlace;
-- mantener las rutas independientes del estado previo de navegación.
-
----
-
-# Estado con Signals
-
-El proyecto utiliza Signals principalmente para estado local y reactivo.
-
-Ejemplo:
-
-```ts
-readonly workOrder = signal<WorkOrder | null>(null);
-```
-
-Para actualizar estado:
-
-```ts
-this.workOrder.update(current => ({
-  ...current,
-  ...workOrderData
-}));
-```
-
-Cuando un valor depende de otro estado se prioriza `computed()` en lugar de recalcular información innecesariamente desde el template.
-
-```ts
-readonly classes = computed(() => {
-  // derive UI state
-});
-```
-
----
-
-## input(), output() y model()
-
-Se priorizan las APIs modernas de Angular frente a los decoradores tradicionales cuando resulta adecuado.
-
-```ts
-input()
-output()
-model()
-```
-
-### input
-
-Comunicación:
-
-```text
-Parent → Child
-```
-
-### output
-
-Comunicación:
-
-```text
-Child → Parent
-```
-
-### model
-
-Utilizado cuando existe un estado que realmente necesita comunicación bidireccional.
-
-```text
-Parent ⇄ Child
-```
-
-No se utiliza `model()` solamente para evitar escribir un output.
-
-La decisión depende de quién es responsable del estado.
-
----
-
-# Formularios
-
-Los formularios utilizan **Reactive Forms**.
-
-Se prioriza:
-
-- tipado;
-- validaciones explícitas;
-- formularios reutilizables;
-- separación entre formulario y operación HTTP.
-
-La responsabilidad se mantiene así:
-
-```text
-Form
- ↓ valid data
-Page
- ↓
-Service
- ↓
-HTTP
-```
-
-El formulario no debería decidir cómo persistir la información.
-
----
-
-# Servicios
-
-Los servicios de dominio encapsulan el acceso a datos.
-
-Ejemplo conceptual:
-
-```text
-WorkOrdersList
-       ↓
-WorkOrdersService
-       ↓
-HttpClient
-       ↓
-API
-```
-
-La página no debería construir manualmente requests HTTP.
-
-Esto permite cambiar posteriormente:
-
-```text
-Mock API
-   ↓
-Real REST API
-```
-
-manteniendo prácticamente intacta la UI.
-
----
-
-# Manejo de responsabilidades
-
-Una de las reglas principales del proyecto es que cada capa tenga una responsabilidad clara.
-
-```text
-Component
-    ↓
-interacción con usuario
-
-Page
-    ↓
-orquestación del caso de uso
-
-Service
-    ↓
-acceso a datos
-
-Interceptor
-    ↓
-comportamiento HTTP transversal
-```
-
-Esto también define cómo se realizan los tests.
-
----
-
-# Testing
-
-El proyecto utiliza **Vitest** mediante la integración de testing de Angular.
-
-La estrategia no consiste simplemente en comprobar:
-
-```ts
-expect(component).toBeTruthy();
-```
-
-El objetivo es probar el comportamiento correspondiente a cada unidad.
-
----
-
-## Testing de servicios
-
-Para un servicio HTTP:
-
-```text
-WorkOrdersService
-       ↓
-HttpClient
-```
-
-interesa comprobar cosas como:
-
-```text
-getAll()
-    ↓
-GET /api/work-orders
-```
-
-La responsabilidad del test es validar que el servicio genere correctamente la petición esperada.
-
----
-
-## Testing de componentes
-
-Cuando se prueba una página no es necesario volver a probar `HttpClient`.
-
-En su lugar se mockea:
-
-```text
-WorkOrdersService
-```
-
-y se comprueba el comportamiento de la página.
-
-Por ejemplo:
-
-```text
-success
-   ↓
-renderiza órdenes
-
-empty
-   ↓
-muestra empty state
-
-error
-   ↓
-muestra mensaje correspondiente
-
-click
-   ↓
-ejecuta navegación esperada
-```
-
----
-
-## Regla de testing
-
-> Cada test debería comprobar la responsabilidad de la unidad que está siendo testeada y no volver a probar toda la aplicación debajo de ella.
-
-Esto evita tests excesivamente acoplados.
-
----
-
-# Styling
-
-El proyecto utiliza **SCSS** con una base de design tokens propios.
-
-La intención es centralizar decisiones visuales como:
-
-```text
-brand colors
-backgrounds
-text colors
-borders
-semantic colors
-spacing
-states
-```
-
-y consumirlas mediante variables CSS.
-
-Ejemplo:
-
-```scss
-.badge--warning {
-  color: var(--color-warning);
-  background-color: var(--color-warning-subtle);
-  border-color: var(--color-warning);
-}
-```
-
-Esto permite construir componentes consistentes sin repetir valores visuales.
-
----
-
-# Flujo HTTP general
-
-Actualmente el flujo principal de una petición es:
-
-```text
-Component / Page
-       ↓
-Service
-       ↓
-HttpClient
-       ↓
-LoadingInterceptor
-       ↓
-ErrorInterceptor
-       ↓
-MockApiInterceptor
-       ↓
-Response
-```
-
-Cada interceptor agrega comportamiento sin modificar la responsabilidad del servicio.
-
----
-
-# Principios aplicados
-
-Algunas decisiones que guían el proyecto:
-
-### Separación de responsabilidades
-
-Cada pieza debería tener un motivo claro para cambiar.
-
-### Bajo acoplamiento
-
-Los componentes reutilizables no deberían conocer detalles de otros componentes o features.
-
-### Composición sobre duplicación
-
-Las páginas pueden componer componentes reutilizables en lugar de repetir lógica.
-
-### Estado cerca de quien lo utiliza
-
-No todo estado necesita una solución global.
-
-Signals son utilizados para estado local cuando resulta suficiente.
-
-### Infraestructura transversal centralizada
-
-Loading, errores HTTP y mensajes globales se resuelven fuera de las features cuando corresponde.
-
-### Features independientes
-
-Cada dominio debe poder crecer sin convertir `app/` en una estructura plana y difícil de mantener.
-
----
-
-# Calidad de código
-
-El proyecto incluye:
-
-```text
-ESLint
-Prettier
-Husky
-EditorConfig
-```
-
-La intención es mantener reglas consistentes independientemente del editor utilizado.
-
-Husky permite ejecutar validaciones antes de aceptar determinados cambios en Git.
-
----
-
-# Instalación
-
-Clonar el repositorio:
+| Tecnología                | Uso                                             |
+| ------------------------- | ----------------------------------------------- |
+| Angular 22 y TypeScript 6 | Aplicación con componentes standalone           |
+| Angular Router            | Navegación y carga diferida                     |
+| Signals                   | Estado local y valores derivados                |
+| RxJS 7 y HttpClient       | Peticiones HTTP y búsqueda reactiva             |
+| Reactive Forms            | Formulario compartido para creación y edición   |
+| SCSS                      | Tokens, estilos globales y componentes visuales |
+| JSON Server               | API REST local de desarrollo                    |
+| Vitest                    | Pruebas mediante la integración de Angular      |
+| ESLint y Prettier         | Análisis estático y formato                     |
+| Husky                     | Hook de validación previo al commit             |
+| pnpm                      | Gestión de dependencias y ejecución de scripts  |
+
+Las versiones concretas de las dependencias se registran en `package.json` y `pnpm-lock.yaml`.
+
+## Inicio rápido
+
+### Requisitos
+
+- Node.js compatible con las dependencias del proyecto. La revisión del 7 de septiembre de 2026 se ejecutó con Node.js **22.23.2**.
+- **pnpm 11.11.0**, declarado en el campo `packageManager`.
+- Git.
+
+No es necesario instalar Angular CLI ni JSON Server globalmente.
+
+### Instalación
 
 ```bash
 git clone https://github.com/CristianEscequiel/angular-enterprise-lab.git
-```
-
-Ingresar al proyecto:
-
-```bash
 cd angular-enterprise-lab
+pnpm install --frozen-lockfile
 ```
 
-Instalar dependencias:
+### Ejecutar la aplicación
+
+Ejecutá los siguientes comandos desde la raíz del repositorio y mantené ambas terminales abiertas.
+
+**Terminal 1 — API de desarrollo:**
 
 ```bash
-pnpm install
+pnpm api
 ```
 
----
-
-# Desarrollo
-
-Ejecutar el servidor:
+**Terminal 2 — Angular:**
 
 ```bash
 pnpm start
 ```
 
-Luego abrir:
+| Servicio             | Dirección                                                       |
+| -------------------- | --------------------------------------------------------------- |
+| Aplicación           | [localhost:4200](http://localhost:4200)                         |
+| Colección de órdenes | [localhost:3000/work-orders](http://localhost:3000/work-orders) |
+
+Levantar Angular no inicia la API automáticamente. Si JSON Server no está disponible, las operaciones sobre órdenes no podrán completarse.
+
+### Datos y configuración de la API
+
+Los datos de desarrollo se encuentran en:
 
 ```text
-http://localhost:4200
+src/app/features/work-orders/data-access/db.json
 ```
 
----
+JSON Server utiliza ese archivo como almacenamiento local; las operaciones de escritura pueden modificarlo. Revisá los cambios de datos antes de incluirlos en un commit.
 
-# Testing
+Actualmente, la URL `http://localhost:3000/work-orders` se define en `WorkOrdersService`. Su extracción a una configuración central está pendiente. Si cambiás el puerto del servidor, debés mantener coherente la URL utilizada por el frontend.
 
-```bash
-pnpm test
-```
+La integración utiliza `_page`, `_per_page` y `title:contains`. La versión de JSON Server elegida debe soportar esos parámetros y devolver el formato paginado esperado por `PaginatedResponse<T>`. Consultá la [documentación de JSON Server](https://github.com/typicode/json-server#query-params) al cambiar de versión.
 
----
+## Funcionalidades actuales
 
-# Lint
+- Listado de órdenes de mantenimiento.
+- Búsqueda por título con debounce y paginación desde la API.
+- Consulta del detalle mediante un identificador en la URL.
+- Creación y edición con un formulario compartido.
+- Eliminación con confirmación.
+- Indicador global de peticiones en curso.
+- Mensajes globales de éxito, advertencia y error.
+- Layout con header, sidebar y área de contenido.
+- Página inicial de dashboard, todavía sin indicadores.
 
-```bash
-pnpm lint
-```
+La búsqueda, la paginación y la recarga después de eliminar requieren completar su coordinación. También están pendientes mejoras de recuperación ante errores y protección durante el envío de formularios.
 
----
+## Arquitectura
 
-# Build
-
-```bash
-pnpm build
-```
-
-El resultado de producción será generado por Angular dentro del directorio de build configurado por el proyecto.
-
----
-
-# Estructura conceptual
+La aplicación se organiza por funcionalidad, con infraestructura y componentes compartidos fuera de cada dominio.
 
 ```text
-Angular Enterprise Lab
-│
-├── Infrastructure
-│   ├── HTTP
-│   ├── Interceptors
-│   ├── Loading
-│   └── Global Messages
-│
-├── UI Kit
-│   ├── Button
-│   ├── Badge
-│   ├── Alert
-│   ├── Toast
-│   ├── Spinner
-│   └── Modal
-│
-├── Layout
-│   ├── Header
-│   ├── Sidebar
-│   └── App Shell
-│
-└── Business Features
-    ├── Dashboard
-    │
-    └── Work Orders
-        ├── List
-        ├── Detail
-        ├── Create
-        └── Edit
+src/
+├── app/
+│   ├── core/
+│   │   ├── interceptors/
+│   │   └── services/
+│   ├── features/
+│   │   ├── dashboard/
+│   │   └── work-orders/
+│   │       ├── components/form/
+│   │       ├── data-access/
+│   │       ├── models/
+│   │       ├── pages/
+│   │       └── work-orders.routes.ts
+│   ├── layout/
+│   │   ├── app-shell/
+│   │   ├── header/
+│   │   └── sidebar/
+│   ├── shared/components/
+│   ├── app.config.ts
+│   ├── app.routes.ts
+│   └── app.ts
+├── styles/
+│   ├── abstracts/
+│   ├── base/
+│   ├── components/
+│   ├── layout/
+│   ├── themes/
+│   ├── utilities/
+│   └── main.scss
+└── styles.scss
 ```
 
----
+| Capa       | Responsabilidad                                                     |
+| ---------- | ------------------------------------------------------------------- |
+| `core`     | Infraestructura transversal: loading, mensajes e interceptores HTTP |
+| `layout`   | Composición visual y alojamiento del `RouterOutlet`                 |
+| `shared`   | Componentes reutilizables de interfaz                               |
+| `features` | Páginas, formularios, modelos y acceso a datos del dominio          |
+| `styles`   | Tokens y estilos compartidos                                        |
 
-# Roadmap
+Se incorporan carpetas y abstracciones cuando existe una responsabilidad concreta que justifica su uso.
 
-El proyecto se encuentra en evolución.
+### Órdenes de trabajo
 
-Algunos de los próximos objetivos son:
+Las páginas coordinan la carga de datos, las acciones y la navegación. `WorkOrdersService` encapsula las peticiones HTTP. El componente `Form`, ubicado dentro de la feature, recibe datos iniciales y emite los valores del formulario hacia las páginas de creación o edición.
 
-- ampliar la cobertura de tests;
-- profundizar testing de servicios HTTP;
-- desarrollar el dashboard;
-- implementar autenticación;
-- agregar guards;
-- incorporar nuevas features de mantenimiento;
-- gestionar equipos;
-- gestionar técnicos;
-- mejorar estados y feedback visual;
-- continuar evolucionando el UI Kit;
-- evaluar nuevas APIs disponibles en Angular;
-- reemplazar progresivamente el Mock API por un backend real.
+`WorkOrder` representa una orden y `WorkOrderCreateRequest` los datos necesarios para crearla. `PaginatedResponse<T>` describe la respuesta paginada utilizada por el listado.
 
-Como evolución natural del laboratorio se contempla desarrollar una API utilizando:
+Las páginas de detalle y edición consultan la orden por el identificador de la ruta. No necesitan recibir el objeto completo desde la lista, por lo que pueden cargar los datos al acceder directamente a una URL existente.
+
+### Routing
+
+| Ruta                    | Vista                        |
+| ----------------------- | ---------------------------- |
+| `/`                     | Redirección a `/dashboard`   |
+| `/dashboard`            | Página inicial del dashboard |
+| `/work-orders`          | Listado de órdenes           |
+| `/work-orders/new`      | Creación de una orden        |
+| `/work-orders/:id`      | Detalle de una orden         |
+| `/work-orders/:id/edit` | Edición de una orden         |
+
+La feature de órdenes utiliza `loadChildren()` y sus páginas se cargan mediante `loadComponent()`. La página 404 y la protección de rutas mediante autenticación están pendientes.
+
+### Signals y RxJS
+
+- `signal()` mantiene estado local, como la orden seleccionada o la apertura del modal.
+- `computed()` deriva valores utilizados por la interfaz.
+- `input()`, `output()` y `model()` comunican componentes según sus responsabilidades.
+- RxJS gestiona HTTP y la búsqueda mediante `debounceTime`, `distinctUntilChanged` y `switchMap`.
+
+El listado ya utiliza estas herramientas, pero aún requiere unificar búsqueda, página y recarga para mantener el estado consistente en todos los escenarios.
+
+## HTTP y backend de desarrollo
+
+JSON Server reemplaza al antiguo `mockApiInterceptor` como fuente de datos de desarrollo. Las solicitudes salen del navegador hacia un servidor HTTP local; el interceptor anterior permanece en el código, pero no está registrado en el flujo activo.
+
+El flujo configurado es:
 
 ```text
-Java
-Spring Boot
-PostgreSQL
+Página → WorkOrdersService → HttpClient
+      → loadingInterceptor → mockDelayInterceptor → errorInterceptor
+      → JSON Server
 ```
 
-manteniendo Angular como frontend independiente.
+- **`loadingInterceptor`:** informa el inicio y fin de las peticiones. `LoadingService` mantiene un contador para contemplar solicitudes simultáneas.
+- **`mockDelayInterceptor`:** introduce una demora artificial de 300 ms en las emisiones de respuesta. No genera datos ni reemplaza al servidor.
+- **`errorInterceptor`:** interpreta errores HTTP, solicita un mensaje global y propaga el error para que la feature pueda responder al caso particular.
 
----
+Un mensaje global no reemplaza los estados persistentes de error ni las opciones de recuperación de cada pantalla. Completar esos estados es parte del trabajo pendiente.
 
-# Filosofía del proyecto
+JSON Server permite desarrollar y probar el frontend sin construir todavía un backend propio. No representa la solución de producción ni sustituye reglas de negocio y controles de acceso del servidor definitivo.
 
-Angular Enterprise Lab no busca ser únicamente una aplicación terminada.
+## Componentes compartidos y estilos
 
-Busca ser un proyecto que pueda evolucionar junto con Angular.
+| Componente | Función                                                            |
+| ---------- | ------------------------------------------------------------------ |
+| `Button`   | Botones con variantes `primary`, `secondary`, `outline` y `danger` |
+| `Badge`    | Representación visual de variantes y estados                       |
+| `Alert`    | Mensajes dentro de una vista                                       |
+| `Toast`    | Notificaciones globales con cierre                                 |
+| `Spinner`  | Indicador de carga                                                 |
+| `Modal`    | Confirmación o cancelación de una acción                           |
 
-```text
-Learn
-  ↓
-Implement
-  ↓
-Test
-  ↓
-Refactor
-  ↓
-Document
-  ↓
-Repeat
-```
+La operación de negocio permanece en la página que utiliza el componente. El modal, por ejemplo, emite la confirmación; la página decide qué orden eliminar y llama al servicio correspondiente.
 
-Cada nueva funcionalidad es también una oportunidad para analizar arquitectura, responsabilidades y alternativas de implementación.
+Los estilos se apoyan en variables SCSS, propiedades CSS, mixins y clases compartidas. `src/styles.scss` carga `src/styles/main.scss`, que reúne las capas del sistema visual.
 
----
+La accesibilidad completa del modal y la adaptación de las pantallas centrales a distintos tamaños siguen pendientes de validación y mejora.
 
-# Repository
+## Scripts y verificaciones
 
-GitHub:
+| Comando                        | Propósito                                      |
+| ------------------------------ | ---------------------------------------------- |
+| `pnpm start`                   | Iniciar Angular en desarrollo                  |
+| `pnpm api`                     | Iniciar json-server en desarrollo                  |
+| `pnpm build`                   | Generar el build de producción                 |
+| `pnpm watch`                   | Compilar en modo desarrollo y observar cambios |
+| `pnpm test`                    | Ejecutar las pruebas mediante Angular          |
+| `pnpm test --watch=false`      | Ejecutar las pruebas una sola vez              |
+| `pnpm lint`                    | Ejecutar ESLint                                |
+| `pnpm exec prettier . --check` | Comprobar formato sin modificar archivos       |
 
-https://github.com/CristianEscequiel/angular-enterprise-lab
+El build se genera en `dist/angular-enterprise-lab`. Compilar el frontend no incluye ni despliega JSON Server.
 
----
+Husky tiene configurado un hook `pre-commit` que ejecuta `pnpm test`. La adaptación del hook a una ejecución finita y la integración de `lint-staged` están pendientes; su presencia como dependencia no implica que ya esté conectado.
 
-## Author
+### Estado de las pruebas
 
-**Cristian Escequiel**
+Vitest está integrado, pero la suite actual se concentra principalmente en pruebas de creación de componentes. Todavía no ofrece protección suficiente para los flujos completos del CRUD y sus casos límite.
 
-Frontend Developer enfocado en Angular y arquitectura frontend.
+La estrategia a completar incluye:
 
-El proyecto forma parte de un proceso continuo de estudio, experimentación y construcción de aplicaciones Angular modernas.
+- Tests HTTP del servicio: método, URL, parámetros, payload y errores.
+- Tests del listado: datos, vacío, error, búsqueda, paginación y recarga tras eliminar.
+- Tests de formularios: validación y protección frente a envíos repetidos.
+- Tests de detalle y edición ante registros inexistentes y fallos de carga.
+- Tests de interceptores, loading y comportamiento del modal.
+
+La medición de cobertura requiere incorporar y configurar un proveedor compatible con la versión de Vitest instalada. No se declara un porcentaje de cobertura alcanzado.
+
+### Última verificación registrada
+
+Revisión del **7 de septiembre de 2026**, sobre el commit [`9729052`](https://github.com/CristianEscequiel/angular-enterprise-lab/commit/9729052ad26311f593e2a65414f5e8f443cfd0f0):
+
+- Build de producción: correcto, sin warnings.
+- ESLint: correcto.
+- Tests: 21 correctos en 17 archivos.
+- Prettier: diferencias de formato pendientes.
+- Cobertura: no ejecutable con las dependencias declaradas en ese commit.
+
+Estos resultados corresponden a esa revisión, no constituyen una garantía para cambios posteriores ni equivalen a una validación completa en navegador.
+
+## Roadmap
+
+### 1. Estabilización de la base actual
+
+- [x] Completar el arranque reproducible de la API y centralizar su URL.
+- [ ] Unificar búsqueda, paginación y recarga del listado.
+- [ ] Recuperar la búsqueda después de errores y evitar suscripciones duplicadas.
+- [ ] Mantener una página válida y filtros coherentes después de eliminar.
+- [ ] Mejorar los estados de error de detalle y edición.
+- [ ] Proteger formularios inválidos y operaciones en curso.
+- [ ] Completar el manejo de foco y limpieza del modal.
+- [ ] Incorporar la página 404.
+- [ ] Completar pruebas de comportamiento, medición de cobertura y verificaciones de formato.
+- [ ] Revisar tipado estricto, aliases, accesibilidad y adaptación móvil.
+
+### 2. Autenticación y evolución funcional
+
+- [ ] Implementar autenticación simulada, sesión, logout y retorno después del login.
+- [ ] Agregar guards y permisos por rol.
+- [ ] Completar filtros por estado y prioridad y cambio de estado de las órdenes.
+- [ ] Incorporar gestión de equipos y técnicos de forma incremental.
+- [ ] Desarrollar los indicadores del dashboard.
+
+### 3. Cierre y evolución posterior
+
+- [ ] Validar los flujos completos, accesibilidad y comportamiento responsive.
+- [ ] Revisar rendimiento, documentación y despliegue.
+- [ ] Evaluar un backend propio con Java, Spring Boot y PostgreSQL después de estabilizar el frontend.
+
+## Criterio de cierre de una funcionalidad
+
+Antes de avanzar, cada funcionalidad debe cumplir sus requisitos, contemplar los estados y validaciones aplicables, tener pruebas relevantes y mantener la documentación alineada con el código. Las verificaciones acordadas deben pasar y los problemas importantes deben estar resueltos o aceptados explícitamente.
+
+El objetivo es terminar una aplicación acotada y defendible, incorporando nuevas herramientas solo cuando resuelvan una necesidad concreta.
+
+## Autor
+
+**Cristian Escequiel** — desarrollo frontend con foco en Angular.
+
+[Repositorio en GitHub](https://github.com/CristianEscequiel/angular-enterprise-lab)
