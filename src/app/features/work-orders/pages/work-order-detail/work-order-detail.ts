@@ -12,20 +12,18 @@ import { Button } from '../../../../shared/components/button/button';
 })
 export class WorkOrderDetail implements OnInit {
   private readonly workOrderService = inject(WorkOrdersService);
-  private readonly router = inject(ActivatedRoute);
-  private readonly route = inject(Router)
-  workOrderDetail = signal<WorkOrder | null>(null);
+  private readonly activatedRoute = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  readonly workOrderDetail = signal<WorkOrder | null>(null);
 
   ngOnInit() {
-    const id = this.router.snapshot.paramMap.get('id');
+    const id = this.activatedRoute.snapshot.paramMap.get('id');
     if (!id) return;
     this.workOrderService.getById(id).subscribe({
       next: (workOrder) => {
         this.workOrderDetail.set(workOrder);
       },
-      error: (error) => {
-        console.error('Error fetching work order detail:', error);
-      },
+      error: () => this.router.navigate(['/work-orders'])
     });
   }
 
@@ -40,7 +38,7 @@ export class WorkOrderDetail implements OnInit {
     });
   }
   navigateToWorkOrdersList(): void {
-    this.route.navigate(['/work-orders']);
+    this.router.navigate(['/work-orders']);
   }
 
 }

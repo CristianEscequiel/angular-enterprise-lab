@@ -13,18 +13,19 @@ import { Button } from '../../../../shared/components/button/button';
   styleUrl: './work-order-edit.scss',
 })
 export class WorkOrderEdit implements OnInit {
-  private readonly router = inject(ActivatedRoute);
-  private readonly route = inject(Router)
+  private readonly activatedRoute = inject(ActivatedRoute);
+  private readonly router = inject(Router)
   private readonly workOrdersService = inject(WorkOrdersService);
   private readonly messageService = inject(MessageService)
 
-  workOrder = signal<WorkOrder | null>(null);
+  readonly workOrder = signal<WorkOrder | null>(null);
 
   ngOnInit() {
-    const id = this.router.snapshot.paramMap.get('id');
+    const id = this.activatedRoute.snapshot.paramMap.get('id');
     if (!id) return;
     this.workOrdersService.getById(id).subscribe({
-      next: workOrder => this.workOrder.set(workOrder)
+      next: workOrder => this.workOrder.set(workOrder),
+      error: () => this.router.navigate(['/work-orders'])
     });
   }
   onSubmitEdit(workOrderData: WorkOrderCreateRequest): void {
@@ -65,6 +66,6 @@ export class WorkOrderEdit implements OnInit {
     });
   }
   navigateToWorkOrdersList(): void {
-    this.route.navigate(['/work-orders']);
+    this.router.navigate(['/work-orders']);
   }
 }

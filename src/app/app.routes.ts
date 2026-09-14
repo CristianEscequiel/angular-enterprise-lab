@@ -18,5 +18,10 @@ export const routes: Routes = [
       import('./features/work-orders/work-orders.routes').then(
         (m) => m.WORK_ORDERS_ROUTES
       ),
-  }
+  },
+  {
+    path: '**',
+    loadComponent: () => import('./pages/not-found/not-found').then((m) => m.NotFound),
+    title: 'Not Found',
+  },
 ];

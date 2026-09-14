@@ -1,7 +1,7 @@
 
 import { inject, Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { catchError, Observable, throwError } from 'rxjs';
 
 import { PaginatedResponse, WorkOrder, WorkOrderCreateRequest } from '../models/work-order.model';
 
@@ -26,7 +26,14 @@ export class WorkOrdersService {
   }
 
   getById(id: string): Observable<WorkOrder> {
-    return this.http.get<WorkOrder>(`${this.apiUrl}/${id}`);
+    return this.http.get<WorkOrder>(`${this.apiUrl}/${id}`).pipe(
+      catchError((error: HttpErrorResponse) => {
+        console.error('Error al buscar la orden:', error);
+
+        return throwError(() =>
+          new Error('No existe la orden de trabajo!'));
+      })
+    );;
   }
 
   create(workOrder: WorkOrderCreateRequest): Observable<WorkOrder> {
@@ -52,6 +59,13 @@ export class WorkOrdersService {
         _per_page: per_page,
         'title:contains': title
       }
-    });
+    }).pipe(
+      catchError((error: HttpErrorResponse) => {
+        console.error('Error buscando ordenes:', error);
+
+        return throwError(() =>
+          new Error('No se pudieron buscar las órdenes de trabajo'));
+      })
+    );
   }
 }
