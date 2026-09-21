@@ -256,12 +256,12 @@ Estos resultados corresponden a esa revisión, no constituyen una garantía para
 
 - [x] Completar el arranque reproducible de la API y centralizar su URL.
 - [ ] Unificar búsqueda, paginación y recarga del listado.
-- [ ] Recuperar la búsqueda después de errores y evitar suscripciones duplicadas.
+- [x] Recuperar la búsqueda después de errores y evitar suscripciones duplicadas.
 - [ ] Mantener una página válida y filtros coherentes después de eliminar.
 - [ ] Mejorar los estados de error de detalle y edición.
 - [ ] Proteger formularios inválidos y operaciones en curso.
 - [ ] Completar el manejo de foco y limpieza del modal.
-- [ ] Incorporar la página 404.
+- [x] Incorporar la página 404.
 - [ ] Completar pruebas de comportamiento, medición de cobertura y verificaciones de formato.
 - [ ] Revisar tipado estricto, aliases, accesibilidad y adaptación móvil.
 
