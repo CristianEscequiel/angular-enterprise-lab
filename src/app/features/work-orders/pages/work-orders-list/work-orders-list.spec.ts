@@ -253,4 +253,116 @@ describe('WorkOrdersList search and pagination', () => {
     expect(pending.observed).toBe(false);
     expect(service.searchByName).toHaveBeenCalledTimes(2);
   });
+
+  it('after searching and deleting the only item on page 2, goes to page 1 and never renders the empty state', () => {
+    expect.assertions(9);
+    const firstPageOrder = { ...order, id: '3', title: 'X primera' };
+    const secondPageOrder = { ...order, id: '2', title: 'X segunda' };
+    start();
+    service.searchByName.mockReturnValueOnce(of(response(2, [firstPageOrder])));
+    search('X');
+    service.searchByName.mockReturnValueOnce(of(response(2, [secondPageOrder])));
+    component.goToPage(2);
+
+    // Tras eliminar queda una sola página: la 2 vuelve vacía y el re-pedido a la 1 sigue en vuelo.
+    const pageOne = new Subject<PaginatedResponse<WorkOrder>>();
+    service.searchByName.mockReturnValueOnce(of(response(1, []))).mockReturnValueOnce(pageOne);
+    component.deleteWorkOrder('2');
+
+    expect(service.searchByName.mock.calls).toEqual([
+      ['', '1', '10'],
+      ['X', '1', '10'],
+      ['X', '2', '10'],
+      ['X', '2', '10'],
+      ['X', '1', '10'],
+    ]);
+    expect(component.currentPage()).toBe(1);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('Sin órdenes');
+    expect(fixture.nativeElement.querySelectorAll('tbody tr')).toHaveLength(1);
+
+    pageOne.next(response(1, [firstPageOrder]));
+    fixture.detectChanges();
+    expect(component.workOrders()).toEqual([firstPageOrder]);
+    expect(component.currentPage()).toBe(1);
+    expect(fixture.nativeElement.textContent).toContain('X primera');
+    expect(fixture.nativeElement.textContent).not.toContain('Sin órdenes');
+    expect(storage.set).toHaveBeenLastCalledWith('workOrdersSearch', {
+      searchValue: 'X',
+      page: 1,
+    });
+  });
+
+  it('two overlapping searches: only the latest request resolves even if the older one answers last', () => {
+    expect.assertions(7);
+    const latest = { ...order, id: '2', title: 'ab resultado' };
+    const stale = { ...order, id: '3', title: 'a resultado' };
+    start();
+    const older = new Subject<PaginatedResponse<WorkOrder>>();
+    const newer = new Subject<PaginatedResponse<WorkOrder>>();
+    service.searchByName.mockReturnValueOnce(older);
+    search('a');
+    service.searchByName.mockReturnValueOnce(newer);
+    search('ab');
+
+    expect(service.searchByName.mock.calls.slice(-2)).toEqual([
+      ['a', '1', '10'],
+      ['ab', '1', '10'],
+    ]);
+    expect(older.observed).toBe(false);
+    expect(newer.observed).toBe(true);
+
+    newer.next(response(1, [latest]));
+    older.next(response(4, [stale]));
+
+    expect(component.workOrders()).toEqual([latest]);
+    expect(component.totalPages()).toBe(1);
+    expect(component.currentPage()).toBe(1);
+    expect(storage.set).toHaveBeenLastCalledWith('workOrdersSearch', {
+      searchValue: 'ab',
+      page: 1,
+    });
+  });
+
+  it('never keeps more than one active request subscription across search, paging, retry and delete', () => {
+    let active = 0;
+    // Nunca completa: solo se libera cuando switchMap la reemplaza o se destruye la página.
+    const pending = () =>
+      new Observable<PaginatedResponse<WorkOrder>>((subscriber) => {
+        active++;
+        subscriber.next(response());
+        return () => {
+          active--;
+        };
+      });
+    const failing = () =>
+      new Observable<PaginatedResponse<WorkOrder>>((subscriber) => {
+        active++;
+        subscriber.error(new Error('offline'));
+        return () => {
+          active--;
+        };
+      });
+    service.searchByName.mockImplementation(pending);
+
+    start();
+    expect(active).toBe(1);
+    search('motor');
+    expect(active).toBe(1);
+    component.goToPage(2);
+    expect(active).toBe(1);
+
+    service.searchByName.mockImplementationOnce(failing);
+    component.goToPage(3);
+    expect(component.error()).not.toBeNull();
+    expect(active).toBe(0);
+
+    component.loadWorkOrders();
+    expect(active).toBe(1);
+    component.deleteWorkOrder('1');
+    expect(active).toBe(1);
+
+    fixture.destroy();
+    expect(active).toBe(0);
+  });
 });
