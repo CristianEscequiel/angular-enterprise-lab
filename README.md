@@ -6,6 +6,22 @@ El proyecto busca construir una aplicación pequeña y mantenible que sirva como
 
 **Estado:** en desarrollo. El flujo CRUD está implementado y la búsqueda con paginación está en proceso de estabilización. La autenticación y los indicadores del dashboard forman parte del roadmap.
 
+## Metodología de desarrollo
+
+Este proyecto se desarrolla utilizando [Claude Code](https://claude.com/product/claude-code),
+la CLI agéntica de Anthropic, siguiendo un flujo de spec-driven development: cada
+funcionalidad no trivial se documenta en una spec antes de implementarse, se traduce
+en un plan de tareas verificable, y se ejecuta en una sesión separada de la planificación.
+
+Esta decisión responde al objetivo del laboratorio: no solo construir la aplicación,
+sino dejar registro explícito de las decisiones técnicas y del proceso que las originó,
+como material de referencia y aprendizaje.
+
+Los artefactos de este proceso (specs, planes y notas de verificación) se conservan
+en `.claude/specs/` y quedan versionados junto al código. La sección
+[Flujo de desarrollo](#flujo-de-desarrollo) detalla las fases del proceso.
+
+
 ## Stack
 
 | Tecnología                | Uso                                             |
@@ -223,6 +239,22 @@ La accesibilidad completa del modal y la adaptación de las pantallas centrales 
 El build se genera en `dist/angular-enterprise-lab`. Compilar el frontend no incluye ni despliega JSON Server.
 
 Husky tiene configurado un hook `pre-commit` que ejecuta `pnpm test`. La adaptación del hook a una ejecución finita y la integración de `lint-staged` están pendientes; su presencia como dependencia no implica que ya esté conectado.
+
+## Flujo de desarrollo
+
+Las funcionalidades no triviales se documentan como spec antes de implementarse,
+siguiendo un ciclo de tres fases con revisión entre cada una:
+
+1. **Spec**: qué debe hacer el cambio, requisitos y qué queda fuera de alcance.
+2. **Plan**: tareas numeradas contra el código actual, con el test que valida cada una.
+3. **Implementación**: ejecutada en una sesión separada de la planificación.
+
+Los specs y planes se conservan en `.claude/specs/<número>-<nombre>/` como registro
+de las decisiones tomadas para cada feature.
+
+| Feature                                 | Spec                                                                                 | Estado                                           |
+| --------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| Unificar búsqueda, paginación y recarga | [`001-unificar-busqueda-paginacion`](.claude/specs/001-unificar-busqueda-paginacion) | Implementado (5 tests nuevos, 21→51 en la suite) |
 
 ### Estado de las pruebas
 
