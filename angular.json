@@ -70,7 +70,13 @@
           "defaultConfiguration": "development"
         },
         "test": {
-          "builder": "@angular/build:unit-test"
+          "builder": "@angular/build:unit-test",
+          "configurations": {
+            "coverage": {
+              "coverage": true,
+              "coverageReporters": ["text", "html"]
+            }
+          }
         },
         "lint": {
           "builder": "@angular-eslint/builder:lint",

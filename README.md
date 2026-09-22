@@ -21,7 +21,6 @@ Los artefactos de este proceso (specs, planes y notas de verificación) se conse
 en `.claude/specs/` y quedan versionados junto al código. La sección
 [Flujo de desarrollo](#flujo-de-desarrollo) detalla las fases del proceso.
 
-
 ## Stack
 
 | Tecnología                | Uso                                             |
@@ -35,7 +34,7 @@ en `.claude/specs/` y quedan versionados junto al código. La sección
 | JSON Server               | API REST local de desarrollo                    |
 | Vitest                    | Pruebas mediante la integración de Angular      |
 | ESLint y Prettier         | Análisis estático y formato                     |
-| Husky                     | Hook de validación previo al commit             |
+| Husky y lint-staged       | Hook de validación previo al commit             |
 | pnpm                      | Gestión de dependencias y ejecución de scripts  |
 
 Las versiones concretas de las dependencias se registran en `package.json` y `pnpm-lock.yaml`.
@@ -228,7 +227,7 @@ La accesibilidad completa del modal y la adaptación de las pantallas centrales 
 | Comando                        | Propósito                                      |
 | ------------------------------ | ---------------------------------------------- |
 | `pnpm start`                   | Iniciar Angular en desarrollo                  |
-| `pnpm api`                     | Iniciar json-server en desarrollo                  |
+| `pnpm api`                     | Iniciar json-server en desarrollo              |
 | `pnpm build`                   | Generar el build de producción                 |
 | `pnpm watch`                   | Compilar en modo desarrollo y observar cambios |
 | `pnpm test`                    | Ejecutar las pruebas mediante Angular          |
@@ -252,14 +251,15 @@ siguiendo un ciclo de tres fases con revisión entre cada una:
 Los specs y planes se conservan en `.claude/specs/<número>-<nombre>/` como registro
 de las decisiones tomadas para cada feature.
 
-| Feature                                 | Spec                                                                                 | Estado                                           |
-| --------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| Unificar búsqueda, paginación y recarga | [`001-unificar-busqueda-paginacion`](.claude/specs/001-unificar-busqueda-paginacion) | Implementado (5 tests nuevos, 21→51 en la suite) |
-| Recuperación de la búsqueda tras errores | [`002-recuperacion-busqueda-tras-errores`](.claude/specs/002-recuperacion-busqueda-tras-errores) | Implementado (4 tests nuevos, 51→55 en la suite) |
-| Estados de error en detalle y edición | [`003-estados-error-detalle-edicion`](.claude/specs/003-estados-error-detalle-edicion) | Implementado (13 tests nuevos, 55→73 en la suite) |
-| Protección de formularios inválidos y envíos duplicados | [`004-proteccion-formularios`](.claude/specs/004-proteccion-formularios) | Implementado (11 tests nuevos, 73→84 en la suite) |
-| Manejo de foco y limpieza del modal | [`005-foco-limpieza-modal`](.claude/specs/005-foco-limpieza-modal) | Implementado (8 tests nuevos, 84→92 en la suite) |
-| Página 404 y validación de formato de id | [`006-pagina-404`](.claude/specs/006-pagina-404) | Implementado (12 tests nuevos, 92→104 en la suite) |
+| Feature                                                 | Spec                                                                                             | Estado                                                                                     |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Unificar búsqueda, paginación y recarga                 | [`001-unificar-busqueda-paginacion`](.claude/specs/001-unificar-busqueda-paginacion)             | Implementado (5 tests nuevos, 21→51 en la suite)                                           |
+| Recuperación de la búsqueda tras errores                | [`002-recuperacion-busqueda-tras-errores`](.claude/specs/002-recuperacion-busqueda-tras-errores) | Implementado (4 tests nuevos, 51→55 en la suite)                                           |
+| Estados de error en detalle y edición                   | [`003-estados-error-detalle-edicion`](.claude/specs/003-estados-error-detalle-edicion)           | Implementado (13 tests nuevos, 55→73 en la suite)                                          |
+| Protección de formularios inválidos y envíos duplicados | [`004-proteccion-formularios`](.claude/specs/004-proteccion-formularios)                         | Implementado (11 tests nuevos, 73→84 en la suite)                                          |
+| Manejo de foco y limpieza del modal                     | [`005-foco-limpieza-modal`](.claude/specs/005-foco-limpieza-modal)                               | Implementado (8 tests nuevos, 84→92 en la suite)                                           |
+| Página 404 y validación de formato de id                | [`006-pagina-404`](.claude/specs/006-pagina-404)                                                 | Implementado (12 tests nuevos, 92→104 en la suite)                                         |
+| Cobertura de tests y verificaciones de formato          | [`007-cobertura-y-verificaciones`](.claude/specs/007-cobertura-y-verificaciones)                 | Implementado (sin tests nuevos — configura medición y verificación, no persigue un número) |
 
 ### Estado de las pruebas
 
@@ -273,7 +273,18 @@ La estrategia a completar incluye:
 - Tests de detalle y edición ante registros inexistentes y fallos de carga: cubierto (spec 003).
 - Tests de interceptores: `loadingInterceptor` cubierto (spec 002); `errorInterceptor`, pendiente. Foco y limpieza del modal: cubierto (spec 005).
 
-La medición de cobertura requiere incorporar y configurar un proveedor compatible con la versión de Vitest instalada. No se declara un porcentaje de cobertura alcanzado.
+### Cobertura
+
+`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, sobre la suite completa de specs 001-006:
+
+| Métrica    | % Cubierto |
+| ---------- | ---------- |
+| Statements | 89.38%     |
+| Branches   | 89.58%     |
+| Functions  | 72.95%     |
+| Lines      | 91.63%     |
+
+Es un número **informativo**, no un umbral bloqueante — no hay `coverageThresholds` configurado en `angular.json`, así que no falla el comando ni el commit si baja. Subir el porcentaje no es objetivo de spec 007; se resuelve escribiendo los tests que falten en cada feature.
 
 ### Última verificación registrada
 
@@ -287,6 +298,15 @@ Revisión del **7 de septiembre de 2026**, sobre el commit [`9729052`](https://g
 
 Estos resultados corresponden a esa revisión, no constituyen una garantía para cambios posteriores ni equivalen a una validación completa en navegador.
 
+Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones`:
+
+- Build de producción: correcto, sin warnings.
+- ESLint: correcto.
+- Tests: 104 correctos en 23 archivos.
+- Prettier: `pnpm exec prettier . --check` limpio (antes: pendiente en todo el repo).
+- Cobertura: medible, ver sección "Cobertura" arriba (antes: no ejecutable, sin proveedor).
+- Pre-commit: `lint-staged` corrige Prettier y ESLint (`--fix`) en los archivos modificados antes de correr los tests; bloquea el commit si ESLint encuentra algo que no puede corregir solo.
+
 ## Roadmap
 
 ### 1. Estabilización de la base actual
@@ -299,7 +319,7 @@ Estos resultados corresponden a esa revisión, no constituyen una garantía para
 - [x] Proteger formularios inválidos y operaciones en curso.
 - [x] Completar el manejo de foco y limpieza del modal.
 - [x] Incorporar la página 404.
-- [ ] Completar pruebas de comportamiento, medición de cobertura y verificaciones de formato.
+- [ ] Completar pruebas de comportamiento (medición de cobertura y verificaciones de formato: listas, spec 007 — falta subir el número de cobertura feature por feature).
 - [ ] Revisar tipado estricto, aliases, accesibilidad y adaptación móvil.
 
 ### 2. Autenticación y evolución funcional
