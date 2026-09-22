@@ -264,6 +264,7 @@ de las decisiones tomadas para cada feature.
 | Cobertura de tests y verificaciones de formato          | [`007-cobertura-y-verificaciones`](.claude/specs/007-cobertura-y-verificaciones)                 | Implementado (sin tests nuevos — configura medición y verificación, no persigue un número) |
 | Tipado estricto y aliases de imports                    | [`008a-tipado-aliases`](.claude/specs/008a-tipado-aliases)                                       | Implementado (sin tests nuevos — tipado y refactor de imports, no persigue un número)      |
 | Accesibilidad y adaptación responsive                   | [`008b-accesibilidad-responsive`](.claude/specs/008b-accesibilidad-responsive)                   | Implementado (15 tests nuevos, 104→119 en la suite)                                        |
+| Cobertura de Functions por feature                      | [`009-cobertura-por-feature`](.claude/specs/009-cobertura-por-feature)                           | Implementado (9 tests nuevos, 119→128 en la suite; Functions 79.5%→87.57%)                 |
 
 ### Estado de las pruebas
 
@@ -279,16 +280,16 @@ La estrategia a completar incluye:
 
 ### Cobertura
 
-`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, sobre la suite completa de specs 001-006:
+`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `009-cobertura-por-feature` (128 tests):
 
 | Métrica    | % Cubierto |
 | ---------- | ---------- |
-| Statements | 89.38%     |
-| Branches   | 89.58%     |
-| Functions  | 72.95%     |
-| Lines      | 91.63%     |
+| Statements | 93.87%     |
+| Branches   | 91.86%     |
+| Functions  | 87.57%     |
+| Lines      | 95.71%     |
 
-Es un número **informativo**, no un umbral bloqueante — no hay `coverageThresholds` configurado en `angular.json`, así que no falla el comando ni el commit si baja. Subir el porcentaje no es objetivo de spec 007; se resuelve escribiendo los tests que falten en cada feature.
+Es un número **informativo**, no un umbral bloqueante — no hay `coverageThresholds` configurado en `angular.json`, así que no falla el comando ni el commit si baja. El desbalance de Functions detectado en spec 007 (72.95% sobre specs 001-006, 79.5% recalculado tras 008a/008b) se cerró en spec 009 con tests dirigidos a funciones de lógica real sin cobertura (ver `.claude/specs/009-cobertura-por-feature`); no se persigue el 100%, solo un nivel consistente con el resto de las métricas.
 
 ### Última verificación registrada
 
@@ -312,6 +313,14 @@ Revisión del **22 de septiembre de 2026**, tras `008a-tipado-aliases` y `008b-a
 - Verificación manual en 375px y 768px: documentada en `.claude/specs/008b-accesibilidad-responsive/notes.md` (sin tooling de testing visual en el proyecto).
 - Mutation testing: 4 mutaciones deliberadas sobre a11y (aria-label por fila, aria-describedby del form, botón de submit deshabilitado, `role="alert"` condicional) confirmaron el fallo esperado en sus tests antes de revertirse.
 
+Revisión del **22 de septiembre de 2026**, tras `009-cobertura-por-feature`:
+
+- Build de producción: correcto, sin warnings.
+- ESLint: correcto.
+- Tests: 128 correctos en 24 archivos (119 antes de spec 009).
+- Prettier: `pnpm exec prettier . --check` limpio.
+- Cobertura: ver sección "Cobertura" arriba (Functions 79.5%→87.57%; Statements/Branches/Lines subieron o se mantuvieron, ninguna bajó).
+
 Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones`:
 
 - Build de producción: correcto, sin warnings.
@@ -333,7 +342,7 @@ Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones
 - [x] Proteger formularios inválidos y operaciones en curso.
 - [x] Completar el manejo de foco y limpieza del modal.
 - [x] Incorporar la página 404.
-- [ ] Completar pruebas de comportamiento (medición de cobertura y verificaciones de formato: listas, spec 007 — falta subir el número de cobertura feature por feature).
+- [x] Completar pruebas de comportamiento (medición de cobertura y verificaciones de formato: spec 007; número de cobertura feature por feature: spec 009).
 - [x] Revisar tipado estricto, aliases, accesibilidad y adaptación móvil.
 
 ### 2. Autenticación y evolución funcional
