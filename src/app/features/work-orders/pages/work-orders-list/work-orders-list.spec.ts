@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Observable, of, Subject, throwError } from 'rxjs';
 
-import { LocalStorageService } from '../../../../core/services/localStorage.service';
+import { LocalStorageService } from '@core/services/localStorage.service';
 import { WorkOrdersService } from '../../data-access/work-order.service';
 import { PaginatedResponse, WorkOrder } from '../../models/work-order.model';
 import { WorkOrdersList } from './work-orders-list';
@@ -220,6 +220,23 @@ describe('WorkOrdersList search and pagination', () => {
     expect(component.currentPage()).toBe(1);
     expect(component.workOrders()).toEqual([]);
     expect(service.searchByName).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives each row a distinct accessible name for its action buttons', () => {
+    expect.assertions(3);
+    const other = { ...order, id: '2', title: 'Cambiar filtro hidráulico' };
+    service.searchByName.mockReturnValueOnce(of(response(1, [order, other])));
+    start();
+    fixture.detectChanges();
+
+    const buttons: HTMLButtonElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('tbody button'),
+    );
+    const labels = buttons.map((button) => button.getAttribute('aria-label'));
+
+    expect(labels).toContain('Eliminar Revisar motor');
+    expect(labels).toContain('Eliminar Cambiar filtro hidráulico');
+    expect(new Set(labels).size).toBe(labels.length);
   });
 
   it('does not let responses read newer unsubmitted text when persisting a query', () => {

@@ -7,6 +7,7 @@
       [class.toast--success]="variant() === 'success'"
       [class.toast--error]="variant() === 'error'"
       [class.toast--warning]="variant() === 'warning'"
+      [class.toast--info]="variant() === 'info'"
     >
       <div class="toast__content">
         <span class="toast__icon" aria-hidden="true">
@@ -19,12 +20,7 @@
         </div>
       </div>
 
-      <button
-        class="btn--close toast__close"
-        type="button"
-        aria-label="Cerrar notificación"
-        (click)="close()"
-      >
+      <button class="btn--close" type="button" aria-label="Cerrar notificación" (click)="close()">
         ✕
       </button>
     </div>

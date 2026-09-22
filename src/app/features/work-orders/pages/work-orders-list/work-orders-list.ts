@@ -4,12 +4,12 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { catchError, debounceTime, EMPTY, map, Subject, switchMap } from 'rxjs';
 
-import { LocalStorageService } from '../../../../core/services/localStorage.service';
-import { MessageService } from '../../../../core/services/message.service';
-import { Alert } from '../../../../shared/components/alert/alert';
-import { Badge } from '../../../../shared/components/badge/badge';
-import { Button } from '../../../../shared/components/button/button';
-import { Modal } from '../../../../shared/components/modal/modal';
+import { LocalStorageService } from '@core/services/localStorage.service';
+import { MessageService } from '@core/services/message.service';
+import { Alert } from '@shared/components/alert/alert';
+import { Badge } from '@shared/components/badge/badge';
+import { Button } from '@shared/components/button/button';
+import { Modal } from '@shared/components/modal/modal';
 import { WorkOrdersService } from '../../data-access/work-order.service';
 import { WorkOrder } from '../../models/work-order.model';
 
@@ -48,6 +48,16 @@ export class WorkOrdersList implements OnInit {
   readonly searchControl = new FormControl('', { nonNullable: true });
   private readonly searchText = toSignal(this.searchControl.valueChanges, { initialValue: '' });
   readonly isSearchEmpty = computed(() => this.searchText().trim() === '');
+
+  // Región live siempre presente en el DOM (no dentro de @if/@else) para que
+  // el anuncio sea confiable: una región que nace junto con su contenido no
+  // se anuncia de forma fiable en lectores de pantalla.
+  readonly resultsAnnouncement = computed(() => {
+    if (this.error()) return '';
+    const count = this.workOrders().length;
+    if (count === 0) return 'No se encontraron órdenes de trabajo.';
+    return count === 1 ? '1 orden encontrada.' : `${count} órdenes encontradas.`;
+  });
 
   ngOnInit(): void {
     const restored = this.readStoredSearch();

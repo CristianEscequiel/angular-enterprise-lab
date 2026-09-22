@@ -109,13 +109,27 @@ export const mockApiInterceptor: HttpInterceptorFn = (request, next) => {
           }),
       );
     }
-    const updatedWorkOrder: WorkOrder = { ...WORK_ORDERS_MOCK[index], ...request.body };
+    const current = WORK_ORDERS_MOCK[index];
+    if (!current) {
+      return throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 404,
+            statusText: 'Not Found',
+            error: {
+              message: `No se encontró la orden ${id}`,
+            },
+          }),
+      );
+    }
+
+    const updatedWorkOrder: WorkOrder = { ...current, ...request.body };
     WORK_ORDERS_MOCK[index] = updatedWorkOrder;
 
     return of(
       new HttpResponse({
         status: 200,
-        body: WORK_ORDERS_MOCK[index],
+        body: updatedWorkOrder,
       }),
     ).pipe(delay(API_DELAY));
   }

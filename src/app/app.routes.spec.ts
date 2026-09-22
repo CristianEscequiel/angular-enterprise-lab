@@ -20,6 +20,11 @@ describe('app routes', () => {
 
   const workOrdersServiceMock = {
     getById: vi.fn().mockReturnValue(of(order)),
+    searchByName: vi
+      .fn()
+      .mockReturnValue(
+        of({ first: 1, prev: null, next: null, last: 1, pages: 1, items: 1, data: [order] }),
+      ),
   };
 
   let harness: RouterTestingHarness;
@@ -43,6 +48,19 @@ describe('app routes', () => {
     await harness.navigateByUrl('/no-existe');
 
     expect(harness.routeNativeElement?.textContent).toContain('Página no encontrada');
+  });
+
+  it('sets a distinct document title per route', async () => {
+    expect.assertions(3);
+
+    await harness.navigateByUrl('/dashboard');
+    expect(document.title).toContain('Dashboard');
+
+    await harness.navigateByUrl('/work-orders');
+    expect(document.title).toContain('Órdenes de trabajo');
+
+    await harness.navigateByUrl('/no-existe');
+    expect(document.title).toContain('Página no encontrada');
   });
 
   it('renders NotFound for a work order id with an invalid format, without loading WorkOrderDetail', async () => {

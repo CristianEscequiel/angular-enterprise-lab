@@ -11,6 +11,8 @@ export class Button {
   variant = input<'primary' | 'secondary' | 'outline' | 'danger'>('primary');
   size = input<'sm' | 'md' | 'lg' | 'full'>('md');
   disabled = input<boolean>(false);
+  type = input<'button' | 'submit'>('button');
+  ariaLabel = input<string>();
 
   classes = computed(() => ({
     'btn--primary': this.variant() === 'primary',

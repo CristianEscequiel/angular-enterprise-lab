@@ -1,57 +1,69 @@
-<form class="form-group form-control" [formGroup]="workOrderForm" (ngSubmit)="onSubmit()">
-  <label for="title">Title:</label>
+<form class="form" [formGroup]="workOrderForm" (ngSubmit)="onSubmit()">
+  <label class="form-label" for="title">Título:</label>
   <input
-    [class.form-control--invalid]="isInvalid('title')"
     class="form-control"
     id="title"
     formControlName="title"
+    required
+    [class.form-control--invalid]="isInvalid('title')"
+    [attr.aria-invalid]="isInvalid('title')"
+    [attr.aria-describedby]="isInvalid('title') ? 'title-error' : null"
   />
-
-  @if (workOrderForm.get('title')?.invalid && workOrderForm.get('title')?.touched) {
-    <div class="form-error">Title is required and must be at least 3 characters long.</div>
+  @if (isInvalid('title')) {
+    <div class="form-error" id="title-error">
+      El título es obligatorio y debe tener al menos 3 caracteres.
+    </div>
   }
 
-  <label class="form-label" for="description">Description:</label>
+  <label class="form-label" for="description">Descripción:</label>
   <textarea
-    [class.form-control--invalid]="isInvalid('description')"
     class="form-control"
     id="description"
     formControlName="description"
+    required
+    [class.form-control--invalid]="isInvalid('description')"
+    [attr.aria-invalid]="isInvalid('description')"
+    [attr.aria-describedby]="isInvalid('description') ? 'description-error' : null"
   ></textarea>
-  @if (workOrderForm.get('description')?.invalid && workOrderForm.get('description')?.touched) {
-    <div class="form-error">Description is required and must be at least 10 characters long.</div>
+  @if (isInvalid('description')) {
+    <div class="form-error" id="description-error">
+      La descripción es obligatoria y debe tener al menos 10 caracteres.
+    </div>
   }
 
-  <label class="form-label" for="asset">Asset:</label>
+  <label class="form-label" for="asset">Activo:</label>
   <input
-    [class.form-control--invalid]="isInvalid('asset')"
     class="form-control"
     id="asset"
     formControlName="asset"
+    required
+    [class.form-control--invalid]="isInvalid('asset')"
+    [attr.aria-invalid]="isInvalid('asset')"
+    [attr.aria-describedby]="isInvalid('asset') ? 'asset-error' : null"
   />
-  @if (workOrderForm.get('asset')?.invalid && workOrderForm.get('asset')?.touched) {
-    <div class="form-error">Asset is required.</div>
+  @if (isInvalid('asset')) {
+    <div class="form-error" id="asset-error">El activo es obligatorio.</div>
   }
 
-  <label class="form-label" for="priority">Priority:</label>
+  <label class="form-label" for="priority">Prioridad:</label>
   <select
-    [class.form-control--invalid]="isInvalid('priority')"
     class="form-control"
     id="priority"
     formControlName="priority"
+    required
+    [class.form-control--invalid]="isInvalid('priority')"
+    [attr.aria-invalid]="isInvalid('priority')"
+    [attr.aria-describedby]="isInvalid('priority') ? 'priority-error' : null"
   >
-    <option class="" value="low">Low</option>
-    <option value="medium">Medium</option>
-    <option value="high">High</option>
+    <option value="low">Baja</option>
+    <option value="medium">Media</option>
+    <option value="high">Alta</option>
   </select>
-  @if (workOrderForm.get('priority')?.invalid && workOrderForm.get('priority')?.touched) {
-    <div class="form-error">Priority is required.</div>
+  @if (isInvalid('priority')) {
+    <div class="form-error" id="priority-error">La prioridad es obligatoria.</div>
   }
-  <app-button
-    type="submit"
-    size="full"
-    variant="primary"
-    [disabled]="workOrderForm.invalid || submitting()"
-    >{{ submitting() ? 'Guardando...' : 'Submit Work Order' }}</app-button
-  >
+
+  <app-button type="submit" size="full" variant="primary" [disabled]="submitting()">{{
+    submitting() ? 'Guardando...' : 'Guardar orden de trabajo'
+  }}</app-button>
 </form>

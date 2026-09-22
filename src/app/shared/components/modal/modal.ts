@@ -85,10 +85,10 @@ export class Modal {
     if (!this.isOpen() || event.key !== 'Tab') return;
 
     const focusable = this.getFocusableElements();
-    if (focusable.length === 0) return;
+    const first = focusable.at(0);
+    const last = focusable.at(-1);
+    if (!first || !last) return;
 
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
     const active = this.document.activeElement as HTMLElement | null;
     const activeIndex = active ? focusable.indexOf(active) : -1;
 

@@ -62,7 +62,12 @@
   }
 }
 
-@media (max-width: a.$breakpoint-md) {
+// Antes usaba `@media (max-width: a.$breakpoint-md)` directo: a los 768px
+// exactos coincidía con el `min-width: 768px` de `respond-above` en
+// _container.scss, aplicando reglas de mobile y desktop al mismo tiempo.
+// El mixin `respond-below` ya resta 1px para evitar ese solapamiento
+// (spec 008b).
+@include a.respond-below(a.$breakpoint-md) {
   .grid--2,
   .grid--3,
   .grid--4 {

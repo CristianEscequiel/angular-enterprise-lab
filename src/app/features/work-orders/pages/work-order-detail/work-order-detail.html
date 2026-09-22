@@ -1,5 +1,5 @@
-<section class="">
-  <div class="d-flex justify-between py-lg">
+<section>
+  <div class="d-flex flex-wrap justify-between gap-md py-lg">
     <h1>Detalle de la orden de trabajo</h1>
     <app-button variant="primary" (clicked)="navigateToWorkOrdersList()">
       Volver a Lista
@@ -22,16 +22,12 @@
     <app-button variant="primary" (clicked)="retry()"> Reintentar </app-button>
   } @else if (workOrderDetail(); as workOrderDetail) {
     <div class="card">
-      <div class="card__body">
-        <p class="card__header">
-          <strong>{{ workOrderDetail.title }} </strong>
-        </p>
-        <div class="card__content">
-          <p class="card__tittle">{{ workOrderDetail.asset }}</p>
-          <p class="card__description">{{ workOrderDetail.description }}</p>
-        </div>
-        <p class="card__footer">{{ workOrderDetail.status }}</p>
+      <h2 class="card__header">{{ workOrderDetail.title }}</h2>
+      <div class="card__content">
+        <p class="card__description"><strong>Activo:</strong> {{ workOrderDetail.asset }}</p>
+        <p class="card__description">{{ workOrderDetail.description }}</p>
       </div>
+      <p class="card__footer"><strong>Estado:</strong> {{ workOrderDetail.status }}</p>
     </div>
   }
 </section>

@@ -4,11 +4,39 @@
   padding: a.$spacing-lg;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: a.$radius-lg;
   position: sticky;
   top: 0;
   height: 100%;
   animation: sidebar-slide-in 0.5s ease;
+}
+
+@include a.respond-below(a.$breakpoint-md) {
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: a.$z-index-modal;
+
+    width: min(20rem, 85vw);
+    height: 100dvh;
+
+    border-radius: 0;
+    box-shadow: a.$shadow-lg;
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: calc(a.$z-index-modal - 1);
+
+    background-color: var(--color-overlay);
+  }
+}
+
+@include a.respond-above(a.$breakpoint-md) {
+  .sidebar-backdrop {
+    display: none;
+  }
 }
 
 .sidebar__nav {
@@ -19,9 +47,11 @@
 
 .sidebar__link {
   padding: a.$spacing-sm a.$spacing-md;
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
+  border-radius: a.$radius-md;
+  color: var(--color-text);
   text-decoration: none;
+
+  @include a.focus-visible;
 
   &:hover {
     background-color: var(--color-surface-hover);

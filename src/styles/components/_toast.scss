@@ -70,7 +70,9 @@
   margin: 0;
 
   font-size: 0.875rem;
-  color: var(--color-text-secondary);
+  // --color-text-secondary no existe como custom property (mismo bug que
+  // ya se corrigió en _sidebar.scss): resolvía a inherit (spec 008b).
+  color: var(--color-text-muted);
 }
 
 .toast--success {

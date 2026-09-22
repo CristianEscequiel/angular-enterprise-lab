@@ -1,6 +1,7 @@
 <div
   class="alert"
-  role="status"
+  [attr.role]="variant() === 'error' ? 'alert' : 'status'"
+  [attr.aria-live]="variant() === 'error' ? 'assertive' : 'polite'"
   [class.alert--success]="variant() === 'success'"
   [class.alert--error]="variant() === 'error'"
   [class.alert--warning]="variant() === 'warning'"

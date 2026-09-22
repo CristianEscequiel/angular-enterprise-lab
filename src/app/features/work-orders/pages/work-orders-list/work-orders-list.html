@@ -1,13 +1,16 @@
-<section class="text-center">
-  <div class="d-flex justify-between py-lg">
+<section>
+  <h1>Órdenes de trabajo</h1>
+
+  <p class="u-sr-only" aria-live="polite" role="status">{{ resultsAnnouncement() }}</p>
+
+  <div class="d-flex flex-wrap justify-between gap-md py-lg">
     <input
-      class="form-control ml-lg"
+      class="form-control"
       type="search"
       [formControl]="searchControl"
       placeholder="Buscar orden de trabajo"
       aria-label="Buscar orden de trabajo por nombre"
     />
-    <span class="mx-lg"></span>
     <app-button variant="primary" (clicked)="navigateToCreateWorkOrder()">
       Crear Orden de Trabajo
     </app-button>
@@ -23,40 +26,60 @@
       variant="info"
     />
   } @else {
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Título</th>
-          <th>Activo</th>
-          <th>Estado</th>
-          <th class="text-center">Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (workOrder of workOrders(); track workOrder.id) {
-          <tr class="table__row table__row--clickable">
-            <td>{{ workOrder.title }}</td>
-            <td>{{ workOrder.asset }}</td>
-            <td>
-              <app-badge [variant]="workOrder.status">
-                {{ workOrder.status }}
-              </app-badge>
-            </td>
-            <td class="d-flex justify-center gap-sm">
-              <app-button size="sm" variant="outline" (clicked)="viewWorkOrder(workOrder.id)">
-                Ver
-              </app-button>
-              <app-button size="sm" variant="secondary" (clicked)="editWorkOrder(workOrder.id)">
-                Editar
-              </app-button>
-              <app-button size="sm" variant="danger" (clicked)="openDeleteModal(workOrder.id)">
-                Eliminar
-              </app-button>
-            </td>
+    <div class="table-wrapper">
+      <table class="table">
+        <caption class="u-sr-only">
+          Listado de órdenes de trabajo
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Título</th>
+            <th scope="col">Activo</th>
+            <th scope="col">Estado</th>
+            <th scope="col" class="u-text-center">Acciones</th>
           </tr>
-        }
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          @for (workOrder of workOrders(); track workOrder.id) {
+            <tr>
+              <td>{{ workOrder.title }}</td>
+              <td>{{ workOrder.asset }}</td>
+              <td>
+                <app-badge [variant]="workOrder.status">
+                  {{ workOrder.status }}
+                </app-badge>
+              </td>
+              <td class="d-flex justify-center gap-sm">
+                <app-button
+                  size="sm"
+                  variant="outline"
+                  [ariaLabel]="'Ver ' + workOrder.title"
+                  (clicked)="viewWorkOrder(workOrder.id)"
+                >
+                  Ver
+                </app-button>
+                <app-button
+                  size="sm"
+                  variant="secondary"
+                  [ariaLabel]="'Editar ' + workOrder.title"
+                  (clicked)="editWorkOrder(workOrder.id)"
+                >
+                  Editar
+                </app-button>
+                <app-button
+                  size="sm"
+                  variant="danger"
+                  [ariaLabel]="'Eliminar ' + workOrder.title"
+                  (clicked)="openDeleteModal(workOrder.id)"
+                >
+                  Eliminar
+                </app-button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
     <app-modal
       [(isOpen)]="deleteModalOpen"
       title="Eliminar orden de trabajo"
@@ -66,7 +89,7 @@
       (confirmed)="deleteWorkOrder(workOrderDeleted())"
     />
 
-    <nav class="pagination mt-lg" aria-label="Paginación de ejemplo">
+    <nav class="pagination mt-lg" aria-label="Paginación de órdenes de trabajo">
       <button
         class="pagination__item"
         type="button"

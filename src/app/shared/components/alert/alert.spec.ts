@@ -24,4 +24,25 @@ describe('Alert', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('uses role="status" and aria-live="polite" for non-error variants', () => {
+    expect.assertions(2);
+    const alertDiv: HTMLElement | null = fixture.nativeElement.querySelector('.alert');
+    if (!alertDiv) throw new Error('No se renderizó el alert');
+
+    expect(alertDiv.getAttribute('role')).toBe('status');
+    expect(alertDiv.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('uses role="alert" and aria-live="assertive" only for the error variant', () => {
+    expect.assertions(2);
+    fixture.componentRef.setInput('variant', 'error');
+    fixture.detectChanges();
+
+    const alertDiv: HTMLElement | null = fixture.nativeElement.querySelector('.alert');
+    if (!alertDiv) throw new Error('No se renderizó el alert');
+
+    expect(alertDiv.getAttribute('role')).toBe('alert');
+    expect(alertDiv.getAttribute('aria-live')).toBe('assertive');
+  });
 });

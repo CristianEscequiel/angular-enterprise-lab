@@ -34,14 +34,17 @@ describe('Form', () => {
     expect(component).toBeTruthy();
   });
 
-  it('blocks emission and disables the submit button when required fields are empty', () => {
+  it('blocks emission when required fields are empty, with the submit button enabled', () => {
     expect.assertions(2);
     const emit = vi.spyOn(component.sendData, 'emit');
 
     component.onSubmit();
 
     expect(emit).not.toHaveBeenCalled();
-    expect(submitButton().disabled).toBe(true);
+    // Habilitado a propósito (spec 008b): si estuviera deshabilitado,
+    // markAllAsTouched() sería inalcanzable y un usuario de teclado
+    // llegaría al final del form sin ninguna explicación.
+    expect(submitButton().disabled).toBe(false);
   });
 
   it('reveals validation error messages after an attempted submit on an untouched form', () => {
@@ -49,8 +52,32 @@ describe('Form', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain(
-      'Title is required and must be at least 3 characters long.',
+      'El título es obligatorio y debe tener al menos 3 caracteres.',
     );
+  });
+
+  it('exposes aria-invalid and aria-describedby pointing to the error on an invalid control', () => {
+    expect.assertions(3);
+    component.onSubmit();
+    fixture.detectChanges();
+
+    const titleInput: HTMLInputElement | null = fixture.nativeElement.querySelector('#title');
+    if (!titleInput) throw new Error('No se renderizó el input de título');
+
+    expect(titleInput.getAttribute('aria-invalid')).toBe('true');
+    expect(titleInput.getAttribute('aria-describedby')).toBe('title-error');
+    expect(fixture.nativeElement.querySelector('#title-error')).toBeTruthy();
+  });
+
+  it('does not expose aria-invalid on a valid control', () => {
+    fillValidValues();
+    Object.values(component.workOrderForm.controls).forEach((control) => control.markAsTouched());
+    fixture.detectChanges();
+
+    const titleInput: HTMLInputElement | null = fixture.nativeElement.querySelector('#title');
+    if (!titleInput) throw new Error('No se renderizó el input de título');
+
+    expect(titleInput.getAttribute('aria-invalid')).toBe('false');
   });
 
   it('emits the raw form value when the form is valid and not submitting', () => {

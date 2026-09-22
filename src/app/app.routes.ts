@@ -8,6 +8,7 @@ export const routes: Routes = [
   },
   {
     path: 'dashboard',
+    title: 'Dashboard | Angular Enterprise Lab',
     loadComponent: () =>
       import('./features/dashboard/pages/dashboard-page/dashboard-page').then(
         (m) => m.DashboardPage,
@@ -21,6 +22,6 @@ export const routes: Routes = [
   {
     path: '**',
     loadComponent: () => import('./pages/not-found/not-found').then((m) => m.NotFound),
-    title: 'Not Found',
+    title: 'Página no encontrada | Angular Enterprise Lab',
   },
 ];

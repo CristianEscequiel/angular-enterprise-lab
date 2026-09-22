@@ -12,4 +12,4 @@
   />
 }
 
-<app-shell title="shell for testing"></app-shell>
+<app-shell [attr.inert]="loadingService.isLoading() ? true : null" />

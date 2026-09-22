@@ -1,4 +1,13 @@
 <header class="d-flex u-align-center p-sm">
-  <button (click)="onViewClick()" class="btn btn--secondary"><span>-</span></button>
-  <h2 class="u-full-width text-center">Centro de Gestión de Mantenimiento.</h2>
+  <button
+    type="button"
+    class="btn btn--secondary"
+    aria-label="Abrir menú de navegación"
+    aria-controls="app-sidebar"
+    [attr.aria-expanded]="sidebarOpen()"
+    (click)="onViewClick()"
+  >
+    <span aria-hidden="true">☰</span>
+  </button>
+  <h2 class="u-full-width u-text-center">Centro de Gestión de Mantenimiento.</h2>
 </header>

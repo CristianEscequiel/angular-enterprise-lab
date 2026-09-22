@@ -1,10 +1,10 @@
 import { Component, inject, signal } from '@angular/core';
 import { finalize } from 'rxjs';
 import { WorkOrdersService } from '../../data-access/work-order.service';
-import { MessageService } from '../../../../core/services/message.service';
+import { MessageService } from '@core/services/message.service';
 import { Form } from '../../components/form/form';
 import { WorkOrderCreateRequest } from '../../models/work-order.model';
-import { Button } from '../../../../shared/components/button/button';
+import { Button } from '@shared/components/button/button';
 import { Router } from '@angular/router';
 
 @Component({

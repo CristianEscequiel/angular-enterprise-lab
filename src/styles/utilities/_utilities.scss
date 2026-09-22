@@ -19,6 +19,24 @@
   border: 0;
 }
 
+.skip-link {
+  position: absolute;
+  z-index: a.$z-index-toast;
+  top: -100%;
+  left: a.$spacing-sm;
+
+  padding: a.$spacing-sm a.$spacing-md;
+
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: a.$border-width solid var(--color-border-focus);
+  border-radius: a.$radius-sm;
+
+  &:focus-visible {
+    top: a.$spacing-sm;
+  }
+}
+
 .u-align-center {
   align-items: center;
 }

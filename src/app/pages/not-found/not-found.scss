@@ -1,3 +1,5 @@
+@use '../../../styles/abstracts' as a;
+
 .not-found {
   min-height: calc(100dvh - 64px);
 
@@ -5,7 +7,7 @@
   justify-content: center;
   align-items: center;
 
-  padding: var(--spacing-xl);
+  padding: a.$spacing-xl;
 
   background:
     radial-gradient(circle at 50% 0%, var(--color-primary-subtle), transparent 45%),
@@ -20,7 +22,7 @@
 
     text-align: center;
 
-    gap: var(--spacing-lg);
+    gap: a.$spacing-lg;
   }
 
   &__code {

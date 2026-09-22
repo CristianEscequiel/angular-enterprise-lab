@@ -38,6 +38,15 @@ describe('Modal', () => {
   });
 });
 
+// Un elemento faltante debe romper el test de forma ruidosa, no silenciosa.
+function buttonAt(buttons: HTMLButtonElement[], index: number): HTMLButtonElement {
+  const button = buttons[index];
+  if (!button) {
+    throw new Error(`No se encontró un botón en el índice ${index}`);
+  }
+  return button;
+}
+
 describe('Modal focus management', () => {
   let hostFixture: ComponentFixture<HostComponent>;
   let host: HostComponent;
@@ -88,9 +97,11 @@ describe('Modal focus management', () => {
     hostFixture.detectChanges();
     await hostFixture.whenStable();
 
-    const buttons: HTMLButtonElement[] = hostFixture.nativeElement.querySelectorAll('button');
-    trigger = buttons[0];
-    decoy = buttons[buttons.length - 1];
+    const buttons: HTMLButtonElement[] = Array.from(
+      hostFixture.nativeElement.querySelectorAll('button'),
+    );
+    trigger = buttonAt(buttons, 0);
+    decoy = buttonAt(buttons, buttons.length - 1);
   });
 
   afterEach(() => {
@@ -123,8 +134,8 @@ describe('Modal focus management', () => {
   });
 
   it.each([
-    ['confirming', () => modalButtons()[2].click()],
-    ['cancelling', () => modalButtons()[1].click()],
+    ['confirming', () => buttonAt(modalButtons(), 2).click()],
+    ['cancelling', () => buttonAt(modalButtons(), 1).click()],
     ['pressing Escape', () => dispatchEscape()],
     [
       'clicking the overlay',

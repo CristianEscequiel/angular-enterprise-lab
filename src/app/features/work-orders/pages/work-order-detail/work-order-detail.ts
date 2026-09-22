@@ -2,8 +2,8 @@ import { Component, inject, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { WorkOrderLoader } from '../../data-access/work-order-loader';
-import { Alert } from '../../../../shared/components/alert/alert';
-import { Button } from '../../../../shared/components/button/button';
+import { Alert } from '@shared/components/alert/alert';
+import { Button } from '@shared/components/button/button';
 
 @Component({
   selector: 'app-work-order-detail',

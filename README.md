@@ -155,6 +155,8 @@ src/
 
 Se incorporan carpetas y abstracciones cuando existe una responsabilidad concreta que justifica su uso.
 
+Los imports entre capas usan los aliases `@core/*`, `@shared/*` y `@features/*` (definidos en `tsconfig.json`, sin `baseUrl`) en vez de rutas relativas de varios niveles; los imports dentro de una misma feature siguen siendo relativos.
+
 ### Órdenes de trabajo
 
 Las páginas coordinan la carga de datos, las acciones y la navegación. `WorkOrdersService` encapsula las peticiones HTTP. El componente `Form`, ubicado dentro de la feature, recibe datos iniciales y emite los valores del formulario hacia las páginas de creación o edición.
@@ -220,7 +222,7 @@ La operación de negocio permanece en la página que utiliza el componente. El m
 
 Los estilos se apoyan en variables SCSS, propiedades CSS, mixins y clases compartidas. `src/styles.scss` carga `src/styles/main.scss`, que reúne las capas del sistema visual.
 
-La accesibilidad completa del modal y la adaptación de las pantallas centrales a distintos tamaños siguen pendientes de validación y mejora.
+La auditoría de accesibilidad y responsive (`008b-accesibilidad-responsive`) cubrió landmarks, foco, `aria-invalid`/`aria-describedby` en formularios, contraste de color y el comportamiento del sidebar como drawer en mobile. El modal ya contaba con manejo de foco desde `005-foco-limpieza-modal`.
 
 ## Scripts y verificaciones
 
@@ -260,6 +262,8 @@ de las decisiones tomadas para cada feature.
 | Manejo de foco y limpieza del modal                     | [`005-foco-limpieza-modal`](.claude/specs/005-foco-limpieza-modal)                               | Implementado (8 tests nuevos, 84→92 en la suite)                                           |
 | Página 404 y validación de formato de id                | [`006-pagina-404`](.claude/specs/006-pagina-404)                                                 | Implementado (12 tests nuevos, 92→104 en la suite)                                         |
 | Cobertura de tests y verificaciones de formato          | [`007-cobertura-y-verificaciones`](.claude/specs/007-cobertura-y-verificaciones)                 | Implementado (sin tests nuevos — configura medición y verificación, no persigue un número) |
+| Tipado estricto y aliases de imports                    | [`008a-tipado-aliases`](.claude/specs/008a-tipado-aliases)                                       | Implementado (sin tests nuevos — tipado y refactor de imports, no persigue un número)      |
+| Accesibilidad y adaptación responsive                   | [`008b-accesibilidad-responsive`](.claude/specs/008b-accesibilidad-responsive)                   | Implementado (15 tests nuevos, 104→119 en la suite)                                        |
 
 ### Estado de las pruebas
 
@@ -298,6 +302,16 @@ Revisión del **7 de septiembre de 2026**, sobre el commit [`9729052`](https://g
 
 Estos resultados corresponden a esa revisión, no constituyen una garantía para cambios posteriores ni equivalen a una validación completa en navegador.
 
+Revisión del **22 de septiembre de 2026**, tras `008a-tipado-aliases` y `008b-accesibilidad-responsive` (sobre el working tree, previo al commit):
+
+- Build de producción: correcto, sin warnings.
+- ESLint: correcto (las 11 reglas de `templateAccessibility` siguen pasando; no cubren `aria-invalid`/`aria-describedby` ni contraste, verificados manualmente en 008b).
+- Tests: 119 correctos en 23 archivos (104 antes de 008a/008b).
+- Prettier: `pnpm exec prettier . --check` limpio.
+- `tsc --noEmit`: 0 errores con `strict`, `strictTemplates`, `noUncheckedIndexedAccess`, `noUnusedLocals`, `noUnusedParameters` y `exactOptionalPropertyTypes` activos.
+- Verificación manual en 375px y 768px: documentada en `.claude/specs/008b-accesibilidad-responsive/notes.md` (sin tooling de testing visual en el proyecto).
+- Mutation testing: 4 mutaciones deliberadas sobre a11y (aria-label por fila, aria-describedby del form, botón de submit deshabilitado, `role="alert"` condicional) confirmaron el fallo esperado en sus tests antes de revertirse.
+
 Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones`:
 
 - Build de producción: correcto, sin warnings.
@@ -320,7 +334,7 @@ Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones
 - [x] Completar el manejo de foco y limpieza del modal.
 - [x] Incorporar la página 404.
 - [ ] Completar pruebas de comportamiento (medición de cobertura y verificaciones de formato: listas, spec 007 — falta subir el número de cobertura feature por feature).
-- [ ] Revisar tipado estricto, aliases, accesibilidad y adaptación móvil.
+- [x] Revisar tipado estricto, aliases, accesibilidad y adaptación móvil.
 
 ### 2. Autenticación y evolución funcional
 

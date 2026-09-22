@@ -5,9 +5,9 @@ import { WorkOrderLoader } from '../../data-access/work-order-loader';
 import { WorkOrdersService } from '../../data-access/work-order.service';
 import { WorkOrder, WorkOrderCreateRequest } from '../../models/work-order.model';
 import { Form } from '../../components/form/form';
-import { MessageService } from '../../../../core/services/message.service';
-import { Alert } from '../../../../shared/components/alert/alert';
-import { Button } from '../../../../shared/components/button/button';
+import { MessageService } from '@core/services/message.service';
+import { Alert } from '@shared/components/alert/alert';
+import { Button } from '@shared/components/button/button';
 
 @Component({
   selector: 'app-work-order-edit',

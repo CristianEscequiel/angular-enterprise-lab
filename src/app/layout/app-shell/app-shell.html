@@ -1,10 +1,13 @@
-<app-header (viewSidebar)="openSidebar()"></app-header>
+<a class="skip-link" href="#main-content">Saltar al contenido principal</a>
+
+<app-header [sidebarOpen]="sidebarOpen()" (viewSidebar)="openSidebar()"></app-header>
 
 <div [class.sidebar-layout]="sidebarOpen()">
   @if (sidebarOpen()) {
+    <div class="sidebar-backdrop" role="presentation" (click)="closeSidebar()"></div>
     <app-sidebar (closed)="closeSidebar()" />
   }
-  <main class="container sidebar-layout__content">
+  <main id="main-content" class="container sidebar-layout__content">
     <router-outlet></router-outlet>
   </main>
 </div>

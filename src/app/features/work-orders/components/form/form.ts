@@ -1,7 +1,7 @@
 import { Component, inject, input, OnInit, output } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { WorkOrderPriority, WorkOrderCreateRequest } from '../../models/work-order.model';
-import { Button } from '../../../../shared/components/button/button';
+import { Button } from '@shared/components/button/button';
 
 @Component({
   selector: 'app-form',

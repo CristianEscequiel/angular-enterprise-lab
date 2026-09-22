@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { App } from './app';
+import { LoadingService } from './core/services/loading.service';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -45,12 +46,27 @@ describe('App', () => {
     });
   });
 
-  it('should render tittle in app shell', () => {
+  it('renders the app shell without a spurious title attribute', () => {
     const fixture = TestBed.createComponent(App);
     const compiled = fixture.nativeElement as HTMLElement;
 
-    const mainElement = compiled.querySelector('app-shell');
-    expect(mainElement).toBeTruthy();
-    expect(mainElement?.getAttribute('title')).toBe('shell for testing');
+    const shell = compiled.querySelector('app-shell');
+    expect(shell).toBeTruthy();
+    expect(shell?.hasAttribute('title')).toBe(false);
+  });
+
+  it('marks the app shell inert while a request is loading, to hide it from assistive tech behind the spinner overlay', () => {
+    expect.assertions(2);
+    const fixture = TestBed.createComponent(App);
+    const compiled = fixture.nativeElement as HTMLElement;
+    const loadingService = TestBed.inject(LoadingService);
+
+    fixture.detectChanges();
+    expect(compiled.querySelector('app-shell')?.hasAttribute('inert')).toBe(false);
+
+    loadingService.show();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('app-shell')?.hasAttribute('inert')).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-import { Component, output } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 
 @Component({
   selector: 'app-header',
@@ -7,6 +7,7 @@ import { Component, output } from '@angular/core';
   styleUrl: './header.scss',
 })
 export class Header {
+  sidebarOpen = input<boolean>(false);
   viewSidebar = output<void>();
 
   onViewClick(): void {

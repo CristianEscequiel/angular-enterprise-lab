@@ -71,6 +71,13 @@ describe('WorkOrderDetail', () => {
     expect(component.loadError()).toBeNull();
   });
 
+  it('exposes the work order title as a heading, not a loose paragraph', async () => {
+    await createComponent();
+
+    const heading: HTMLElement | null = fixture.nativeElement.querySelector('h2.card__header');
+    expect(heading?.textContent).toContain('Orden de prueba');
+  });
+
   it('renders the not-found error state and no card when the id does not exist', async () => {
     expect.assertions(3);
     workOrdersServiceMock.getById.mockReturnValue(
