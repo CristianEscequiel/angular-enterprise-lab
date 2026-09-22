@@ -1,10 +1,15 @@
-@if(loadingService.isLoading()) {
-<app-spinner size="lg" class="spinner-overlay" label="Cargando..." />
+@if (loadingService.isLoading()) {
+  <app-spinner size="lg" class="spinner-overlay" label="Cargando..." />
 }
 
 @if (message()) {
-<app-toast [open]="true" [variant]="message()!.variant" [title]="message()!.title" [message]="message()!.message"
-  (closed)="closeToast()" />
+  <app-toast
+    [open]="true"
+    [variant]="message()!.variant"
+    [title]="message()!.title"
+    [message]="message()!.message"
+    (closed)="closeToast()"
+  />
 }
 
 <app-shell title="shell for testing"></app-shell>

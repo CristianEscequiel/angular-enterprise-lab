@@ -2,7 +2,7 @@
 
 <div [class.sidebar-layout]="sidebarOpen()">
   @if (sidebarOpen()) {
-  <app-sidebar (closed)="closeSidebar()" />
+    <app-sidebar (closed)="closeSidebar()" />
   }
   <main class="container sidebar-layout__content">
     <router-outlet></router-outlet>

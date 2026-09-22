@@ -89,7 +89,9 @@ describe('WorkOrderCreate', () => {
     component.onSubmit(payload);
     fixture.detectChanges();
 
-    const buttons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('button'));
+    const buttons: HTMLButtonElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('button'),
+    );
     const submitButton = buttons.find((button) => button.textContent?.includes('Guardando'));
     expect(submitButton).toBeDefined();
     expect(submitButton?.disabled).toBe(true);

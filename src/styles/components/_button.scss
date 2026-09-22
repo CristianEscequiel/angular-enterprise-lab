@@ -61,7 +61,9 @@
   color: var(--color-text-muted);
 
   cursor: pointer;
-  transition: background-color .2s, color .2s;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
 
   &:hover {
     color: var(--color-error);
@@ -74,11 +76,11 @@
   }
 
   &:active {
-    transform: scale(.96);
+    transform: scale(0.96);
   }
 
   &:disabled {
-    opacity: .5;
+    opacity: 0.5;
     cursor: not-allowed;
   }
 }

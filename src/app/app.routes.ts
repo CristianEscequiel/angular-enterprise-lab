@@ -9,15 +9,14 @@ export const routes: Routes = [
   {
     path: 'dashboard',
     loadComponent: () =>
-      import('./features/dashboard/pages/dashboard-page/dashboard-page')
-        .then((m) => m.DashboardPage),
+      import('./features/dashboard/pages/dashboard-page/dashboard-page').then(
+        (m) => m.DashboardPage,
+      ),
   },
   {
     path: 'work-orders',
     loadChildren: () =>
-      import('./features/work-orders/work-orders.routes').then(
-        (m) => m.WORK_ORDERS_ROUTES
-      ),
+      import('./features/work-orders/work-orders.routes').then((m) => m.WORK_ORDERS_ROUTES),
   },
   {
     path: '**',

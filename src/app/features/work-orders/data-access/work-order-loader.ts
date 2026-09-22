@@ -1,7 +1,11 @@
 import { Injectable, inject, signal } from '@angular/core';
 
 import { WorkOrder } from '../models/work-order.model';
-import { WorkOrderLoadError, WorkOrderLoadErrorKind, WorkOrdersService } from './work-order.service';
+import {
+  WorkOrderLoadError,
+  WorkOrderLoadErrorKind,
+  WorkOrdersService,
+} from './work-order.service';
 
 /**
  * Carga una orden de trabajo por id y expone su estado (dato / error) como

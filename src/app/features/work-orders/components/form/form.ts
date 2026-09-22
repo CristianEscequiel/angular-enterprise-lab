@@ -57,5 +57,4 @@ export class Form implements OnInit {
     }
     this.sendData.emit(this.workOrderForm.getRawValue());
   }
-
 }

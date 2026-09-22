@@ -31,7 +31,7 @@
 
   box-shadow: a.$shadow-lg;
 
-  animation: toast-slide-in .25s ease;
+  animation: toast-slide-in 0.25s ease;
 }
 
 .toast__content {
@@ -56,20 +56,20 @@
 .toast__body {
   display: flex;
   flex-direction: column;
-  gap: .25rem;
+  gap: 0.25rem;
 }
 
 .toast__title {
   margin: 0;
 
-  font-size: .95rem;
+  font-size: 0.95rem;
   font-weight: 600;
 }
 
 .toast__message {
   margin: 0;
 
-  font-size: .875rem;
+  font-size: 0.875rem;
   color: var(--color-text-secondary);
 }
 

@@ -1,11 +1,13 @@
 # Notas 005: ejecución
 
 ## Resultado
+
 - Baseline: 21 archivos / 84 tests en verde (heredado de spec 004).
 - Final: 21 archivos / 92 tests en verde (+8: 7 en `modal.spec.ts`,
   1 en `work-orders-list.spec.ts`).
 
 ## Diagnóstico confirmado
+
 - Foco al abrir y cierre con Escape ya estaban implementados
   (`openModal()` enfocaba el botón `×`; `onEscapeKey()` ya llamaba a
   `cancel()`) — solo faltaban tests.
@@ -18,6 +20,7 @@
   inicial (`'1'` → `''`).
 
 ## Cambios de producción
+
 1. `modal.ts`: `@ViewChild('modalRoot')` sobre la `<section class="modal">`;
    `onTabKey()` (`@HostListener('document:keydown')`) cicla el foco entre
    los elementos focuseables del modal en los límites (Shift+Tab desde el
@@ -32,6 +35,7 @@
 4. `work-orders-list.ts`: `workOrderDeleted` inicial `'1'` → `''`.
 
 ## Hallazgo técnico durante los tests: la app es zoneless
+
 No hay `zone.js` en `package.json` ni configuración de polyfills — el
 proyecto usa change detection zoneless. Esto significa que
 `fixture.whenStable()` **no espera** un `setTimeout` real programado
@@ -44,17 +48,19 @@ es un bug de producción — es una particularidad del entorno de test que
 había que tener en cuenta.
 
 ## Verificación por mutación (tarea 6)
+
 Mutaciones temporales, confirmadas y revertidas (`git diff` limpio tras
 revertir).
 
-| Mutación | Archivo | Tests que fallaron |
-|---|---|---|
-| Vaciar el cuerpo de `onTabKey` (siempre `return`) | `modal.ts` | `cycles focus between the modal own elements...` |
-| Vaciar `restoreFocus()` | `modal.ts` | Los 4 casos de `restores focus to the triggering element after %s` |
-| Quitar el decorador `@HostListener('document:keydown.escape')` de `onEscapeKey` | `modal.ts` | `restores focus to the triggering element after pressing Escape`, `closes the modal when Escape is pressed` |
-| Quitar `this.workOrderDeleted.set(id)` de `openDeleteModal` | `work-orders-list.ts` | `does not carry over the previous order id when the delete modal is reopened for a different order` |
+| Mutación                                                                        | Archivo               | Tests que fallaron                                                                                          |
+| ------------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Vaciar el cuerpo de `onTabKey` (siempre `return`)                               | `modal.ts`            | `cycles focus between the modal own elements...`                                                            |
+| Vaciar `restoreFocus()`                                                         | `modal.ts`            | Los 4 casos de `restores focus to the triggering element after %s`                                          |
+| Quitar el decorador `@HostListener('document:keydown.escape')` de `onEscapeKey` | `modal.ts`            | `restores focus to the triggering element after pressing Escape`, `closes the modal when Escape is pressed` |
+| Quitar `this.workOrderDeleted.set(id)` de `openDeleteModal`                     | `work-orders-list.ts` | `does not carry over the previous order id when the delete modal is reopened for a different order`         |
 
 ## Verificación adicional
+
 - `pnpm lint`: sin errores.
 - `pnpm build`: build de producción correcto.
 - No hay test automatizado para el estilo visual de `.modal__close`
@@ -62,6 +68,7 @@ revertir).
   verificación E2E manual.
 
 ## Pendiente
+
 - Tarea del README (agregar spec 005 y tildar el checkbox del roadmap):
   no incluida en el plan como tarea obligatoria; se ofrece al usuario
   igual que en specs 002-004.

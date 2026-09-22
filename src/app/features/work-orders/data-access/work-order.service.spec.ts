@@ -92,19 +92,16 @@ describe('WorkOrdersService', () => {
     expect(error?.kind).toBe('not-found');
   });
 
-  it.each([0, 500, 503])(
-    'getById maps a %i response to a connection load error',
-    (status) => {
-      vi.spyOn(console, 'error').mockImplementation(() => undefined);
-      let error: WorkOrderLoadError | undefined;
-      service.getById('7').subscribe({ error: (err) => (error = err) });
+  it.each([0, 500, 503])('getById maps a %i response to a connection load error', (status) => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    let error: WorkOrderLoadError | undefined;
+    service.getById('7').subscribe({ error: (err) => (error = err) });
 
-      httpMock.expectOne(`${apiUrl}/7`).flush('boom', { status, statusText: 'Error' });
+    httpMock.expectOne(`${apiUrl}/7`).flush('boom', { status, statusText: 'Error' });
 
-      expect(error).toBeInstanceOf(WorkOrderLoadError);
-      expect(error?.kind).toBe('connection');
-    },
-  );
+    expect(error).toBeInstanceOf(WorkOrderLoadError);
+    expect(error?.kind).toBe('connection');
+  });
 
   it('delete issues DELETE /work-orders/:id', () => {
     let completed = false;

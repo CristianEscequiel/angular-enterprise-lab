@@ -17,17 +17,18 @@ Leídos `form.ts/.html/.spec.ts`, `button.ts/.html`, `work-order-create.ts/.html
 `work-order-edit.ts/.html/.spec.ts` (post spec 003), `loading.service.ts`
 y `loading.interceptor.ts`, el diagnóstico es:
 
-| Requisito del spec | Estado en el código |
-|---|---|
-| Submit bloqueado si el form es inválido | **No implementado de verdad** — solo el botón se deshabilita visualmente; `onSubmit()` no valida nada |
+| Requisito del spec                                 | Estado en el código                                                                                                |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Submit bloqueado si el form es inválido            | **No implementado de verdad** — solo el botón se deshabilita visualmente; `onSubmit()` no valida nada              |
 | Sin doble-envío mientras hay una petición en curso | No existe ningún estado de "enviando" en ninguna página (`work-order-create.ts`/`work-order-edit.ts`) ni en `Form` |
-| Estado de "enviando" visible | No existe |
-| Recuperación tras error (vuelve a habilitarse) | No aplica — como no hay bloqueo, tampoco hay nada que liberar |
+| Estado de "enviando" visible                       | No existe                                                                                                          |
+| Recuperación tras error (vuelve a habilitarse)     | No aplica — como no hay bloqueo, tampoco hay nada que liberar                                                      |
 
 **Decisión de diseño (pedida explícitamente por el spec — "Nota para plan mode"):**
 `LoadingService` global **no alcanza** y no conviene reutilizarlo tal
 cual para esto:
-1. Es un contador compartido por *toda* la app (`activeRequests` en
+
+1. Es un contador compartido por _toda_ la app (`activeRequests` en
    `loading.service.ts`), alimentado por `loadingInterceptor` en cada
    request HTTP — búsquedas, deletes, y también el propio `getById` que
    `WorkOrderLoader` dispara en `WorkOrderEdit.ngOnInit()` (spec 003).
@@ -48,14 +49,14 @@ en paralelo sin tocarse.
 
 **Segunda decisión, no pedida explícitamente pero necesaria para que el
 criterio 2 sea una garantía dura y no solo una mejora visual:** el
-guardia real contra doble-envío no puede vivir *solo* dentro de `Form`.
+guardia real contra doble-envío no puede vivir _solo_ dentro de `Form`.
 Un `input()` de señal en un hijo (`submitting`) solo se actualiza en el
 próximo ciclo de detección de cambios de Angular — no es instantáneo
 apenas la página setea su propio signal. Si dos submits ocurren sin que
 medie un ciclo de CD (doble-click muy rápido, o un test que llama al
 handler dos veces sin `detectChanges()` intermedio, que es justamente
 como se va a testear el criterio 2), el input `submitting` en `Form`
-puede seguir en `false` para ambos intentos. Por eso el guardia *duro*
+puede seguir en `false` para ambos intentos. Por eso el guardia _duro_
 (`if (this.isSubmitting()) return;`) vive en la página, que es quien
 conoce el estado real de la petición HTTP; el `input()` en `Form` es la
 capa de UX (deshabilita el botón, cambia el texto) — defensa en
@@ -66,6 +67,7 @@ estado, los componentes lo reciben.
 ## Tareas
 
 ### 1. `Form`: guardia real de invalidez + input `submitting` + reflejo visual
+
 - **Archivos:** `src/app/features/work-orders/components/form/form.ts`, `form.html`
 - **Cambio en `.ts`:** agregar `submitting = input<boolean>(false);`.
   `onSubmit()` pasa de emitir siempre a:
@@ -90,6 +92,7 @@ estado, los componentes lo reciben.
   - `re-enables the button once submitting() goes back to false` — mismo setup, `setInput('submitting', false)`, assert botón habilitado de nuevo.
 
 ### 2. `WorkOrderCreate`: signal `isSubmitting`, guardia duro, `finalize`, wiring
+
 - **Archivos:** `work-order-create.ts`, `work-order-create.html`
 - **Cambio:**
   ```ts
@@ -118,6 +121,7 @@ estado, los componentes lo reciben.
   - `reflects the pending state on the nested form's submit button` — con el `Subject` pendiente, tras `onSubmit` + `detectChanges()`, assert que el `<button>` renderizado por `app-form` está deshabilitado.
 
 ### 3. `WorkOrderEdit`: mismo patrón, sin tocar `hasChanges`/`!current`
+
 - **Archivos:** `work-order-edit.ts`, `work-order-edit.html`
 - **Cambio:** `readonly isSubmitting = signal(false);`. En `onSubmitEdit`,
   el guardia `if (this.isSubmitting()) return;` va como primera línea
@@ -133,8 +137,10 @@ estado, los componentes lo reciben.
   - No se agrega test para el camino `!hasChanges` (fuera de alcance, no lo toca este cambio); se verifica en la tarea 4 que el guardia no interfiere ahí (el `return` de "sin cambios" ocurre antes de tocar `isSubmitting`).
 
 ### 4. Verificación por mutación
+
 Con las tareas 1-3 ya implementadas (código final; se revierte solo el
 punto mutado, no todo el archivo):
+
 - `Form`: comentar `|| this.workOrderForm.invalid` en el guardia → debe
   fallar `blocks emission and disables the submit button when required fields are empty`.
 - `Form`: comentar `this.submitting() ||` en el mismo guardia → debe
@@ -146,11 +152,13 @@ punto mutado, no todo el archivo):
 - Resultado anotado en `notes.md`, mismo formato que 001-003.
 
 ### 5 (opcional, requiere confirmación). Actualizar README
+
 - Tabla de specs y checkbox `- [ ] Proteger formularios inválidos y
-  operaciones en curso.` del roadmap — tildar solo si las tareas 1-4
+operaciones en curso.` del roadmap — tildar solo si las tareas 1-4
   quedan en verde.
 
 ## Fuera de alcance (según el spec)
+
 Reglas de validación de campos nuevas; estados de error de carga inicial
 (spec 003, `WorkOrderLoader` queda intacto); confirmación previa al envío
 (patrón `Modal`). Tampoco se toca: el input `mode="edit"` sin efecto real

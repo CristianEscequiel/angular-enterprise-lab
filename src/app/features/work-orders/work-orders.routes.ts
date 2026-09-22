@@ -14,11 +14,7 @@ export const matchWorkOrderId: UrlMatcher = (segments) => {
 };
 
 export const matchWorkOrderIdEdit: UrlMatcher = (segments) => {
-  if (
-    segments.length !== 2 ||
-    segments[1].path !== 'edit' ||
-    !ID_PATTERN.test(segments[0].path)
-  ) {
+  if (segments.length !== 2 || segments[1].path !== 'edit' || !ID_PATTERN.test(segments[0].path)) {
     return null;
   }
   return { consumed: segments, posParams: { id: segments[0] } };
@@ -28,29 +24,21 @@ export const WORK_ORDERS_ROUTES: Routes = [
   {
     path: '',
     loadComponent: () =>
-      import('./pages/work-orders-list/work-orders-list').then(
-        (m) => m.WorkOrdersList
-      ),
+      import('./pages/work-orders-list/work-orders-list').then((m) => m.WorkOrdersList),
   },
   {
     path: 'new',
     loadComponent: () =>
-      import('./pages/work-order-create/work-order-create').then(
-        (m) => m.WorkOrderCreate
-      ),
+      import('./pages/work-order-create/work-order-create').then((m) => m.WorkOrderCreate),
   },
   {
     matcher: matchWorkOrderIdEdit,
     loadComponent: () =>
-      import('./pages/work-order-edit/work-order-edit').then(
-        (m) => m.WorkOrderEdit
-      ),
+      import('./pages/work-order-edit/work-order-edit').then((m) => m.WorkOrderEdit),
   },
   {
     matcher: matchWorkOrderId,
     loadComponent: () =>
-      import('./pages/work-order-detail/work-order-detail').then(
-        (m) => m.WorkOrderDetail
-      ),
+      import('./pages/work-order-detail/work-order-detail').then((m) => m.WorkOrderDetail),
   },
 ];

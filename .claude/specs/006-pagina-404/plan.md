@@ -7,12 +7,12 @@ Spec: `.claude/specs/006-pagina-404/spec.md`
 Leídos `app.routes.ts`, `work-orders.routes.ts`, `pages/not-found/` y
 `db.json`, el diagnóstico frente a los 4 requisitos del spec es:
 
-| Requisito del spec | Estado en el código |
-|---|---|
-| Ruta wildcard captura cualquier path no definido | **Ya implementado** — `app.routes.ts:22-26`, `{ path: '**', loadComponent: () => NotFound }`, última entrada del array raíz. Ya cubre rutas raíz inexistentes y cualquier ruta dentro de `/work-orders/...` que no matchee ningún hijo (el router de Angular hace backtracking global), pero **sin test** que lo confirme |
-| Componente 404 con mensaje claro y link de vuelta | **Ya implementado** — `not-found.html`: "404" + "Página no encontrada" + `<a routerLink="/">` (que redirige a `/dashboard` vía `app.routes.ts:5-8`). Solo tiene un smoke test (`should create`) |
-| Funciona para rutas raíz inexistentes | Cubierto por el wildcard, sin test dedicado |
-| Funciona para ids con formato inválido dentro de `/work-orders` | **No cubierto** — `work-orders.routes.ts:26` usa `path: ':id'`, que matchea *cualquier* string de un solo segmento sin restricción de formato. Un id no numérico (`/work-orders/abc`) carga igual `WorkOrderDetail`, que pide el recurso por HTTP, recibe 404 del backend y muestra el estado "Orden no encontrada" de **spec 003** — nunca llega al wildcard `**` |
+| Requisito del spec                                              | Estado en el código                                                                                                                                                                                                                                                                                                                                                |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Ruta wildcard captura cualquier path no definido                | **Ya implementado** — `app.routes.ts:22-26`, `{ path: '**', loadComponent: () => NotFound }`, última entrada del array raíz. Ya cubre rutas raíz inexistentes y cualquier ruta dentro de `/work-orders/...` que no matchee ningún hijo (el router de Angular hace backtracking global), pero **sin test** que lo confirme                                          |
+| Componente 404 con mensaje claro y link de vuelta               | **Ya implementado** — `not-found.html`: "404" + "Página no encontrada" + `<a routerLink="/">` (que redirige a `/dashboard` vía `app.routes.ts:5-8`). Solo tiene un smoke test (`should create`)                                                                                                                                                                    |
+| Funciona para rutas raíz inexistentes                           | Cubierto por el wildcard, sin test dedicado                                                                                                                                                                                                                                                                                                                        |
+| Funciona para ids con formato inválido dentro de `/work-orders` | **No cubierto** — `work-orders.routes.ts:26` usa `path: ':id'`, que matchea _cualquier_ string de un solo segmento sin restricción de formato. Un id no numérico (`/work-orders/abc`) carga igual `WorkOrderDetail`, que pide el recurso por HTTP, recibe 404 del backend y muestra el estado "Orden no encontrada" de **spec 003** — nunca llega al wildcard `**` |
 
 **Formato de id asumido:** según `db.json` (ids `"1"`, `"2"`, `"3"`...,
 generados por json-server), se valida como string numérico (`^\d+$`).
@@ -37,6 +37,7 @@ No se cambia el destino, solo se agrega el test que lo confirma.
 ## Tareas
 
 ### 1. `work-orders.routes.ts`: `UrlMatcher` de formato para `:id` y `:id/edit`
+
 - **Archivo:** `src/app/features/work-orders/work-orders.routes.ts`
 - **Cambio:** agregar y exportar (para poder testearlas aisladas):
   ```ts
@@ -74,6 +75,7 @@ No se cambia el destino, solo se agrega el test que lo confirma.
   - `matchWorkOrderIdEdit matches <numeric>/edit` / `rejects a non-numeric id` / `rejects a suffix other than "edit"` / `rejects a single segment`.
 
 ### 2. Test de integración de routing (archivo nuevo)
+
 - **Archivo nuevo:** `src/app/app.routes.spec.ts`
 - **Por qué:** las tareas de arriba prueban el matcher aislado, pero el
   criterio de aceptación pide algo más fuerte: que navegar de verdad a
@@ -93,7 +95,9 @@ No se cambia el destino, solo se agrega el test que lo confirma.
   - `navigates back to /dashboard from the 404 page's link` — navegar a `/no-existe`, click en el `<a>` dentro de `routeNativeElement`, assert `harness.routeNativeElement` ya no muestra "Página no encontrada" y `router.url === '/dashboard'`.
 
 ### 3. Verificación por mutación
+
 Con las tareas 1-2 ya implementadas (código final; se revierte solo el punto mutado):
+
 - Relajar `ID_PATTERN` a `/./` (matchea cualquier cosa) en ambos matchers
   → debe fallar `renders NotFound for a work order id with an invalid format…` y los tests unitarios de rechazo de la tarea 1.
 - Endurecer de más (ej. `/^\d{2,}$/`, exige 2+ dígitos) → debe fallar
@@ -106,6 +110,7 @@ Con las tareas 1-2 ya implementadas (código final; se revierte solo el punto mu
 - Resultado anotado en `notes.md`, mismo formato que specs 001-005.
 
 ## Fuera de alcance (según el spec)
+
 Orden con id de formato válido que no existe en el backend (spec 003, no
 se toca `WorkOrderDetail`/`WorkOrderEdit`/`WorkOrderLoader`); diseño o
 contenido visual de `NotFound`; logging/analytics de 404s; rutas de

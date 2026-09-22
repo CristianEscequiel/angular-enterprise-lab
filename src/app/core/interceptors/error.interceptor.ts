@@ -1,8 +1,5 @@
 import { inject } from '@angular/core';
-import {
-  HttpErrorResponse,
-  HttpInterceptorFn,
-} from '@angular/common/http';
+import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { catchError, throwError } from 'rxjs';
 
 import { MessageService } from '../services/message.service';
@@ -29,13 +26,13 @@ export const errorInterceptor: HttpInterceptorFn = (request, next) => {
       messageService.showError('Ocurrió un error inesperado.');
 
       return throwError(() => error);
-    })
+    }),
   );
 };
 
 function mapHttpError(error: HttpErrorResponse): AppHttpError {
   let message = getBackendMessage(error);
-  console.log(error, 'mensaje', message)
+  console.log(error, 'mensaje', message);
   if (!message) {
     if (error.status === 0) {
       message = 'No se pudo conectar con el servidor.';
@@ -63,7 +60,7 @@ function mapHttpError(error: HttpErrorResponse): AppHttpError {
 
 function getBackendMessage(error: HttpErrorResponse): string | null {
   const backendError = error.error;
-  console.log(backendError)
+  console.log(backendError);
   if (
     backendError &&
     typeof backendError === 'object' &&

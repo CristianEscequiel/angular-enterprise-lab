@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { AppShell } from './layout/app-shell/app-shell';
 import { MessageService } from './core/services/message.service';
-import { Toast } from "./shared/components/toast/toast";
+import { Toast } from './shared/components/toast/toast';
 import { LoadingService } from './core/services/loading.service';
 import { Spinner } from './shared/components/spinner/spinner';
 
@@ -9,7 +9,7 @@ import { Spinner } from './shared/components/spinner/spinner';
   selector: 'app-root',
   imports: [AppShell, Toast, Spinner],
   templateUrl: './app.html',
-  styleUrl: './app.scss'
+  styleUrl: './app.scss',
 })
 export class App {
   protected readonly title = signal('angular-enterprise-lab');
@@ -19,5 +19,4 @@ export class App {
   closeToast() {
     this.messageService.clear();
   }
-
 }

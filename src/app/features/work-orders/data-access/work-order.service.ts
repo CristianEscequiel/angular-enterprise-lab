@@ -1,4 +1,3 @@
-
 import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { catchError, Observable, throwError } from 'rxjs';
@@ -44,13 +43,15 @@ export class WorkOrdersService {
 
         const status = (error as { status?: number } | null)?.status;
         if (status === 404) {
-          return throwError(() =>
-            new WorkOrderLoadError('not-found', 'La orden de trabajo no existe.'));
+          return throwError(
+            () => new WorkOrderLoadError('not-found', 'La orden de trabajo no existe.'),
+          );
         }
 
-        return throwError(() =>
-          new WorkOrderLoadError('connection', 'No se pudo conectar con el servidor.'));
-      })
+        return throwError(
+          () => new WorkOrderLoadError('connection', 'No se pudo conectar con el servidor.'),
+        );
+      }),
     );
   }
 
@@ -70,20 +71,25 @@ export class WorkOrdersService {
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
-  searchByName(title: string, page: string, per_page: string): Observable<PaginatedResponse<WorkOrder>> {
-    return this.http.get<PaginatedResponse<WorkOrder>>(this.apiUrl, {
-      params: {
-        _page: page,
-        _per_page: per_page,
-        'title:contains': title
-      }
-    }).pipe(
-      catchError((error: HttpErrorResponse) => {
-        console.error('Error buscando ordenes:', error);
-
-        return throwError(() =>
-          new Error('No se pudieron buscar las órdenes de trabajo'));
+  searchByName(
+    title: string,
+    page: string,
+    per_page: string,
+  ): Observable<PaginatedResponse<WorkOrder>> {
+    return this.http
+      .get<PaginatedResponse<WorkOrder>>(this.apiUrl, {
+        params: {
+          _page: page,
+          _per_page: per_page,
+          'title:contains': title,
+        },
       })
-    );
+      .pipe(
+        catchError((error: HttpErrorResponse) => {
+          console.error('Error buscando ordenes:', error);
+
+          return throwError(() => new Error('No se pudieron buscar las órdenes de trabajo'));
+        }),
+      );
   }
 }

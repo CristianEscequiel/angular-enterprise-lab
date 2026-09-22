@@ -66,7 +66,11 @@ describe('Modal focus management', () => {
 
   function dispatchTab(options: { shiftKey?: boolean } = {}): void {
     document.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Tab', shiftKey: options.shiftKey ?? false, bubbles: true }),
+      new KeyboardEvent('keydown', {
+        key: 'Tab',
+        shiftKey: options.shiftKey ?? false,
+        bubbles: true,
+      }),
     );
   }
 
@@ -122,7 +126,10 @@ describe('Modal focus management', () => {
     ['confirming', () => modalButtons()[2].click()],
     ['cancelling', () => modalButtons()[1].click()],
     ['pressing Escape', () => dispatchEscape()],
-    ['clicking the overlay', () => hostFixture.nativeElement.querySelector('.modal-overlay').click()],
+    [
+      'clicking the overlay',
+      () => hostFixture.nativeElement.querySelector('.modal-overlay').click(),
+    ],
   ])('restores focus to the triggering element after %s', async (_label, action) => {
     expect.assertions(1);
     await openModal();

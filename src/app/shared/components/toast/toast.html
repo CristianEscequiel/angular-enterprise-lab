@@ -1,22 +1,32 @@
 @if (open()) {
-<div class="toast-container">
-  <div class="toast" [attr.role]="variant() === 'error' ? 'alert' : 'status'"
-    [attr.aria-live]="variant() === 'error' ? 'assertive' : 'polite'" [class.toast--success]="variant() === 'success'"
-    [class.toast--error]="variant() === 'error'" [class.toast--warning]="variant() === 'warning'">
-    <div class="toast__content">
-      <span class="toast__icon" aria-hidden="true">
-        {{ icon() }}
-      </span>
+  <div class="toast-container">
+    <div
+      class="toast"
+      [attr.role]="variant() === 'error' ? 'alert' : 'status'"
+      [attr.aria-live]="variant() === 'error' ? 'assertive' : 'polite'"
+      [class.toast--success]="variant() === 'success'"
+      [class.toast--error]="variant() === 'error'"
+      [class.toast--warning]="variant() === 'warning'"
+    >
+      <div class="toast__content">
+        <span class="toast__icon" aria-hidden="true">
+          {{ icon() }}
+        </span>
 
-      <div class="toast__body">
-        <h4 class="toast__title">{{ title() }}</h4>
-        <p class="toast__message">{{ message() }}</p>
+        <div class="toast__body">
+          <h4 class="toast__title">{{ title() }}</h4>
+          <p class="toast__message">{{ message() }}</p>
+        </div>
       </div>
-    </div>
 
-    <button class="btn--close toast__close" type="button" aria-label="Cerrar notificación" (click)="close()">
-      ✕
-    </button>
+      <button
+        class="btn--close toast__close"
+        type="button"
+        aria-label="Cerrar notificación"
+        (click)="close()"
+      >
+        ✕
+      </button>
+    </div>
   </div>
-</div>
 }

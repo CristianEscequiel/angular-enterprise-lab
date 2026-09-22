@@ -10,7 +10,7 @@ describe('NotFound', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [NotFound],
-      providers: [provideRouter([])]
+      providers: [provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(NotFound);

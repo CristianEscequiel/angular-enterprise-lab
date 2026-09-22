@@ -1,12 +1,11 @@
-import {
-  HttpErrorResponse,
-  HttpInterceptorFn,
-  HttpResponse,
-} from '@angular/common/http';
+import { HttpErrorResponse, HttpInterceptorFn, HttpResponse } from '@angular/common/http';
 import { delay, of, throwError } from 'rxjs';
 
-import { WORK_ORDERS_MOCK } from '../../features/work-orders/data-access/work-order.mock'
-import { WorkOrder, WorkOrderCreateRequest } from '../../features/work-orders/models/work-order.model';
+import { WORK_ORDERS_MOCK } from '../../features/work-orders/data-access/work-order.mock';
+import {
+  WorkOrder,
+  WorkOrderCreateRequest,
+} from '../../features/work-orders/models/work-order.model';
 
 const API_DELAY = 800;
 

@@ -20,10 +20,11 @@ el estado "Orden no encontrada" de spec `003-estados-error-detalle-edicion`
 — **no** la página 404 de routing.
 
 Esto mezcla dos conceptos distintos que deberían distinguirse:
+
 - Id con **formato inválido** (no es un identificador que la app podría
-  reconocer) → es un problema de *ruta*, debería ser la 404 de routing.
+  reconocer) → es un problema de _ruta_, debería ser la 404 de routing.
 - Id con **formato válido que no existe** en el backend → es un problema
-  de *datos*, ya cubierto por el estado de error de spec 003.
+  de _datos_, ya cubierto por el estado de error de spec 003.
 
 ## Requisitos
 
@@ -36,8 +37,7 @@ Esto mezcla dos conceptos distintos que deberían distinguirse:
   matchee el formato esperado debe caer en la página 404 de routing, no
   en `WorkOrderDetail`.
 - Un id con formato válido pero que no existe en el backend debe seguir
-  yendo a `WorkOrderDetail` y mostrando su propio estado de error (spec
-  003) — este spec no debe romper ese flujo.
+  yendo a `WorkOrderDetail` y mostrando su propio estado de error (spec 003) — este spec no debe romper ese flujo.
 
 ## Nota para plan mode
 

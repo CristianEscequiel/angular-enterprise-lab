@@ -19,9 +19,9 @@ import { Button } from '../../../../shared/components/button/button';
 export class WorkOrderEdit implements OnInit {
   private readonly loader = inject(WorkOrderLoader);
   private readonly activatedRoute = inject(ActivatedRoute);
-  private readonly router = inject(Router)
+  private readonly router = inject(Router);
   private readonly workOrdersService = inject(WorkOrdersService);
-  private readonly messageService = inject(MessageService)
+  private readonly messageService = inject(MessageService);
 
   readonly workOrder = this.loader.workOrder;
   readonly loadError = this.loader.error;
@@ -59,7 +59,7 @@ export class WorkOrderEdit implements OnInit {
 
     const updatedWorkOrder: WorkOrder = {
       ...current,
-      ...workOrderData
+      ...workOrderData,
     };
 
     this.isSubmitting.set(true);
@@ -69,17 +69,13 @@ export class WorkOrderEdit implements OnInit {
       .subscribe({
         next: (updated) => {
           this.workOrder.set(updated);
-          this.messageService.showSuccess(
-            'Orden de trabajo actualizada correctamente'
-          );
+          this.messageService.showSuccess('Orden de trabajo actualizada correctamente');
           this.navigateToWorkOrdersList();
         },
         error: (error) => {
-          this.messageService.showError(
-            'Error actualizando la orden de trabajo'
-          );
+          this.messageService.showError('Error actualizando la orden de trabajo');
           console.error('Error updating work order:', error);
-        }
+        },
       });
   }
   navigateToWorkOrdersList(): void {

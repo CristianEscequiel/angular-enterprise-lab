@@ -12,12 +12,12 @@ Leídos `work-order.service.ts`, `work-order-detail.ts/.html`,
 `work-order-edit.ts/.html`, sus specs, `error.interceptor.ts` y
 `alert.ts/.html`, el estado real es:
 
-| Requisito del spec | Estado en el código |
-|---|---|
-| `WorkOrdersService` distingue 404 vs conexión al pedir por id | **No existe.** `getById` (`work-order.service.ts:28-37`) tiene un único `catchError` que ignora el status y siempre lanza `new Error('No existe la orden de trabajo!')`, sea 404, 500 o error de red |
-| Detalle muestra un estado de error persistente | **No existe — es peor que "solo el toast":** `work-order-detail.ts:22-27` hace `error: () => this.router.navigate(['/work-orders'])`. Ante *cualquier* fallo, la página redirige silenciosamente a la lista. Nunca se llega a ver un estado de error ni un formulario con datos undefined, porque no hay chance de quedarse en la pantalla |
-| Edición se comporta igual que detalle ante error de carga | Confirmado: `work-order-edit.ts:23-29` tiene el mismo patrón `error: () => this.router.navigate(['/work-orders'])`, casi carácter por carácter idéntico a detalle |
-| Botón "Reintentar" | No existe en ninguna de las dos páginas. (Sí existe el patrón `app-alert` + botón "Reintentar" en `work-orders-list.html:11-16`, que sirve de referencia de UI a reutilizar) |
+| Requisito del spec                                            | Estado en el código                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `WorkOrdersService` distingue 404 vs conexión al pedir por id | **No existe.** `getById` (`work-order.service.ts:28-37`) tiene un único `catchError` que ignora el status y siempre lanza `new Error('No existe la orden de trabajo!')`, sea 404, 500 o error de red                                                                                                                                       |
+| Detalle muestra un estado de error persistente                | **No existe — es peor que "solo el toast":** `work-order-detail.ts:22-27` hace `error: () => this.router.navigate(['/work-orders'])`. Ante _cualquier_ fallo, la página redirige silenciosamente a la lista. Nunca se llega a ver un estado de error ni un formulario con datos undefined, porque no hay chance de quedarse en la pantalla |
+| Edición se comporta igual que detalle ante error de carga     | Confirmado: `work-order-edit.ts:23-29` tiene el mismo patrón `error: () => this.router.navigate(['/work-orders'])`, casi carácter por carácter idéntico a detalle                                                                                                                                                                          |
+| Botón "Reintentar"                                            | No existe en ninguna de las dos páginas. (Sí existe el patrón `app-alert` + botón "Reintentar" en `work-orders-list.html:11-16`, que sirve de referencia de UI a reutilizar)                                                                                                                                                               |
 
 Hallazgo adicional: `work-order-detail.ts:30-39` tiene un método
 `getWorkOrderDetail(id)` muerto (no lo llama nada, ni la clase ni el
@@ -35,12 +35,13 @@ cada `@Component` — una instancia nueva por página). Esto no viola la
 regla de CLAUDE.md de "lógica de negocio en las páginas, no en
 componentes compartidos": esa regla apunta a los átomos de UI de
 `shared/` (Button, Alert, Modal...), que deben seguir siendo tontos. Acá
-es lógica de *feature* (data-access), no un componente de UI, y evita
+es lógica de _feature_ (data-access), no un componente de UI, y evita
 duplicar carga+estado+reintento en dos páginas que ya tienen la lógica de
 negocio distinta donde sí importa (el `<app-form>` vs la tarjeta de solo
 lectura, `onSubmitEdit`, etc. — eso se queda en cada página).
 
 `WorkOrderLoader` expone:
+
 - `workOrder = signal<WorkOrder | null>(null)`
 - `error = signal<'not-found' | 'connection' | null>(null)`
 - `load(id: string)`: guarda el id, llama a `getById`, setea uno de los
@@ -50,6 +51,7 @@ lectura, `onSubmitEdit`, etc. — eso se queda en cada página).
 ## Tareas
 
 ### 1. `WorkOrdersService.getById` distingue 404 vs conexión
+
 - **Archivo:** `src/app/features/work-orders/data-access/work-order.service.ts`
 - **Cambio:** agregar `export type WorkOrderLoadErrorKind = 'not-found' | 'connection'` y
   `export class WorkOrderLoadError extends Error { constructor(readonly kind: WorkOrderLoadErrorKind, message: string) { super(message); this.name = 'WorkOrderLoadError'; } }`.
@@ -66,6 +68,7 @@ lectura, `onSubmitEdit`, etc. — eso se queda en cada página).
   - `getById maps a network or server failure to a connection load error` — casos `{status: 0}` y `{status: 500}` con `it.each`, `expect(error?.kind).toBe('connection')`.
 
 ### 2. Extraer `WorkOrderLoader`
+
 - **Archivo nuevo:** `src/app/features/work-orders/data-access/work-order-loader.ts`
 - **Cambio:** clase `@Injectable()` (sin `providedIn`) con `workOrder`,
   `error`, `load(id)`, `retry()` como se describe en Contexto. Al
@@ -79,6 +82,7 @@ lectura, `onSubmitEdit`, etc. — eso se queda en cada página).
   - `retry re-issues the request for the last id passed to load`
 
 ### 3. `WorkOrderDetail`: estado de error persistente + reintento
+
 - **Archivos:** `work-order-detail.ts`, `work-order-detail.html`
 - **Cambio en `.ts`:** inyectar `WorkOrderLoader` vía `providers: [WorkOrderLoader]`
   en el `@Component`. `ngOnInit` guarda el `id` y llama a
@@ -96,6 +100,7 @@ lectura, `onSubmitEdit`, etc. — eso se queda en cada página).
   - `renders the work order normally on success` (fortalece el actual `should create`, que no afirma nada del DOM) — assert contenido real en pantalla.
 
 ### 4. `WorkOrderEdit`: mismo comportamiento que detalle
+
 - **Archivos:** `work-order-edit.ts`, `work-order-edit.html`
 - **Cambio:** mismo patrón que la tarea 3 (`providers: [WorkOrderLoader]`,
   `workOrder`/`loadError` desde el loader, `retry()`). `onSubmitEdit` y su
@@ -109,6 +114,7 @@ lectura, `onSubmitEdit`, etc. — eso se queda en cada página).
   - Descomentar/reescribir el test comentado `should load work order using route id` (línea 56-58) ya que ahora hay comportamiento real que verificar.
 
 ### 5. Verificación por mutación
+
 - Con las tareas 1-4 ya implementadas (código final, no se revierte):
   romper temporalmente el chequeo `status === 404` en `getById` (ej.
   invertirlo) y confirmar que fallan los tests de la tarea 1 y las tareas
@@ -118,11 +124,13 @@ lectura, `onSubmitEdit`, etc. — eso se queda en cada página).
   Resultado anotado en `notes.md`, mismo formato que 001/002.
 
 ### 6 (opcional, requiere confirmación). Actualizar README
+
 - Tabla de specs (línea ~255) y roadmap (`- [ ] Mejorar los estados de
-  error de detalle y edición.`, línea 293) — tildar solo si las tareas
+error de detalle y edición.`, línea 293) — tildar solo si las tareas
   1-5 quedan en verde.
 
 ## Fuera de alcance (según el spec)
+
 Protección de envíos de formulario (004), cambios en `errorInterceptor`
 o el toast global, foco/accesibilidad del modal (005), página 404 de
 routing (006). Tampoco se toca `onSubmitEdit` ni el manejo de errores de

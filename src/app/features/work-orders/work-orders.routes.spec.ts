@@ -16,18 +16,12 @@ describe('matchWorkOrderId', () => {
   });
 
   it('rejects a non-numeric segment', () => {
-    expect(
-      matchWorkOrderId([segment('abc')], undefined as never, undefined as never),
-    ).toBeNull();
+    expect(matchWorkOrderId([segment('abc')], undefined as never, undefined as never)).toBeNull();
   });
 
   it('rejects more than one segment', () => {
     expect(
-      matchWorkOrderId(
-        [segment('42'), segment('extra')],
-        undefined as never,
-        undefined as never,
-      ),
+      matchWorkOrderId([segment('42'), segment('extra')], undefined as never, undefined as never),
     ).toBeNull();
   });
 

@@ -7,7 +7,6 @@ import { Component, output } from '@angular/core';
   styleUrl: './header.scss',
 })
 export class Header {
-
   viewSidebar = output<void>();
 
   onViewClick(): void {

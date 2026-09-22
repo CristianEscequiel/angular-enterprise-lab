@@ -6,20 +6,25 @@
     </app-button>
   </div>
   @if (loadError() === 'not-found') {
-  <app-alert title="Orden no encontrada" message="La orden de trabajo solicitada no existe o fue eliminada."
-    variant="error" />
-  <app-button variant="primary" (clicked)="retry()">
-    Reintentar
-  </app-button>
-
+    <app-alert
+      title="Orden no encontrada"
+      message="La orden de trabajo solicitada no existe o fue eliminada."
+      variant="error"
+    />
+    <app-button variant="primary" (clicked)="retry()"> Reintentar </app-button>
   } @else if (loadError() === 'connection') {
-  <app-alert title="Error de conexión" message="No pudimos conectar con el servidor. Intentá nuevamente."
-    variant="error" />
-  <app-button variant="primary" (clicked)="retry()">
-    Reintentar
-  </app-button>
-
+    <app-alert
+      title="Error de conexión"
+      message="No pudimos conectar con el servidor. Intentá nuevamente."
+      variant="error"
+    />
+    <app-button variant="primary" (clicked)="retry()"> Reintentar </app-button>
   } @else if (workOrder(); as workOrder) {
-  <app-form mode="edit" [inputData]="workOrder" [submitting]="isSubmitting()" (sendData)="onSubmitEdit($event)" />
+    <app-form
+      mode="edit"
+      [inputData]="workOrder"
+      [submitting]="isSubmitting()"
+      (sendData)="onSubmitEdit($event)"
+    />
   }
 </section>

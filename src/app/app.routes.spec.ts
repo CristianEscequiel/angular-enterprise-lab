@@ -70,8 +70,7 @@ describe('app routes', () => {
     await harness.navigateByUrl('/no-existe');
     expect(harness.routeNativeElement?.textContent).toContain('Página no encontrada');
 
-    const link: HTMLAnchorElement | null =
-      harness.routeNativeElement?.querySelector('a') ?? null;
+    const link: HTMLAnchorElement | null = harness.routeNativeElement?.querySelector('a') ?? null;
     link?.click();
     await harness.fixture.whenStable();
 

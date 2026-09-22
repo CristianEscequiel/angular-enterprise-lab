@@ -7,7 +7,6 @@ import { Component, computed, input, output } from '@angular/core';
   styleUrl: './button.scss',
 })
 export class Button {
-
   clicked = output<void>();
   variant = input<'primary' | 'secondary' | 'outline' | 'danger'>('primary');
   size = input<'sm' | 'md' | 'lg' | 'full'>('md');
@@ -27,5 +26,4 @@ export class Button {
   onClick(): void {
     this.clicked.emit();
   }
-
 }

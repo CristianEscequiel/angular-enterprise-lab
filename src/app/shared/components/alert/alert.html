@@ -1,6 +1,11 @@
-<div class="alert" role="status" [class.alert--success]="variant() === 'success'"
-  [class.alert--error]="variant() === 'error'" [class.alert--warning]="variant() === 'warning'"
-  [class.alert--info]="variant() === 'info'">
+<div
+  class="alert"
+  role="status"
+  [class.alert--success]="variant() === 'success'"
+  [class.alert--error]="variant() === 'error'"
+  [class.alert--warning]="variant() === 'warning'"
+  [class.alert--info]="variant() === 'info'"
+>
   <div class="alert__content">
     <h3 class="alert__title">{{ title() }}</h3>
     <p class="alert__message">{{ message() }}</p>

@@ -17,11 +17,7 @@ export class AppShell {
   toastTitle = signal('');
   toastMessage = signal('');
 
-  showToast(
-    type: 'success' | 'error' | 'warning',
-    title: string,
-    message: string
-  ): void {
+  showToast(type: 'success' | 'error' | 'warning', title: string, message: string): void {
     this.toastType.set(type);
     this.toastTitle.set(title);
     this.toastMessage.set(message);
@@ -37,5 +33,4 @@ export class AppShell {
   closeSidebar() {
     this.sidebarOpen.set(false);
   }
-
 }

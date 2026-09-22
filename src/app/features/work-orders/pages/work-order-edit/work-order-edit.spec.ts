@@ -102,7 +102,9 @@ describe('WorkOrderEdit', () => {
   it('renders a distinct connection error state on a network/server failure', async () => {
     expect.assertions(3);
     workOrdersServiceMock.getById.mockReturnValue(
-      throwError(() => new WorkOrderLoadError('connection', 'No se pudo conectar con el servidor.')),
+      throwError(
+        () => new WorkOrderLoadError('connection', 'No se pudo conectar con el servidor.'),
+      ),
     );
     await createComponent();
 
@@ -114,7 +116,9 @@ describe('WorkOrderEdit', () => {
   it('retrying after an error re-fetches and renders the form with the loaded data', async () => {
     expect.assertions(4);
     workOrdersServiceMock.getById.mockReturnValueOnce(
-      throwError(() => new WorkOrderLoadError('connection', 'No se pudo conectar con el servidor.')),
+      throwError(
+        () => new WorkOrderLoadError('connection', 'No se pudo conectar con el servidor.'),
+      ),
     );
     await createComponent();
     expect(fixture.nativeElement.textContent).toContain('Error de conexión');

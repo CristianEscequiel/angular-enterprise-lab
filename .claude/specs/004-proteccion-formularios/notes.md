@@ -1,6 +1,7 @@
 # Notas 004: ejecución
 
 ## Resultado
+
 - Baseline: 21 archivos / 73 tests en verde.
 - Final: 21 archivos / 84 tests en verde (+11: 5 en `form.spec.ts`,
   4 en `work-order-create.spec.ts`, 2 en `work-order-edit.spec.ts`).
@@ -10,6 +11,7 @@
   una llamada directa a `onSubmit()`).
 
 ## Cambios de producción
+
 1. `form.ts`: `submitting = input<boolean>(false)`; `onSubmit()` ahora
    bloquea si `submitting()` o `workOrderForm.invalid`, con
    `markAllAsTouched()` para revelar los errores existentes.
@@ -23,7 +25,8 @@
    tocó). Wiring de `[submitting]` en el template.
 
 ## Decisión de arquitectura confirmada
-El guardia *duro* contra doble-envío vive en cada página
+
+El guardia _duro_ contra doble-envío vive en cada página
 (`if (this.isSubmitting()) return;`), no solo en el `input()` de `Form`.
 Motivo verificado en la práctica: los tests de doble-submit llaman al
 handler de la página dos veces **sin `detectChanges()` intermedio**
@@ -33,6 +36,7 @@ a tiempo para la segunda llamada. El `input()` en `Form` queda como capa
 de UX (deshabilita el botón, cambia el texto), no como la única defensa.
 
 ## Hallazgo colateral durante los tests
+
 Al agregar el primer test de éxito real en `work-order-edit.spec.ts`
 (`update` resolviendo con éxito → `navigateToWorkOrdersList()`), apareció
 un `NG04002: Cannot match any routes` no manejado: ese spec nunca había
@@ -43,23 +47,26 @@ en `work-order-create.spec.ts`). No es un bug de producción — el `Router`
 real de la app sí tiene la ruta `/work-orders` registrada.
 
 ## Verificación por mutación (tarea 4)
+
 Mutaciones temporales sobre el código final, confirmadas y revertidas.
 
-| Mutación | Archivo | Tests que fallaron |
-|---|---|---|
-| Quitar `|| this.workOrderForm.invalid` del guardia | `form.ts` | `blocks emission and disables the submit button when required fields are empty`, `reveals validation error messages after an attempted submit on an untouched form` |
-| Quitar `this.submitting() ||` del mismo guardia | `form.ts` | `disables the submit button and blocks emission while submitting() is true...` |
-| Quitar `if (this.isSubmitting()) return;` | `work-order-create.ts` y `work-order-edit.ts` (por separado) | `sends a single create/update request when a second submit arrives while the first is still pending` en cada archivo respectivo |
-| Quitar `finalize(() => this.isSubmitting.set(false))` | `work-order-create.ts` y `work-order-edit.ts` (por separado) | `re-enables submitting after a failed create/update so a retry is possible` en cada archivo respectivo |
+| Mutación                                              | Archivo                                                      | Tests que fallaron                                                                                                              |
+| ----------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Quitar `                                              |                                                              | this.workOrderForm.invalid` del guardia                                                                                         | `form.ts` | `blocks emission and disables the submit button when required fields are empty`, `reveals validation error messages after an attempted submit on an untouched form` |
+| Quitar `this.submitting()                             |                                                              | ` del mismo guardia                                                                                                             | `form.ts` | `disables the submit button and blocks emission while submitting() is true...`                                                                                      |
+| Quitar `if (this.isSubmitting()) return;`             | `work-order-create.ts` y `work-order-edit.ts` (por separado) | `sends a single create/update request when a second submit arrives while the first is still pending` en cada archivo respectivo |
+| Quitar `finalize(() => this.isSubmitting.set(false))` | `work-order-create.ts` y `work-order-edit.ts` (por separado) | `re-enables submitting after a failed create/update so a retry is possible` en cada archivo respectivo                          |
 
 Las 4 mutaciones se revirtieron; `pnpm test` quedó en 21/84 verde tras
 cada reversión.
 
 ## Verificación adicional
+
 - `pnpm lint`: sin errores.
 - `pnpm build`: build de producción correcto.
 
 ## Pendiente
+
 - Tarea 5 (README): opcional, no se tocó — pendiente confirmación del usuario.
 - Verificación E2E manual (`pnpm api` + `pnpm start`, incluyendo doble-click
   real en el botón y apagar json-server para forzar el error) no se ejecutó.

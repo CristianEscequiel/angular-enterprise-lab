@@ -5,6 +5,7 @@
 El formulario compartido (`Form`, usado en creación y edición) recibe
 datos iniciales y emite los valores hacia las páginas que lo consumen.
 Hoy no hay garantía explícita de que:
+
 - No se pueda enviar el formulario en estado inválido.
 - No se puedan disparar múltiples envíos si el usuario hace click repetido
   o doble-click mientras la petición está en curso (relevante en creación,

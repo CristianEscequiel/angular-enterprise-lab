@@ -21,16 +21,16 @@ describe('App', () => {
     //Act
     const result = num1 + num2;
     //Assert
-    expect(result).toBe(4)
-  })
+    expect(result).toBe(4);
+  });
 
   it('should render router-outlet', () => {
     const fixture = TestBed.createComponent(App);
     const compiled = fixture.nativeElement as HTMLElement;
 
-    const routerOutlet = compiled.querySelector('router-outlet')
+    const routerOutlet = compiled.querySelector('router-outlet');
 
-    expect(routerOutlet).toBeTruthy()
+    expect(routerOutlet).toBeTruthy();
   });
 
   it('should render router-outlet whit css classes', () => {
@@ -38,23 +38,19 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
 
     const mainElement = compiled.querySelector('main');
-    const mostHaveClasses = 'container p-lg sidebar-layout__content'.split(' ')
+    const mostHaveClasses = 'container p-lg sidebar-layout__content'.split(' ');
     //expect(mainElement?.classList.value).toBe(mostHaveClasses)
-    mainElement?.classList.forEach(className => {
-      expect(mostHaveClasses).toContain(className)
-    })
-  })
+    mainElement?.classList.forEach((className) => {
+      expect(mostHaveClasses).toContain(className);
+    });
+  });
 
   it('should render tittle in app shell', () => {
-
     const fixture = TestBed.createComponent(App);
     const compiled = fixture.nativeElement as HTMLElement;
 
     const mainElement = compiled.querySelector('app-shell');
     expect(mainElement).toBeTruthy();
-    expect(mainElement?.getAttribute('title')).toBe('shell for testing')
-
-  })
-
-
+    expect(mainElement?.getAttribute('title')).toBe('shell for testing');
+  });
 });

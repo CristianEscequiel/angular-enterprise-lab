@@ -16,7 +16,7 @@ import { Router } from '@angular/router';
 export class WorkOrderCreate {
   private readonly workOrderService = inject(WorkOrdersService);
   private readonly messageService = inject(MessageService);
-  private activateRoute = inject(Router)
+  private activateRoute = inject(Router);
 
   readonly isSubmitting = signal(false);
 
