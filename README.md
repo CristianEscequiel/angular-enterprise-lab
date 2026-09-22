@@ -255,6 +255,7 @@ de las decisiones tomadas para cada feature.
 | Feature                                 | Spec                                                                                 | Estado                                           |
 | --------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------ |
 | Unificar búsqueda, paginación y recarga | [`001-unificar-busqueda-paginacion`](.claude/specs/001-unificar-busqueda-paginacion) | Implementado (5 tests nuevos, 21→51 en la suite) |
+| Recuperación de la búsqueda tras errores | [`002-recuperacion-busqueda-tras-errores`](.claude/specs/002-recuperacion-busqueda-tras-errores) | Implementado (4 tests nuevos, 51→55 en la suite) |
 
 ### Estado de las pruebas
 
@@ -266,7 +267,7 @@ La estrategia a completar incluye:
 - Tests del listado: datos, vacío, error, búsqueda, paginación y recarga tras eliminar.
 - Tests de formularios: validación y protección frente a envíos repetidos.
 - Tests de detalle y edición ante registros inexistentes y fallos de carga.
-- Tests de interceptores, loading y comportamiento del modal.
+- Tests de interceptores: `loadingInterceptor` cubierto (spec 002); `errorInterceptor` y comportamiento del modal, pendientes.
 
 La medición de cobertura requiere incorporar y configurar un proveedor compatible con la versión de Vitest instalada. No se declara un porcentaje de cobertura alcanzado.
 

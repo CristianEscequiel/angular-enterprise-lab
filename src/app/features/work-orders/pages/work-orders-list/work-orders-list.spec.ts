@@ -154,6 +154,24 @@ describe('WorkOrdersList search and pagination', () => {
     expect(service.searchByName).toHaveBeenLastCalledWith('bomba', '1', '10');
   });
 
+  it('recovers after an HTTP error: a later search resolves and renders results', () => {
+    expect.assertions(5);
+    start();
+    service.searchByName.mockReturnValueOnce(throwError(() => new Error('offline')));
+    search('motor');
+    expect(component.error()).not.toBeNull();
+
+    const recovered = { ...order, id: '4', title: 'Bomba reparada' };
+    service.searchByName.mockReturnValueOnce(of(response(1, [recovered])));
+    search('bomba');
+
+    expect(component.error()).toBeNull();
+    expect(component.workOrders()).toEqual([recovered]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Bomba reparada');
+    expect(fixture.nativeElement.querySelectorAll('tbody tr')).toHaveLength(1);
+  });
+
   it('clamps a restored page that no longer exists and persists the correction', () => {
     service.searchByName
       .mockReturnValueOnce(of(response(2, [])))
