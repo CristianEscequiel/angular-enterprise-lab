@@ -72,6 +72,15 @@ describe('app routes', () => {
     expect(workOrdersServiceMock.getById).not.toHaveBeenCalled();
   });
 
+  it('resolves /work-orders/new to WorkOrderCreate', async () => {
+    expect.assertions(2);
+
+    await harness.navigateByUrl('/work-orders/new');
+
+    expect(harness.routeNativeElement?.textContent).toContain('Crear Orden de Trabajo');
+    expect(harness.routeNativeElement?.textContent).not.toContain('Página no encontrada');
+  });
+
   it('still resolves numeric ids to WorkOrderDetail and WorkOrderEdit', async () => {
     expect.assertions(4);
 

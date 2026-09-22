@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
 import { WorkOrderDetail } from './work-order-detail';
@@ -21,6 +21,9 @@ describe('WorkOrderDetail', () => {
   const workOrdersServiceMock = {
     getById: vi.fn().mockReturnValue(of(mockWorkOrder)),
   };
+  const routerMock = {
+    navigate: vi.fn(),
+  };
 
   async function createComponent(id = '1'): Promise<void> {
     await TestBed.configureTestingModule({
@@ -37,6 +40,10 @@ describe('WorkOrderDetail', () => {
         {
           provide: WorkOrdersService,
           useValue: workOrdersServiceMock,
+        },
+        {
+          provide: Router,
+          useValue: routerMock,
         },
       ],
     }).compileComponents();
@@ -57,6 +64,7 @@ describe('WorkOrderDetail', () => {
 
   beforeEach(() => {
     workOrdersServiceMock.getById.mockReset().mockReturnValue(of(mockWorkOrder));
+    routerMock.navigate.mockReset();
   });
 
   it('should create', async () => {
@@ -120,5 +128,17 @@ describe('WorkOrderDetail', () => {
     expect(workOrdersServiceMock.getById).toHaveBeenCalledTimes(2);
     expect(component.loadError()).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Orden de prueba');
+  });
+
+  it('navigates back to the work orders list', async () => {
+    await createComponent();
+
+    const buttons: HTMLButtonElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('button'),
+    );
+    const backButton = buttons.find((button) => button.textContent?.includes('Volver a Lista'));
+    backButton?.click();
+
+    expect(routerMock.navigate).toHaveBeenCalledExactlyOnceWith(['/work-orders']);
   });
 });

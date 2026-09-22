@@ -1,8 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { Observable, of, Subject, throwError } from 'rxjs';
 
 import { LocalStorageService } from '@core/services/localStorage.service';
+import { MessageService } from '@core/services/message.service';
 import { WorkOrdersService } from '../../data-access/work-order.service';
 import { PaginatedResponse, WorkOrder } from '../../models/work-order.model';
 import { WorkOrdersList } from './work-orders-list';
@@ -413,5 +414,34 @@ describe('WorkOrdersList search and pagination', () => {
 
     fixture.destroy();
     expect(active).toBe(0);
+  });
+
+  it('navigates to the detail, edit and create routes', () => {
+    start();
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigate');
+
+    component.viewWorkOrder('1');
+    expect(navigateSpy).toHaveBeenLastCalledWith(['/work-orders', '1']);
+
+    component.editWorkOrder('1');
+    expect(navigateSpy).toHaveBeenLastCalledWith(['/work-orders', '1', 'edit']);
+
+    component.navigateToCreateWorkOrder();
+    expect(navigateSpy).toHaveBeenLastCalledWith(['/work-orders/new']);
+  });
+
+  it('shows an error message when deleting a work order fails', () => {
+    start();
+    const messageService = TestBed.inject(MessageService);
+    service.delete.mockReturnValueOnce(throwError(() => new Error('offline')));
+
+    component.deleteWorkOrder('1');
+
+    expect(messageService.message()).toEqual({
+      variant: 'error',
+      title: 'Error',
+      message: 'Error al eliminar la orden.',
+    });
   });
 });

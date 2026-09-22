@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { App } from './app';
 import { LoadingService } from './core/services/loading.service';
+import { MessageService } from './core/services/message.service';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -68,5 +69,21 @@ describe('App', () => {
     fixture.detectChanges();
 
     expect(compiled.querySelector('app-shell')?.hasAttribute('inert')).toBe(true);
+  });
+
+  it('closing the toast clears the current message', () => {
+    const fixture = TestBed.createComponent(App);
+    const compiled = fixture.nativeElement as HTMLElement;
+    const messageService = TestBed.inject(MessageService);
+
+    messageService.showError('boom');
+    fixture.detectChanges();
+
+    const closeButton: HTMLButtonElement | null = compiled.querySelector('button.btn--close');
+    if (!closeButton) throw new Error('No se renderizó el botón de cerrar el toast');
+    closeButton.click();
+    fixture.detectChanges();
+
+    expect(messageService.message()).toBeNull();
   });
 });
