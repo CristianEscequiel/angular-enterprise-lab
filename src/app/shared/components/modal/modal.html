@@ -1,6 +1,7 @@
 @if (isOpen()) {
 <div class="modal-overlay" role="presentation" (click)="onModalOverlayClick($event)">
-  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-message">
+  <section #modalRoot class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"
+    aria-describedby="modal-message">
     <button #modalCloseButton class="modal__close" type="button" aria-label="Cerrar modal" (click)="cancel()">
       ×
     </button>

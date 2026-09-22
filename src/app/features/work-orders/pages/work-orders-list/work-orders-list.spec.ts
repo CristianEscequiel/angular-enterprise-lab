@@ -200,6 +200,20 @@ describe('WorkOrdersList search and pagination', () => {
     expect(component.currentPage()).toBe(3);
   });
 
+  it('does not carry over the previous order id when the delete modal is reopened for a different order', () => {
+    start();
+    expect(component.workOrderDeleted()).toBe('');
+
+    component.openDeleteModal('A');
+    expect(component.workOrderDeleted()).toBe('A');
+
+    // Cerrado sin confirmar (Cancelar/Escape/click en el overlay).
+    component.deleteModalOpen.set(false);
+
+    component.openDeleteModal('B');
+    expect(component.workOrderDeleted()).toBe('B');
+  });
+
   it('uses page 1 when the collection becomes empty', () => {
     service.searchByName.mockReturnValue(of(response(0, [])));
     start({ searchValue: 'motor', page: 2 });

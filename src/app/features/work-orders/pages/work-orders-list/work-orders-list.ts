@@ -37,7 +37,7 @@ export class WorkOrdersList implements OnInit {
   private readonly requests = new Subject<WorkOrdersSearch>();
 
   readonly workOrders = signal<WorkOrder[]>([]);
-  readonly workOrderDeleted = signal<string>('1');
+  readonly workOrderDeleted = signal<string>('');
   readonly error = signal<string | null>(null);
   readonly deleteModalOpen = signal(false);
   readonly currentPage = computed(() => this.query().page);

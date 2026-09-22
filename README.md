@@ -258,6 +258,7 @@ de las decisiones tomadas para cada feature.
 | Recuperación de la búsqueda tras errores | [`002-recuperacion-busqueda-tras-errores`](.claude/specs/002-recuperacion-busqueda-tras-errores) | Implementado (4 tests nuevos, 51→55 en la suite) |
 | Estados de error en detalle y edición | [`003-estados-error-detalle-edicion`](.claude/specs/003-estados-error-detalle-edicion) | Implementado (13 tests nuevos, 55→73 en la suite) |
 | Protección de formularios inválidos y envíos duplicados | [`004-proteccion-formularios`](.claude/specs/004-proteccion-formularios) | Implementado (11 tests nuevos, 73→84 en la suite) |
+| Manejo de foco y limpieza del modal | [`005-foco-limpieza-modal`](.claude/specs/005-foco-limpieza-modal) | Implementado (8 tests nuevos, 84→92 en la suite) |
 
 ### Estado de las pruebas
 
@@ -269,7 +270,7 @@ La estrategia a completar incluye:
 - Tests del listado: datos, vacío, error, búsqueda, paginación y recarga tras eliminar.
 - Tests de formularios: validación y protección frente a envíos repetidos.
 - Tests de detalle y edición ante registros inexistentes y fallos de carga: cubierto (spec 003).
-- Tests de interceptores: `loadingInterceptor` cubierto (spec 002); `errorInterceptor` y comportamiento del modal, pendientes.
+- Tests de interceptores: `loadingInterceptor` cubierto (spec 002); `errorInterceptor`, pendiente. Foco y limpieza del modal: cubierto (spec 005).
 
 La medición de cobertura requiere incorporar y configurar un proveedor compatible con la versión de Vitest instalada. No se declara un porcentaje de cobertura alcanzado.
 
@@ -295,7 +296,7 @@ Estos resultados corresponden a esa revisión, no constituyen una garantía para
 - [ ] Mantener una página válida y filtros coherentes después de eliminar.
 - [x] Mejorar los estados de error de detalle y edición.
 - [x] Proteger formularios inválidos y operaciones en curso.
-- [ ] Completar el manejo de foco y limpieza del modal.
+- [x] Completar el manejo de foco y limpieza del modal.
 - [x] Incorporar la página 404.
 - [ ] Completar pruebas de comportamiento, medición de cobertura y verificaciones de formato.
 - [ ] Revisar tipado estricto, aliases, accesibilidad y adaptación móvil.

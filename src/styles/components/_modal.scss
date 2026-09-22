@@ -53,6 +53,8 @@
 
   cursor: pointer;
 
+  @include a.focus-visible;
+
   &:hover {
     color: var(--color-text);
   }
