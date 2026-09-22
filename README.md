@@ -259,6 +259,7 @@ de las decisiones tomadas para cada feature.
 | Estados de error en detalle y edición | [`003-estados-error-detalle-edicion`](.claude/specs/003-estados-error-detalle-edicion) | Implementado (13 tests nuevos, 55→73 en la suite) |
 | Protección de formularios inválidos y envíos duplicados | [`004-proteccion-formularios`](.claude/specs/004-proteccion-formularios) | Implementado (11 tests nuevos, 73→84 en la suite) |
 | Manejo de foco y limpieza del modal | [`005-foco-limpieza-modal`](.claude/specs/005-foco-limpieza-modal) | Implementado (8 tests nuevos, 84→92 en la suite) |
+| Página 404 y validación de formato de id | [`006-pagina-404`](.claude/specs/006-pagina-404) | Implementado (12 tests nuevos, 92→104 en la suite) |
 
 ### Estado de las pruebas
 

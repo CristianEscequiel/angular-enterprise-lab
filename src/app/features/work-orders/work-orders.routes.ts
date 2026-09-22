@@ -1,4 +1,28 @@
-import { Routes } from '@angular/router';
+import { Routes, UrlMatcher } from '@angular/router';
+
+// Los ids de work order son strings numéricos simples (ver db.json,
+// generados por json-server). Un segmento que no matchee este formato
+// no es una orden reconocible por la app: debe caer en el wildcard 404
+// de app.routes.ts, no en WorkOrderDetail/WorkOrderEdit.
+const ID_PATTERN = /^\d+$/;
+
+export const matchWorkOrderId: UrlMatcher = (segments) => {
+  if (segments.length !== 1 || !ID_PATTERN.test(segments[0].path)) {
+    return null;
+  }
+  return { consumed: segments, posParams: { id: segments[0] } };
+};
+
+export const matchWorkOrderIdEdit: UrlMatcher = (segments) => {
+  if (
+    segments.length !== 2 ||
+    segments[1].path !== 'edit' ||
+    !ID_PATTERN.test(segments[0].path)
+  ) {
+    return null;
+  }
+  return { consumed: segments, posParams: { id: segments[0] } };
+};
 
 export const WORK_ORDERS_ROUTES: Routes = [
   {
@@ -16,14 +40,14 @@ export const WORK_ORDERS_ROUTES: Routes = [
       ),
   },
   {
-    path: ':id/edit',
+    matcher: matchWorkOrderIdEdit,
     loadComponent: () =>
       import('./pages/work-order-edit/work-order-edit').then(
         (m) => m.WorkOrderEdit
       ),
   },
   {
-    path: ':id',
+    matcher: matchWorkOrderId,
     loadComponent: () =>
       import('./pages/work-order-detail/work-order-detail').then(
         (m) => m.WorkOrderDetail
