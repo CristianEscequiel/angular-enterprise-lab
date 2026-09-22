@@ -5,5 +5,5 @@
       Volver a Lista
     </app-button>
   </div>
-  <app-form (sendData)="onSubmit($event)"></app-form>
+  <app-form (sendData)="onSubmit($event)" [submitting]="isSubmitting()"></app-form>
 </section>

@@ -38,7 +38,7 @@
     Priority is required.
   </div>
   }
-  <app-button type="submit" size="full" variant="primary" [disabled]="workOrderForm.invalid">Submit Work
-    Order</app-button>
+  <app-button type="submit" size="full" variant="primary" [disabled]="workOrderForm.invalid || submitting()">{{
+    submitting() ? 'Guardando...' : 'Submit Work Order' }}</app-button>
 
 </form>

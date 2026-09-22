@@ -20,6 +20,6 @@
   </app-button>
 
   } @else if (workOrder(); as workOrder) {
-  <app-form mode="edit" [inputData]="workOrder" (sendData)="onSubmitEdit($event)" />
+  <app-form mode="edit" [inputData]="workOrder" [submitting]="isSubmitting()" (sendData)="onSubmitEdit($event)" />
   }
 </section>

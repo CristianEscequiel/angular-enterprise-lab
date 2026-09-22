@@ -12,6 +12,7 @@ import { Button } from '../../../../shared/components/button/button';
 export class Form implements OnInit {
   private readonly fb = inject(FormBuilder);
   inputData = input<WorkOrderCreateRequest>();
+  submitting = input<boolean>(false);
   sendData = output<WorkOrderCreateRequest>();
 
   readonly workOrderForm = this.fb.group({
@@ -50,6 +51,10 @@ export class Form implements OnInit {
   }
 
   onSubmit(): void {
+    if (this.submitting() || this.workOrderForm.invalid) {
+      this.workOrderForm.markAllAsTouched();
+      return;
+    }
     this.sendData.emit(this.workOrderForm.getRawValue());
   }
 

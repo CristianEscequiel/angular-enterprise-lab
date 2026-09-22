@@ -1,5 +1,6 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { finalize } from 'rxjs';
 import { WorkOrderLoader } from '../../data-access/work-order-loader';
 import { WorkOrdersService } from '../../data-access/work-order.service';
 import { WorkOrder, WorkOrderCreateRequest } from '../../models/work-order.model';
@@ -24,6 +25,7 @@ export class WorkOrderEdit implements OnInit {
 
   readonly workOrder = this.loader.workOrder;
   readonly loadError = this.loader.error;
+  readonly isSubmitting = signal(false);
 
   ngOnInit() {
     const id = this.activatedRoute.snapshot.paramMap.get('id');
@@ -38,6 +40,8 @@ export class WorkOrderEdit implements OnInit {
     this.loader.retry();
   }
   onSubmitEdit(workOrderData: WorkOrderCreateRequest): void {
+    if (this.isSubmitting()) return;
+
     const current = this.workOrder();
 
     if (!current) return;
@@ -58,21 +62,25 @@ export class WorkOrderEdit implements OnInit {
       ...workOrderData
     };
 
-    this.workOrdersService.update(current.id, updatedWorkOrder).subscribe({
-      next: (updated) => {
-        this.workOrder.set(updated);
-        this.messageService.showSuccess(
-          'Orden de trabajo actualizada correctamente'
-        );
-        this.navigateToWorkOrdersList();
-      },
-      error: (error) => {
-        this.messageService.showError(
-          'Error actualizando la orden de trabajo'
-        );
-        console.error('Error updating work order:', error);
-      }
-    });
+    this.isSubmitting.set(true);
+    this.workOrdersService
+      .update(current.id, updatedWorkOrder)
+      .pipe(finalize(() => this.isSubmitting.set(false)))
+      .subscribe({
+        next: (updated) => {
+          this.workOrder.set(updated);
+          this.messageService.showSuccess(
+            'Orden de trabajo actualizada correctamente'
+          );
+          this.navigateToWorkOrdersList();
+        },
+        error: (error) => {
+          this.messageService.showError(
+            'Error actualizando la orden de trabajo'
+          );
+          console.error('Error updating work order:', error);
+        }
+      });
   }
   navigateToWorkOrdersList(): void {
     this.router.navigate(['/work-orders']);
