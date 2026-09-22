@@ -5,6 +5,18 @@ import { catchError, Observable, throwError } from 'rxjs';
 
 import { PaginatedResponse, WorkOrder, WorkOrderCreateRequest } from '../models/work-order.model';
 
+export type WorkOrderLoadErrorKind = 'not-found' | 'connection';
+
+export class WorkOrderLoadError extends Error {
+  readonly kind: WorkOrderLoadErrorKind;
+
+  constructor(kind: WorkOrderLoadErrorKind, message: string) {
+    super(message);
+    this.name = 'WorkOrderLoadError';
+    this.kind = kind;
+  }
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -27,13 +39,19 @@ export class WorkOrdersService {
 
   getById(id: string): Observable<WorkOrder> {
     return this.http.get<WorkOrder>(`${this.apiUrl}/${id}`).pipe(
-      catchError((error: HttpErrorResponse) => {
+      catchError((error: unknown) => {
         console.error('Error al buscar la orden:', error);
 
+        const status = (error as { status?: number } | null)?.status;
+        if (status === 404) {
+          return throwError(() =>
+            new WorkOrderLoadError('not-found', 'La orden de trabajo no existe.'));
+        }
+
         return throwError(() =>
-          new Error('No existe la orden de trabajo!'));
+          new WorkOrderLoadError('connection', 'No se pudo conectar con el servidor.'));
       })
-    );;
+    );
   }
 
   create(workOrder: WorkOrderCreateRequest): Observable<WorkOrder> {

@@ -6,14 +6,30 @@
     </app-button>
   </div>
 
+  @if (loadError() === 'not-found') {
+  <app-alert title="Orden no encontrada" message="La orden de trabajo solicitada no existe o fue eliminada."
+    variant="error" />
+  <app-button variant="primary" (clicked)="retry()">
+    Reintentar
+  </app-button>
+
+  } @else if (loadError() === 'connection') {
+  <app-alert title="Error de conexión" message="No pudimos conectar con el servidor. Intentá nuevamente."
+    variant="error" />
+  <app-button variant="primary" (clicked)="retry()">
+    Reintentar
+  </app-button>
+
+  } @else if (workOrderDetail(); as workOrderDetail) {
   <div class="card">
     <div class="card__body">
-      <p class="card__header"><strong>{{ workOrderDetail()?.title }} </strong></p>
+      <p class="card__header"><strong>{{ workOrderDetail.title }} </strong></p>
       <div class="card__content">
-        <p class="card__tittle">{{ workOrderDetail()?.asset }}</p>
-        <p class="card__description">{{ workOrderDetail()?.description }}</p>
+        <p class="card__tittle">{{ workOrderDetail.asset }}</p>
+        <p class="card__description">{{ workOrderDetail.description }}</p>
       </div>
-      <p class="card__footer"> {{ workOrderDetail()?.status }}</p>
+      <p class="card__footer"> {{ workOrderDetail.status }}</p>
     </div>
   </div>
+  }
 </section>

@@ -256,6 +256,7 @@ de las decisiones tomadas para cada feature.
 | --------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------ |
 | Unificar búsqueda, paginación y recarga | [`001-unificar-busqueda-paginacion`](.claude/specs/001-unificar-busqueda-paginacion) | Implementado (5 tests nuevos, 21→51 en la suite) |
 | Recuperación de la búsqueda tras errores | [`002-recuperacion-busqueda-tras-errores`](.claude/specs/002-recuperacion-busqueda-tras-errores) | Implementado (4 tests nuevos, 51→55 en la suite) |
+| Estados de error en detalle y edición | [`003-estados-error-detalle-edicion`](.claude/specs/003-estados-error-detalle-edicion) | Implementado (13 tests nuevos, 55→73 en la suite) |
 
 ### Estado de las pruebas
 
@@ -266,7 +267,7 @@ La estrategia a completar incluye:
 - Tests HTTP del servicio: método, URL, parámetros, payload y errores.
 - Tests del listado: datos, vacío, error, búsqueda, paginación y recarga tras eliminar.
 - Tests de formularios: validación y protección frente a envíos repetidos.
-- Tests de detalle y edición ante registros inexistentes y fallos de carga.
+- Tests de detalle y edición ante registros inexistentes y fallos de carga: cubierto (spec 003).
 - Tests de interceptores: `loadingInterceptor` cubierto (spec 002); `errorInterceptor` y comportamiento del modal, pendientes.
 
 La medición de cobertura requiere incorporar y configurar un proveedor compatible con la versión de Vitest instalada. No se declara un porcentaje de cobertura alcanzado.
@@ -291,7 +292,7 @@ Estos resultados corresponden a esa revisión, no constituyen una garantía para
 - [ ] Unificar búsqueda, paginación y recarga del listado.
 - [x] Recuperar la búsqueda después de errores y evitar suscripciones duplicadas.
 - [ ] Mantener una página válida y filtros coherentes después de eliminar.
-- [ ] Mejorar los estados de error de detalle y edición.
+- [x] Mejorar los estados de error de detalle y edición.
 - [ ] Proteger formularios inválidos y operaciones en curso.
 - [ ] Completar el manejo de foco y limpieza del modal.
 - [x] Incorporar la página 404.

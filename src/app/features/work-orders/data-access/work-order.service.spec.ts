@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { PaginatedResponse, WorkOrder } from '../models/work-order.model';
-import { WorkOrdersService } from './work-order.service';
+import { WorkOrderLoadError, WorkOrdersService } from './work-order.service';
 
 describe('WorkOrdersService', () => {
   const apiUrl = 'http://localhost:3000/work-orders';
@@ -67,6 +67,44 @@ describe('WorkOrdersService', () => {
 
     expect(error?.message).toBe('No se pudieron buscar las órdenes de trabajo');
   });
+
+  it('getById sends GET to /work-orders/:id', () => {
+    let result: WorkOrder | undefined;
+    service.getById('7').subscribe((value) => (result = value));
+
+    const request = httpMock.expectOne(`${apiUrl}/7`);
+    expect(request.request.method).toBe('GET');
+    request.flush(order);
+
+    expect(result).toEqual(order);
+  });
+
+  it('getById maps a 404 response to a not-found load error', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    let error: WorkOrderLoadError | undefined;
+    service.getById('missing').subscribe({ error: (err) => (error = err) });
+
+    httpMock
+      .expectOne(`${apiUrl}/missing`)
+      .flush('not found', { status: 404, statusText: 'Not Found' });
+
+    expect(error).toBeInstanceOf(WorkOrderLoadError);
+    expect(error?.kind).toBe('not-found');
+  });
+
+  it.each([0, 500, 503])(
+    'getById maps a %i response to a connection load error',
+    (status) => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      let error: WorkOrderLoadError | undefined;
+      service.getById('7').subscribe({ error: (err) => (error = err) });
+
+      httpMock.expectOne(`${apiUrl}/7`).flush('boom', { status, statusText: 'Error' });
+
+      expect(error).toBeInstanceOf(WorkOrderLoadError);
+      expect(error?.kind).toBe('connection');
+    },
+  );
 
   it('delete issues DELETE /work-orders/:id', () => {
     let completed = false;

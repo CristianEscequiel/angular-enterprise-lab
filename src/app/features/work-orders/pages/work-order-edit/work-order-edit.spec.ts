@@ -1,9 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { WorkOrderEdit } from './work-order-edit';
-import { WorkOrdersService } from '../../data-access/work-order.service';
+import { WorkOrderLoadError, WorkOrdersService } from '../../data-access/work-order.service';
 
 describe('WorkOrderEdit', () => {
   let component: WorkOrderEdit;
@@ -22,7 +22,7 @@ describe('WorkOrderEdit', () => {
     getById: vi.fn().mockReturnValue(of(mockWorkOrder)),
   };
 
-  beforeEach(async () => {
+  async function createComponent(id = '1'): Promise<void> {
     await TestBed.configureTestingModule({
       imports: [WorkOrderEdit],
       providers: [
@@ -30,9 +30,7 @@ describe('WorkOrderEdit', () => {
           provide: ActivatedRoute,
           useValue: {
             snapshot: {
-              paramMap: convertToParamMap({
-                id: '1',
-              }),
+              paramMap: convertToParamMap({ id }),
             },
           },
         },
@@ -45,15 +43,70 @@ describe('WorkOrderEdit', () => {
 
     fixture = TestBed.createComponent(WorkOrderEdit);
     component = fixture.componentInstance;
-
     fixture.detectChanges();
+  }
+
+  function clickRetry(): void {
+    const buttons: HTMLButtonElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('button'),
+    );
+    const retryButton = buttons.find((button) => button.textContent?.includes('Reintentar'));
+    retryButton?.click();
+    fixture.detectChanges();
+  }
+
+  beforeEach(() => {
+    workOrdersServiceMock.getById.mockReset().mockReturnValue(of(mockWorkOrder));
   });
 
-  it('should create', () => {
+  it('should create', async () => {
+    await createComponent();
     expect(component).toBeTruthy();
   });
 
-  // it('should load work order using route id', () => {
-  //   expect(workOrdersServiceMock.getById).toHaveBeenCalledWith('1');
-  // });
+  it('loads the work order using the route id', async () => {
+    await createComponent('1');
+    expect(workOrdersServiceMock.getById).toHaveBeenCalledExactlyOnceWith('1');
+    expect(fixture.nativeElement.querySelector('app-form')).not.toBeNull();
+  });
+
+  it('renders the not-found error state instead of an empty form when the id does not exist', async () => {
+    expect.assertions(3);
+    workOrdersServiceMock.getById.mockReturnValue(
+      throwError(() => new WorkOrderLoadError('not-found', 'La orden de trabajo no existe.')),
+    );
+    await createComponent('missing');
+
+    expect(fixture.nativeElement.textContent).toContain('Orden no encontrada');
+    expect(fixture.nativeElement.querySelector('app-form')).toBeNull();
+    expect(component.workOrder()).toBeNull();
+  });
+
+  it('renders a distinct connection error state on a network/server failure', async () => {
+    expect.assertions(3);
+    workOrdersServiceMock.getById.mockReturnValue(
+      throwError(() => new WorkOrderLoadError('connection', 'No se pudo conectar con el servidor.')),
+    );
+    await createComponent();
+
+    expect(fixture.nativeElement.textContent).toContain('Error de conexión');
+    expect(fixture.nativeElement.textContent).not.toContain('Orden no encontrada');
+    expect(fixture.nativeElement.querySelector('app-form')).toBeNull();
+  });
+
+  it('retrying after an error re-fetches and renders the form with the loaded data', async () => {
+    expect.assertions(4);
+    workOrdersServiceMock.getById.mockReturnValueOnce(
+      throwError(() => new WorkOrderLoadError('connection', 'No se pudo conectar con el servidor.')),
+    );
+    await createComponent();
+    expect(fixture.nativeElement.textContent).toContain('Error de conexión');
+
+    workOrdersServiceMock.getById.mockReturnValueOnce(of(mockWorkOrder));
+    clickRetry();
+
+    expect(workOrdersServiceMock.getById).toHaveBeenCalledTimes(2);
+    expect(component.loadError()).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-form')).not.toBeNull();
+  });
 });
