@@ -92,12 +92,14 @@ JSON Server utiliza ese archivo como almacenamiento local; las operaciones de es
 
 Actualmente, la URL `http://localhost:3000/work-orders` se define en `WorkOrdersService`. Su extracción a una configuración central está pendiente. Si cambiás el puerto del servidor, debés mantener coherente la URL utilizada por el frontend.
 
-La integración utiliza `_page`, `_per_page` y `title:contains`. La versión de JSON Server elegida debe soportar esos parámetros y devolver el formato paginado esperado por `PaginatedResponse<T>`. Consultá la [documentación de JSON Server](https://github.com/typicode/json-server#query-params) al cambiar de versión.
+La integración utiliza `_page`, `_per_page`, `title:contains` y los filtros por igualdad `status` y `priority` (los parámetros vacíos no se envían, porque `?status=` filtra por cadena vacía). El cambio de estado usa `PATCH /work-orders/:id` con `{ status }`. La versión de JSON Server elegida debe soportar esos parámetros y devolver el formato paginado esperado por `PaginatedResponse<T>`. Consultá la [documentación de JSON Server](https://github.com/typicode/json-server#query-params) al cambiar de versión.
 
 ## Funcionalidades actuales
 
 - Listado de órdenes de mantenimiento.
 - Búsqueda por título con debounce y paginación desde la API.
+- Filtros por estado y prioridad combinables con la búsqueda; viajan en la misma petición paginada y reinician la página a 1.
+- Prioridad y estado visibles como badges en el listado, y cambio rápido de estado desde un select por fila (`pending`, `in-progress`, `completed`).
 - Consulta del detalle mediante un identificador en la URL.
 - Creación y edición con un formulario compartido.
 - Eliminación con confirmación.
@@ -268,6 +270,7 @@ de las decisiones tomadas para cada feature.
 | Cobertura de Functions por feature                          | [`009-cobertura-por-feature`](.claude/specs/009-cobertura-por-feature)                           | Implementado (9 tests nuevos, 119→128 en la suite; Functions 79.5%→87.57%)                            |
 | Autenticación simulada, sesión, logout y retorno tras login | [`010-autenticacion-simulada`](.claude/specs/010-autenticacion-simulada)                         | Implementado (82 tests nuevos, 128→210 en la suite; +17 del spec de `errorInterceptor`, 227 en total) |
 | Guards de ruta y permisos por rol                           | [`011-guards-permisos-rol`](.claude/specs/011-guards-permisos-rol)                               | Implementado (31 tests nuevos, 227→258 en la suite)                                                   |
+| Filtros por estado y prioridad, cambio de estado de órdenes | [`012-filtros-estado-prioridad`](.claude/specs/012-filtros-estado-prioridad)                     | Implementado (76 tests nuevos, 258→334 en la suite)                                                   |
 
 ### Estado de las pruebas
 
@@ -283,20 +286,22 @@ La estrategia a completar incluye:
 
 ### Cobertura
 
-`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `011-guards-permisos-rol` (258 tests):
+`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `012-filtros-estado-prioridad` (334 tests):
 
 | Métrica    | % Cubierto |
 | ---------- | ---------- |
-| Statements | 94.55%     |
-| Branches   | 93.72%     |
-| Functions  | 88.88%     |
-| Lines      | 95.96%     |
+| Statements | 95.77%     |
+| Branches   | 95.43%     |
+| Functions  | 91.15%     |
+| Lines      | 97.34%     |
 
 Es un número **informativo**, no un umbral bloqueante — no hay `coverageThresholds` configurado en `angular.json`, así que no falla el comando ni el commit si baja. El desbalance de Functions detectado en spec 007 (72.95% sobre specs 001-006, 79.5% recalculado tras 008a/008b) se cerró en spec 009 con tests dirigidos a funciones de lógica real sin cobertura (ver `.claude/specs/009-cobertura-por-feature`); no se persigue el 100%, solo un nivel consistente con el resto de las métricas.
 
 El código nuevo de spec 010 quedó al 100% en las cuatro métricas. Al agregar `app.config.spec.ts`, `errorInterceptor` (que ningún test importaba y por eso no figuraba en el reporte) apareció con 0/21 ramas y Branches bajó transitoriamente a 88.83%; el spec propio de `errorInterceptor` lo llevó a 100% y dejó Branches en 93.62% (antes 91.86%). Detalle en `.claude/specs/010-autenticacion-simulada/notes.md`.
 
 El código nuevo de spec 011 (`auth.guard.ts`, `auth.model.ts`, `app.routes.ts`, `login-page.ts`) quedó al 100% en las cuatro métricas. Branches es el número estable entre corridas (93.62% → 93.72%, 411/439 → 418/446). Statements, Functions y Lines oscilan entre corridas sobre el mismo código, como ya se documentó en 010: dos corridas consecutivas de 011 dieron 95.03% / 90.33% / 96.63% y 94.55% / 88.88% / 95.96%; la tabla usa la última. Por eso la baja de Functions respecto de 90.09% no se atribuye a código nuevo sin cubrir. Detalle en `.claude/specs/011-guards-permisos-rol/notes.md`.
+
+El código nuevo o modificado de spec 012 (`work-orders-list.ts`, `work-order.service.ts`, `work-order.model.ts`, `work-order.display.ts`, `badge.ts`) no aparece en la tabla de archivos con huecos. Branches subió de 93.72% a 95.43% (418/446 → 460/482). Statements, Functions y Lines volvieron a variar entre corridas sobre el mismo código: otra corrida dio 95.33% / 89.82% / 96.73%; la tabla usa la de Functions más alta (91.15%). Detalle en `.claude/specs/012-filtros-estado-prioridad/notes.md`.
 
 ### Última verificación registrada
 
@@ -339,6 +344,18 @@ Revisión del **23 de septiembre de 2026**, tras `010-autenticacion-simulada` y 
 - Mutation testing: 2 mutaciones deliberadas (retorno a `returnUrl` en `LoginPage` y `logout()` en `AppShell`) hicieron fallar los tests esperados antes de revertirse.
 - Verificación manual de login contra `pnpm api` + `pnpm start`: no registrada en esta revisión (pasos en `.claude/specs/010-autenticacion-simulada/notes.md`).
 
+Revisión del **23 de septiembre de 2026**, tras `012-filtros-estado-prioridad`:
+
+- Build de producción: correcto.
+- ESLint: correcto.
+- Tests: 334 correctos en 34 archivos (258 antes de spec 012).
+- Prettier: `pnpm exec prettier . --check` limpio salvo `db.json` mientras hay un JSON Server en ejecución: al escribir un cambio de estado lo reescribe sin el salto de línea final.
+- `tsc --noEmit`: 0 errores en `tsconfig.app.json` y `tsconfig.spec.json`.
+- Cobertura: ver sección "Cobertura" arriba (Branches 93.72%→95.43%; Functions dentro de la variabilidad entre corridas descrita ahí).
+- Mutation testing: 16 mutaciones deliberadas sobre `search()`, `updateStatus()`, el armado de criterios, el reset de página, el parche de fila, la restauración del select y los mapas de badges; todas hicieron fallar los tests esperados antes de revertirse. Tabla en `.claude/specs/012-filtros-estado-prioridad/notes.md`.
+- Contrato con JSON Server (`pnpm api`): filtros combinados, resultados vacíos, `?status=` vacío y `PATCH` comprobados con `curl`.
+- Verificación manual de la interfaz: no registrada en esta revisión (pasos en `.claude/specs/012-filtros-estado-prioridad/notes.md`).
+
 Revisión del **23 de septiembre de 2026**, tras `011-guards-permisos-rol`:
 
 - Build de producción: correcto, sin warnings.
@@ -378,7 +395,7 @@ Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones
 
 - [x] Implementar autenticación simulada, sesión, logout y retorno después del login (spec 010).
 - [x] Agregar guards y permisos por rol (spec 011: mecanismo de guards y `requireRole`; qué puede hacer cada rol se define en las specs de cada feature).
-- [ ] Completar filtros por estado y prioridad y cambio de estado de las órdenes.
+- [x] Completar filtros por estado y prioridad y cambio de estado de las órdenes (spec 012: tres estados; la restricción por rol y las transiciones permitidas quedan para specs posteriores).
 - [ ] Incorporar gestión de equipos y técnicos de forma incremental.
 - [ ] Desarrollar los indicadores del dashboard.
 
