@@ -94,6 +94,29 @@ Actualmente, la URL `http://localhost:3000/work-orders` se define en `WorkOrders
 
 La integración utiliza `_page`, `_per_page`, `title:contains` y los filtros por igualdad `status` y `priority` (los parámetros vacíos no se envían, porque `?status=` filtra por cadena vacía). El cambio de estado usa `PATCH /work-orders/:id` con `{ status }`. La versión de JSON Server elegida debe soportar esos parámetros y devolver el formato paginado esperado por `PaginatedResponse<T>`. Consultá la [documentación de JSON Server](https://github.com/typicode/json-server#query-params) al cambiar de versión.
 
+### Usuarios de prueba
+
+La autenticación es simulada: el login consulta la colección `users` de `db.json` (spec 010). Cada usuario tiene un rol y, si es técnico, una especialidad y un tipo de equipo (spec 013b):
+
+| Usuario        | Contraseña        | Rol                         | Especialidad / tipo de equipo            |
+| -------------- | ----------------- | --------------------------- | ---------------------------------------- |
+| `admin`        | `admin123`        | `administrador`             | —                                        |
+| `teamleader`   | `teamleader123`   | `team-leader-mantenimiento` | —                                        |
+| `produccion`   | `produccion123`   | `personal-produccion`       | —                                        |
+| `tecnico`      | `tecnico123`      | `tecnico`                   | `mecanico` / `guardia`                   |
+| `electricista` | `electricista123` | `tecnico`                   | `electricista` / `preventivo-correctivo` |
+
+Qué puede hacer cada rol sobre las órdenes (la regla vive en `features/work-orders/models/work-order.permissions.ts` y la usan las rutas, las páginas y el listado):
+
+| Rol                         | Ver | Crear                      | Editar | Eliminar |
+| --------------------------- | --- | -------------------------- | ------ | -------- |
+| `administrador`             | Sí  | —                          | Sí     | Sí       |
+| `team-leader-mantenimiento` | Sí  | `preventivo`, `correctivo` | Sí     | —        |
+| `personal-produccion`       | Sí  | `pronto-intervencion`      | —      | —        |
+| `tecnico`                   | Sí  | —                          | —      | —        |
+
+El técnico gestiona (toma, comenta, cierra) las órdenes de su especialidad y tipo de equipo: `general` cubre ambas especialidades y `guardia` atiende `pronto-intervencion`, mientras que `preventivo-correctivo` atiende `preventivo` y `correctivo`. Hoy solo existe la consulta (`canTechnicianHandle`); la asignación real de órdenes es de la spec 013d. Estas reglas son control de navegación y de interfaz: el rol vive en `localStorage` y es editable, así que la autorización real corresponde al backend.
+
 ## Funcionalidades actuales
 
 - Listado de órdenes de mantenimiento.
@@ -102,6 +125,8 @@ La integración utiliza `_page`, `_per_page`, `title:contains` y los filtros por
 - Prioridad y estado visibles como badges en el listado, y cambio rápido de estado desde un select por fila (`pending`, `in-progress`, `completed`).
 - Consulta del detalle mediante un identificador en la URL.
 - Creación y edición con un formulario compartido.
+- Tipo de orden (`preventivo`, `correctivo`, `pronto-intervencion`): se elige al crear, no se cambia al editar y se muestra en el listado y el detalle.
+- Autenticación simulada con cuatro roles: crear, editar y eliminar órdenes dependen del rol (ver "Usuarios de prueba").
 - Eliminación con confirmación.
 - Indicador global de peticiones en curso.
 - Mensajes globales de éxito, advertencia y error.
@@ -118,9 +143,11 @@ La aplicación se organiza por funcionalidad, con infraestructura y componentes 
 src/
 ├── app/
 │   ├── core/
+│   │   ├── auth/
 │   │   ├── interceptors/
 │   │   └── services/
 │   ├── features/
+│   │   ├── auth/
 │   │   ├── dashboard/
 │   │   └── work-orders/
 │   │       ├── components/form/
@@ -147,13 +174,13 @@ src/
 └── styles.scss
 ```
 
-| Capa       | Responsabilidad                                                     |
-| ---------- | ------------------------------------------------------------------- |
-| `core`     | Infraestructura transversal: loading, mensajes e interceptores HTTP |
-| `layout`   | Composición visual y alojamiento del `RouterOutlet`                 |
-| `shared`   | Componentes reutilizables de interfaz                               |
-| `features` | Páginas, formularios, modelos y acceso a datos del dominio          |
-| `styles`   | Tokens y estilos compartidos                                        |
+| Capa       | Responsabilidad                                                                      |
+| ---------- | ------------------------------------------------------------------------------------ |
+| `core`     | Infraestructura transversal: sesión y guards, loading, mensajes e interceptores HTTP |
+| `layout`   | Composición visual y alojamiento del `RouterOutlet`                                  |
+| `shared`   | Componentes reutilizables de interfaz                                                |
+| `features` | Páginas, formularios, modelos y acceso a datos del dominio                           |
+| `styles`   | Tokens y estilos compartidos                                                         |
 
 Se incorporan carpetas y abstracciones cuando existe una responsabilidad concreta que justifica su uso.
 
@@ -163,7 +190,7 @@ Los imports entre capas usan los aliases `@core/*`, `@shared/*` y `@features/*` 
 
 Las páginas coordinan la carga de datos, las acciones y la navegación. `WorkOrdersService` encapsula las peticiones HTTP. El componente `Form`, ubicado dentro de la feature, recibe datos iniciales y emite los valores del formulario hacia las páginas de creación o edición.
 
-`WorkOrder` representa una orden y `WorkOrderCreateRequest` los datos necesarios para crearla. `PaginatedResponse<T>` describe la respuesta paginada utilizada por el listado.
+`WorkOrder` representa una orden y `WorkOrderCreateRequest` los datos necesarios para crearla; ambos llevan el `type` de la orden. La política de permisos (`work-order.permissions.ts`) resuelve quién puede crear cada tipo, editar y eliminar; el `Form` no conoce roles: la página le pasa `allowedTypes` (qué tipos ofrecer) y `lockType` (en edición el tipo queda fijo), y `WorkOrderCreate` vuelve a validar el permiso al enviar. `PaginatedResponse<T>` describe la respuesta paginada utilizada por el listado.
 
 Las páginas de detalle y edición consultan la orden por el identificador de la ruta. No necesitan recibir el objeto completo desde la lista, por lo que pueden cargar los datos al acceder directamente a una URL existente.
 
@@ -179,7 +206,7 @@ Las páginas de detalle y edición consultan la orden por el identificador de la
 | `/work-orders/:id`      | Detalle de una orden         |
 | `/work-orders/:id/edit` | Edición de una orden         |
 
-La feature de órdenes utiliza `loadChildren()` y sus páginas se cargan mediante `loadComponent()`. `/dashboard` y `/work-orders/*` requieren sesión (`authGuard`, spec 011): sin ella se redirige a `/login` conservando la URL pedida para volver tras el login. `/login` redirige al destino de retorno (por defecto `/dashboard`) si ya hay sesión (`guestGuard`), y la página 404 es pública. `requireRole(...roles)` permite restringir una ruta por rol (`admin` o `tecnico`), pero todavía ninguna ruta lo usa. Estos guards son control de navegación: la autorización real corresponde al backend.
+La feature de órdenes utiliza `loadChildren()` y sus páginas se cargan mediante `loadComponent()`. `/dashboard` y `/work-orders/*` requieren sesión (`authGuard`, spec 011): sin ella se redirige a `/login` conservando la URL pedida para volver tras el login. `/login` redirige al destino de retorno (por defecto `/dashboard`) si ya hay sesión (`guestGuard`), y la página 404 es pública. Los roles son `administrador`, `team-leader-mantenimiento`, `personal-produccion` y `tecnico` (este último con especialidad y tipo de equipo, spec 013b). `requireUser(predicate)` restringe una ruta con una regla sobre el usuario y `requireRole(...roles)` es su atajo por rol: `/work-orders/new` exige un rol que pueda crear órdenes y `/work-orders/:id/edit` uno que pueda editarlas, según la política de `work-order.permissions.ts`; sin permiso se vuelve a `/dashboard` con un aviso. Estos guards son control de navegación: la autorización real corresponde al backend.
 
 ### Signals y RxJS
 
@@ -271,6 +298,7 @@ de las decisiones tomadas para cada feature.
 | Autenticación simulada, sesión, logout y retorno tras login | [`010-autenticacion-simulada`](.claude/specs/010-autenticacion-simulada)                         | Implementado (82 tests nuevos, 128→210 en la suite; +17 del spec de `errorInterceptor`, 227 en total) |
 | Guards de ruta y permisos por rol                           | [`011-guards-permisos-rol`](.claude/specs/011-guards-permisos-rol)                               | Implementado (31 tests nuevos, 227→258 en la suite)                                                   |
 | Filtros por estado y prioridad, cambio de estado de órdenes | [`012-filtros-estado-prioridad`](.claude/specs/012-filtros-estado-prioridad)                     | Implementado (76 tests nuevos, 258→334 en la suite)                                                   |
+| Roles extendidos del dominio de mantenimiento               | [`013b-roles-extendidos`](.claude/specs/013b-roles-extendidos)                                   | Implementado (189 tests nuevos, 334→523 en la suite)                                                  |
 
 ### Estado de las pruebas
 
@@ -282,18 +310,19 @@ La estrategia a completar incluye:
 - Tests del listado: datos, vacío, error, búsqueda, paginación y recarga tras eliminar.
 - Tests de formularios: validación y protección frente a envíos repetidos.
 - Tests de detalle y edición ante registros inexistentes y fallos de carga: cubierto (spec 003).
+- Tests de roles y permisos: modelo del usuario y atributos del técnico, guard `requireUser`, política de permisos, rutas de crear y editar con las rutas reales, y botones y acciones del listado según el rol: cubierto (spec 013b).
 - Tests de interceptores: `loadingInterceptor` cubierto (spec 002); `authInterceptor` cubierto (spec 010); `errorInterceptor` cubierto (spec propio, agregado tras 010). Foco y limpieza del modal: cubierto (spec 005).
 
 ### Cobertura
 
-`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `012-filtros-estado-prioridad` (334 tests):
+`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `013b-roles-extendidos` (523 tests):
 
 | Métrica    | % Cubierto |
 | ---------- | ---------- |
-| Statements | 95.77%     |
-| Branches   | 95.43%     |
-| Functions  | 91.15%     |
-| Lines      | 97.34%     |
+| Statements | 96.62%     |
+| Branches   | 96.81%     |
+| Functions  | 93.57%     |
+| Lines      | 98.03%     |
 
 Es un número **informativo**, no un umbral bloqueante — no hay `coverageThresholds` configurado en `angular.json`, así que no falla el comando ni el commit si baja. El desbalance de Functions detectado en spec 007 (72.95% sobre specs 001-006, 79.5% recalculado tras 008a/008b) se cerró en spec 009 con tests dirigidos a funciones de lógica real sin cobertura (ver `.claude/specs/009-cobertura-por-feature`); no se persigue el 100%, solo un nivel consistente con el resto de las métricas.
 
@@ -302,6 +331,8 @@ El código nuevo de spec 010 quedó al 100% en las cuatro métricas. Al agregar 
 El código nuevo de spec 011 (`auth.guard.ts`, `auth.model.ts`, `app.routes.ts`, `login-page.ts`) quedó al 100% en las cuatro métricas. Branches es el número estable entre corridas (93.62% → 93.72%, 411/439 → 418/446). Statements, Functions y Lines oscilan entre corridas sobre el mismo código, como ya se documentó en 010: dos corridas consecutivas de 011 dieron 95.03% / 90.33% / 96.63% y 94.55% / 88.88% / 95.96%; la tabla usa la última. Por eso la baja de Functions respecto de 90.09% no se atribuye a código nuevo sin cubrir. Detalle en `.claude/specs/011-guards-permisos-rol/notes.md`.
 
 El código nuevo o modificado de spec 012 (`work-orders-list.ts`, `work-order.service.ts`, `work-order.model.ts`, `work-order.display.ts`, `badge.ts`) no aparece en la tabla de archivos con huecos. Branches subió de 93.72% a 95.43% (418/446 → 460/482). Statements, Functions y Lines volvieron a variar entre corridas sobre el mismo código: otra corrida dio 95.33% / 89.82% / 96.73%; la tabla usa la de Functions más alta (91.15%). Detalle en `.claude/specs/012-filtros-estado-prioridad/notes.md`.
+
+El código nuevo o modificado de spec 013b (`auth.guard.ts`, `auth.model.ts`, `work-order.permissions.ts`, `work-orders.routes.ts`) no aparece en la tabla de archivos con huecos: 100% en las cuatro métricas. `auth.model.ts` bajó a 95.65% en una medición intermedia (la rama de `toAuthUser` con un registro que no es un objeto) y se cerró con tests directos. Branches subió de 95.43% a 96.81% (460/482 → 516/533). Statements, Functions y Lines volvieron a variar entre corridas sobre el mismo código: otra corrida dio 96.38% / 92.77% / 97.70%; la tabla usa la de Functions más alta. Detalle en `.claude/specs/013b-roles-extendidos/notes.md`.
 
 ### Última verificación registrada
 
@@ -343,6 +374,18 @@ Revisión del **23 de septiembre de 2026**, tras `010-autenticacion-simulada` y 
 - Cobertura: ver sección "Cobertura" arriba (Functions 87.57%→90.09%, Branches 91.86%→93.62%; ninguna métrica bajó).
 - Mutation testing: 2 mutaciones deliberadas (retorno a `returnUrl` en `LoginPage` y `logout()` en `AppShell`) hicieron fallar los tests esperados antes de revertirse.
 - Verificación manual de login contra `pnpm api` + `pnpm start`: no registrada en esta revisión (pasos en `.claude/specs/010-autenticacion-simulada/notes.md`).
+
+Revisión del **23 de septiembre de 2026**, tras `013b-roles-extendidos`:
+
+- Build de producción: correcto.
+- ESLint: correcto.
+- Tests: 523 correctos en 35 archivos (334 antes de spec 013b).
+- Prettier: `pnpm exec prettier . --check` limpio.
+- `tsc --noEmit`: 0 errores en `tsconfig.app.json` y `tsconfig.spec.json`.
+- Cobertura: ver sección "Cobertura" arriba (Branches 95.43%→96.81%; Functions dentro de la variabilidad entre corridas descrita ahí).
+- Mutation testing: 34 mutaciones deliberadas sobre el guard `requireUser`, la política de permisos, el formulario, las páginas de crear, editar, listado y detalle, y las rutas; 33 hicieron fallar los tests esperados y una es equivalente (el `required` de la plantilla también lo aplica). Tabla en `.claude/specs/013b-roles-extendidos/notes.md`.
+- Contrato con JSON Server (`pnpm api`): los 5 usuarios de prueba producen una sesión válida (técnicos con especialidad y tipo de equipo, sin `password`), una contraseña incorrecta no devuelve registros y las 29 órdenes traen un `type` válido.
+- Verificación manual de la interfaz: no registrada en esta revisión (pasos en `.claude/specs/013b-roles-extendidos/notes.md`).
 
 Revisión del **23 de septiembre de 2026**, tras `012-filtros-estado-prioridad`:
 
@@ -396,6 +439,7 @@ Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones
 - [x] Implementar autenticación simulada, sesión, logout y retorno después del login (spec 010).
 - [x] Agregar guards y permisos por rol (spec 011: mecanismo de guards y `requireRole`; qué puede hacer cada rol se define en las specs de cada feature).
 - [x] Completar filtros por estado y prioridad y cambio de estado de las órdenes (spec 012: tres estados; la restricción por rol y las transiciones permitidas quedan para specs posteriores).
+- [x] Definir los roles del dominio de mantenimiento y sus permisos sobre las órdenes (spec 013b: cuatro roles, atributos del técnico, tipo de orden, crear/editar/eliminar por rol; la asignación por especialidad y tipo de equipo queda para 013d).
 - [ ] Incorporar gestión de equipos y técnicos de forma incremental.
 - [ ] Desarrollar los indicadores del dashboard.
 
