@@ -3,11 +3,15 @@ export interface LoginCredentials {
   password: string;
 }
 
+export const USER_ROLES = ['admin', 'tecnico'] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
 export interface AuthUser {
   id: string;
   username: string;
   displayName: string;
   email: string;
+  role: UserRole;
 }
 
 export interface AuthSession {
@@ -27,13 +31,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+export function isUserRole(value: unknown): value is UserRole {
+  return USER_ROLES.some((role) => role === value);
+}
+
 function isAuthUser(value: unknown): value is AuthUser {
   return (
     isRecord(value) &&
     isNonEmptyString(value['id']) &&
     isNonEmptyString(value['username']) &&
     typeof value['displayName'] === 'string' &&
-    typeof value['email'] === 'string'
+    typeof value['email'] === 'string' &&
+    isUserRole(value['role'])
   );
 }
 

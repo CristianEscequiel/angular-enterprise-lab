@@ -14,6 +14,7 @@ describe('AuthService', () => {
     password: 'admin123',
     displayName: 'Administrador',
     email: 'admin@enterprise-lab.dev',
+    role: 'admin',
   };
   const tecnico: UserRecord = {
     id: '2',
@@ -21,6 +22,7 @@ describe('AuthService', () => {
     password: 'tecnico123',
     displayName: 'Técnico de Mantenimiento',
     email: 'tecnico@enterprise-lab.dev',
+    role: 'tecnico',
   };
 
   let httpMock: HttpTestingController;
@@ -79,8 +81,20 @@ describe('AuthService', () => {
         username: 'admin',
         displayName: 'Administrador',
         email: 'admin@enterprise-lab.dev',
+        role: 'admin',
       });
       expect(service.token()).toMatch(/^mock-token\.1\.\d+$/);
+    });
+
+    it('copies the role of the authenticated user into the session', () => {
+      expect.assertions(3);
+      const service = setup();
+
+      loginAs(service, tecnico);
+
+      expect(service.currentUser()?.role).toBe('tecnico');
+      expect(service.currentUser()).not.toHaveProperty('password');
+      expect(storedSession()).toMatchObject({ user: { role: 'tecnico' } });
     });
 
     it('never keeps the password in the session state or in storage', () => {
@@ -181,6 +195,7 @@ describe('AuthService', () => {
           username: 'tecnico',
           displayName: 'Técnico de Mantenimiento',
           email: 'tecnico@enterprise-lab.dev',
+          role: 'tecnico',
         },
       };
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
@@ -189,6 +204,25 @@ describe('AuthService', () => {
 
       expect(service.isAuthenticated()).toBe(true);
       expect(service.session()).toEqual(session);
+    });
+
+    it('discards a session stored without role (saved before roles existed) and forces a new login', () => {
+      expect.assertions(2);
+      const legacyUser = {
+        id: admin.id,
+        username: admin.username,
+        displayName: admin.displayName,
+        email: admin.email,
+      };
+      localStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify({ token: 'mock-token.1.1700000000000', user: legacyUser }),
+      );
+
+      const service = setup();
+
+      expect(service.isAuthenticated()).toBe(false);
+      expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
     });
 
     it.each([

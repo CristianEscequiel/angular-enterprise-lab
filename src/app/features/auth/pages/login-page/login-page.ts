@@ -5,9 +5,9 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { AuthService, InvalidCredentialsError } from '@core/auth/auth.service';
+import { sanitizeReturnUrl } from '@core/auth/return-url';
 import { Alert } from '@shared/components/alert/alert';
 import { Button } from '@shared/components/button/button';
-import { sanitizeReturnUrl } from '../../return-url';
 
 @Component({
   selector: 'app-login-page',
@@ -39,12 +39,6 @@ export class LoginPage {
     initialValue: this.route.snapshot.queryParamMap,
   });
   readonly returnUrl = computed(() => sanitizeReturnUrl(this.queryParamMap().get('returnUrl')));
-
-  constructor() {
-    if (this.authService.isAuthenticated()) {
-      void this.router.navigateByUrl(this.returnUrl());
-    }
-  }
 
   isInvalid(controlName: keyof typeof this.loginForm.controls): boolean {
     const control = this.loginForm.controls[controlName];

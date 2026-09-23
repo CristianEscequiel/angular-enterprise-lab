@@ -268,14 +268,16 @@
       "username": "admin",
       "password": "admin123",
       "displayName": "Administrador",
-      "email": "admin@enterprise-lab.dev"
+      "email": "admin@enterprise-lab.dev",
+      "role": "admin"
     },
     {
       "id": "2",
       "username": "tecnico",
       "password": "tecnico123",
       "displayName": "Técnico de Mantenimiento",
-      "email": "tecnico@enterprise-lab.dev"
+      "email": "tecnico@enterprise-lab.dev",
+      "role": "tecnico"
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"

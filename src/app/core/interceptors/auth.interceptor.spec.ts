@@ -25,6 +25,7 @@ describe('authInterceptor', () => {
           password: 'admin123',
           displayName: 'Administrador',
           email: 'admin@enterprise-lab.dev',
+          role: 'admin',
         },
       ]);
   }

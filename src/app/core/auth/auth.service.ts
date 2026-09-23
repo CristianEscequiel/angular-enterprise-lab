@@ -57,6 +57,7 @@ export class AuthService {
               username: record.username,
               displayName: record.displayName,
               email: record.email,
+              role: record.role,
             },
           } satisfies AuthSession;
         }),

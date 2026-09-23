@@ -5,7 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
-import { AuthSession, UserRecord } from '@core/auth/auth.model';
+import { UserRecord } from '@core/auth/auth.model';
 import { AUTH_STORAGE_KEY, AuthService } from '@core/auth/auth.service';
 import { API_BASE_URL } from '@core/config/api.config';
 import { LoginPage } from './login-page';
@@ -20,6 +20,7 @@ describe('LoginPage', () => {
     password: 'admin123',
     displayName: 'Administrador',
     email: 'admin@enterprise-lab.dev',
+    role: 'admin',
   };
 
   let harness: RouterTestingHarness;
@@ -239,38 +240,6 @@ describe('LoginPage', () => {
       const requests = usersRequests();
       expect(requests).toHaveLength(1);
       requests[0]?.flush([admin]);
-    });
-  });
-
-  describe('with an existing session', () => {
-    const session: AuthSession = {
-      token: 'mock-token.1.1700000000000',
-      user: {
-        id: '1',
-        username: 'admin',
-        displayName: 'Administrador',
-        email: 'admin@enterprise-lab.dev',
-      },
-    };
-
-    it('redirects to the dashboard without asking for credentials again', async () => {
-      expect.assertions(1);
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-
-      await setup();
-      await harness.fixture.whenStable();
-
-      expect(router.url).toBe('/dashboard');
-    });
-
-    it('redirects to the requested returnUrl', async () => {
-      expect.assertions(1);
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-
-      await setup('/login?returnUrl=%2Fwork-orders%2F5');
-      await harness.fixture.whenStable();
-
-      expect(router.url).toBe('/work-orders/5');
     });
   });
 });

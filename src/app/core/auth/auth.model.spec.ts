@@ -8,6 +8,7 @@ describe('isAuthSession', () => {
       username: 'admin',
       displayName: 'Administrador',
       email: 'admin@enterprise-lab.dev',
+      role: 'admin',
     },
   };
 
@@ -57,6 +58,30 @@ describe('isAuthSession', () => {
     const { id, displayName, email } = validSession.user;
 
     expect(isAuthSession({ token: validSession.token, user: { id, displayName, email } })).toBe(
+      false,
+    );
+  });
+
+  it.each(['admin', 'tecnico'] as const)('accepts a user with role %s', (role) => {
+    expect(isAuthSession({ token: validSession.token, user: { ...validSession.user, role } })).toBe(
+      true,
+    );
+  });
+
+  it('rejects a session whose user has no role', () => {
+    const { id, username, displayName, email } = validSession.user;
+
+    expect(
+      isAuthSession({ token: validSession.token, user: { id, username, displayName, email } }),
+    ).toBe(false);
+  });
+
+  it.each([
+    ['an unknown role', 'superuser'],
+    ['a non-string role', 7],
+    ['an empty role', ''],
+  ])('rejects a session whose user has %s', (_label, role) => {
+    expect(isAuthSession({ token: validSession.token, user: { ...validSession.user, role } })).toBe(
       false,
     );
   });

@@ -80,6 +80,7 @@ describe('AppShell', () => {
       password: 'admin123',
       displayName: 'Administrador',
       email: 'admin@enterprise-lab.dev',
+      role: 'admin',
     };
     const tecnico: UserRecord = {
       id: '2',
@@ -87,6 +88,7 @@ describe('AppShell', () => {
       password: 'tecnico123',
       displayName: 'Técnico de Mantenimiento',
       email: 'tecnico@enterprise-lab.dev',
+      role: 'tecnico',
     };
 
     function loginAs(user: UserRecord): AuthSession {
