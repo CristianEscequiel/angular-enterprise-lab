@@ -253,18 +253,19 @@ siguiendo un ciclo de tres fases con revisión entre cada una:
 Los specs y planes se conservan en `.claude/specs/<número>-<nombre>/` como registro
 de las decisiones tomadas para cada feature.
 
-| Feature                                                 | Spec                                                                                             | Estado                                                                                     |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Unificar búsqueda, paginación y recarga                 | [`001-unificar-busqueda-paginacion`](.claude/specs/001-unificar-busqueda-paginacion)             | Implementado (5 tests nuevos, 21→51 en la suite)                                           |
-| Recuperación de la búsqueda tras errores                | [`002-recuperacion-busqueda-tras-errores`](.claude/specs/002-recuperacion-busqueda-tras-errores) | Implementado (4 tests nuevos, 51→55 en la suite)                                           |
-| Estados de error en detalle y edición                   | [`003-estados-error-detalle-edicion`](.claude/specs/003-estados-error-detalle-edicion)           | Implementado (13 tests nuevos, 55→73 en la suite)                                          |
-| Protección de formularios inválidos y envíos duplicados | [`004-proteccion-formularios`](.claude/specs/004-proteccion-formularios)                         | Implementado (11 tests nuevos, 73→84 en la suite)                                          |
-| Manejo de foco y limpieza del modal                     | [`005-foco-limpieza-modal`](.claude/specs/005-foco-limpieza-modal)                               | Implementado (8 tests nuevos, 84→92 en la suite)                                           |
-| Página 404 y validación de formato de id                | [`006-pagina-404`](.claude/specs/006-pagina-404)                                                 | Implementado (12 tests nuevos, 92→104 en la suite)                                         |
-| Cobertura de tests y verificaciones de formato          | [`007-cobertura-y-verificaciones`](.claude/specs/007-cobertura-y-verificaciones)                 | Implementado (sin tests nuevos — configura medición y verificación, no persigue un número) |
-| Tipado estricto y aliases de imports                    | [`008a-tipado-aliases`](.claude/specs/008a-tipado-aliases)                                       | Implementado (sin tests nuevos — tipado y refactor de imports, no persigue un número)      |
-| Accesibilidad y adaptación responsive                   | [`008b-accesibilidad-responsive`](.claude/specs/008b-accesibilidad-responsive)                   | Implementado (15 tests nuevos, 104→119 en la suite)                                        |
-| Cobertura de Functions por feature                      | [`009-cobertura-por-feature`](.claude/specs/009-cobertura-por-feature)                           | Implementado (9 tests nuevos, 119→128 en la suite; Functions 79.5%→87.57%)                 |
+| Feature                                                     | Spec                                                                                             | Estado                                                                                                |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Unificar búsqueda, paginación y recarga                     | [`001-unificar-busqueda-paginacion`](.claude/specs/001-unificar-busqueda-paginacion)             | Implementado (5 tests nuevos, 21→51 en la suite)                                                      |
+| Recuperación de la búsqueda tras errores                    | [`002-recuperacion-busqueda-tras-errores`](.claude/specs/002-recuperacion-busqueda-tras-errores) | Implementado (4 tests nuevos, 51→55 en la suite)                                                      |
+| Estados de error en detalle y edición                       | [`003-estados-error-detalle-edicion`](.claude/specs/003-estados-error-detalle-edicion)           | Implementado (13 tests nuevos, 55→73 en la suite)                                                     |
+| Protección de formularios inválidos y envíos duplicados     | [`004-proteccion-formularios`](.claude/specs/004-proteccion-formularios)                         | Implementado (11 tests nuevos, 73→84 en la suite)                                                     |
+| Manejo de foco y limpieza del modal                         | [`005-foco-limpieza-modal`](.claude/specs/005-foco-limpieza-modal)                               | Implementado (8 tests nuevos, 84→92 en la suite)                                                      |
+| Página 404 y validación de formato de id                    | [`006-pagina-404`](.claude/specs/006-pagina-404)                                                 | Implementado (12 tests nuevos, 92→104 en la suite)                                                    |
+| Cobertura de tests y verificaciones de formato              | [`007-cobertura-y-verificaciones`](.claude/specs/007-cobertura-y-verificaciones)                 | Implementado (sin tests nuevos — configura medición y verificación, no persigue un número)            |
+| Tipado estricto y aliases de imports                        | [`008a-tipado-aliases`](.claude/specs/008a-tipado-aliases)                                       | Implementado (sin tests nuevos — tipado y refactor de imports, no persigue un número)                 |
+| Accesibilidad y adaptación responsive                       | [`008b-accesibilidad-responsive`](.claude/specs/008b-accesibilidad-responsive)                   | Implementado (15 tests nuevos, 104→119 en la suite)                                                   |
+| Cobertura de Functions por feature                          | [`009-cobertura-por-feature`](.claude/specs/009-cobertura-por-feature)                           | Implementado (9 tests nuevos, 119→128 en la suite; Functions 79.5%→87.57%)                            |
+| Autenticación simulada, sesión, logout y retorno tras login | [`010-autenticacion-simulada`](.claude/specs/010-autenticacion-simulada)                         | Implementado (82 tests nuevos, 128→210 en la suite; +17 del spec de `errorInterceptor`, 227 en total) |
 
 ### Estado de las pruebas
 
@@ -276,20 +277,22 @@ La estrategia a completar incluye:
 - Tests del listado: datos, vacío, error, búsqueda, paginación y recarga tras eliminar.
 - Tests de formularios: validación y protección frente a envíos repetidos.
 - Tests de detalle y edición ante registros inexistentes y fallos de carga: cubierto (spec 003).
-- Tests de interceptores: `loadingInterceptor` cubierto (spec 002); `errorInterceptor`, pendiente. Foco y limpieza del modal: cubierto (spec 005).
+- Tests de interceptores: `loadingInterceptor` cubierto (spec 002); `authInterceptor` cubierto (spec 010); `errorInterceptor` cubierto (spec propio, agregado tras 010). Foco y limpieza del modal: cubierto (spec 005).
 
 ### Cobertura
 
-`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `009-cobertura-por-feature` (128 tests):
+`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `010-autenticacion-simulada` y el spec de `errorInterceptor` (227 tests):
 
 | Métrica    | % Cubierto |
 | ---------- | ---------- |
-| Statements | 93.87%     |
-| Branches   | 91.86%     |
-| Functions  | 87.57%     |
-| Lines      | 95.71%     |
+| Statements | 94.95%     |
+| Branches   | 93.62%     |
+| Functions  | 90.09%     |
+| Lines      | 96.56%     |
 
 Es un número **informativo**, no un umbral bloqueante — no hay `coverageThresholds` configurado en `angular.json`, así que no falla el comando ni el commit si baja. El desbalance de Functions detectado en spec 007 (72.95% sobre specs 001-006, 79.5% recalculado tras 008a/008b) se cerró en spec 009 con tests dirigidos a funciones de lógica real sin cobertura (ver `.claude/specs/009-cobertura-por-feature`); no se persigue el 100%, solo un nivel consistente con el resto de las métricas.
+
+El código nuevo de spec 010 quedó al 100% en las cuatro métricas. Al agregar `app.config.spec.ts`, `errorInterceptor` (que ningún test importaba y por eso no figuraba en el reporte) apareció con 0/21 ramas y Branches bajó transitoriamente a 88.83%; el spec propio de `errorInterceptor` lo llevó a 100% y dejó Branches en 93.62% (antes 91.86%). Detalle en `.claude/specs/010-autenticacion-simulada/notes.md`.
 
 ### Última verificación registrada
 
@@ -321,6 +324,17 @@ Revisión del **22 de septiembre de 2026**, tras `009-cobertura-por-feature`:
 - Prettier: `pnpm exec prettier . --check` limpio.
 - Cobertura: ver sección "Cobertura" arriba (Functions 79.5%→87.57%; Statements/Branches/Lines subieron o se mantuvieron, ninguna bajó).
 
+Revisión del **23 de septiembre de 2026**, tras `010-autenticacion-simulada` y el spec de `errorInterceptor` (commits `f106689` y `bfe47a6`):
+
+- Build de producción: correcto, sin warnings.
+- ESLint: correcto.
+- Tests: 227 correctos en 31 archivos (128 antes de spec 010).
+- Prettier: `pnpm exec prettier . --check` limpio.
+- `tsc --noEmit`: 0 errores en `tsconfig.app.json` y `tsconfig.spec.json`.
+- Cobertura: ver sección "Cobertura" arriba (Functions 87.57%→90.09%, Branches 91.86%→93.62%; ninguna métrica bajó).
+- Mutation testing: 2 mutaciones deliberadas (retorno a `returnUrl` en `LoginPage` y `logout()` en `AppShell`) hicieron fallar los tests esperados antes de revertirse.
+- Verificación manual de login contra `pnpm api` + `pnpm start`: no registrada en esta revisión (pasos en `.claude/specs/010-autenticacion-simulada/notes.md`).
+
 Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones`:
 
 - Build de producción: correcto, sin warnings.
@@ -347,7 +361,7 @@ Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones
 
 ### 2. Autenticación y evolución funcional
 
-- [ ] Implementar autenticación simulada, sesión, logout y retorno después del login.
+- [x] Implementar autenticación simulada, sesión, logout y retorno después del login (spec 010).
 - [ ] Agregar guards y permisos por rol.
 - [ ] Completar filtros por estado y prioridad y cambio de estado de las órdenes.
 - [ ] Incorporar gestión de equipos y técnicos de forma incremental.
