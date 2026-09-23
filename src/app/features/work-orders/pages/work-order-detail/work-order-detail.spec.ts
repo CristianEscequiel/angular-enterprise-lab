@@ -14,6 +14,7 @@ describe('WorkOrderDetail', () => {
     title: 'Orden de prueba',
     description: 'Descripción de prueba',
     asset: 'Máquina 1',
+    type: 'pronto-intervencion',
     priority: 'medium',
     status: 'pending',
   };
@@ -70,6 +71,20 @@ describe('WorkOrderDetail', () => {
   it('should create', async () => {
     await createComponent();
     expect(component).toBeTruthy();
+  });
+
+  it.each([
+    ['preventivo', 'Preventivo'],
+    ['correctivo', 'Correctivo'],
+    ['pronto-intervencion', 'Pronto intervención'],
+  ])('renders the %s type as "%s"', async (type, label) => {
+    expect.assertions(2);
+    workOrdersServiceMock.getById.mockReturnValue(of({ ...mockWorkOrder, type }));
+    await createComponent();
+
+    const text = (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
+    expect(text).toContain(`Tipo: ${label}`);
+    expect(text).not.toContain('undefined');
   });
 
   it('renders the work order normally on success', async () => {

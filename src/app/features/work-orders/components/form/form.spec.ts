@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
+import { WorkOrderCreateRequest, WorkOrderType } from '../../models/work-order.model';
 import { Form } from './form';
 
 describe('Form', () => {
@@ -15,6 +16,7 @@ describe('Form', () => {
       title: 'Revisar motor',
       description: 'Revisar temperatura del motor',
       asset: 'Motor 1',
+      type: 'correctivo',
       priority: 'medium',
     });
   }
@@ -91,6 +93,7 @@ describe('Form', () => {
       title: 'Revisar motor',
       description: 'Revisar temperatura del motor',
       asset: 'Motor 1',
+      type: 'correctivo',
       priority: 'medium',
     });
   });
@@ -117,5 +120,118 @@ describe('Form', () => {
     fixture.detectChanges();
 
     expect(submitButton().disabled).toBe(false);
+  });
+
+  describe('order type', () => {
+    interface Inputs {
+      allowedTypes?: readonly WorkOrderType[];
+      lockType?: boolean;
+      inputData?: WorkOrderCreateRequest;
+    }
+
+    // Los inputs se leen en ngOnInit: hay que fijarlos antes del primer detectChanges.
+    function createWith(inputs: Inputs): ComponentFixture<Form> {
+      const created = TestBed.createComponent(Form);
+      for (const [name, value] of Object.entries(inputs)) {
+        created.componentRef.setInput(name, value);
+      }
+      created.detectChanges();
+      return created;
+    }
+
+    function typeSelect(target: ComponentFixture<Form>): HTMLSelectElement {
+      const select = target.nativeElement.querySelector('#type') as HTMLSelectElement | null;
+      if (!select) throw new Error('No se renderizó el select de tipo');
+      return select;
+    }
+
+    function optionValues(target: ComponentFixture<Form>): string[] {
+      return Array.from(typeSelect(target).options).map((option) => option.value);
+    }
+
+    const stored: WorkOrderCreateRequest = {
+      title: 'Revisar motor',
+      description: 'Revisar temperatura del motor',
+      asset: 'Motor 1',
+      type: 'correctivo',
+      priority: 'medium',
+    };
+
+    it('offers every order type when the page does not restrict them', () => {
+      expect(optionValues(fixture)).toEqual(['preventivo', 'correctivo', 'pronto-intervencion']);
+    });
+
+    it('renders only the types the page allows, with their labels', () => {
+      expect.assertions(2);
+      const restricted = createWith({ allowedTypes: ['pronto-intervencion'] });
+
+      expect(optionValues(restricted)).toEqual(['pronto-intervencion']);
+      expect(typeSelect(restricted).options[0]?.textContent?.trim()).toBe('Pronto intervención');
+    });
+
+    it('starts on the first allowed type', () => {
+      const restricted = createWith({ allowedTypes: ['correctivo', 'preventivo'] });
+
+      expect(restricted.componentInstance.workOrderForm.controls.type.value).toBe('correctivo');
+    });
+
+    it('emits the type chosen among the allowed ones', () => {
+      expect.assertions(1);
+      const restricted = createWith({ allowedTypes: ['preventivo', 'correctivo'] });
+      const emit = vi.spyOn(restricted.componentInstance.sendData, 'emit');
+      restricted.componentInstance.workOrderForm.setValue({
+        ...stored,
+        type: 'preventivo',
+      });
+
+      restricted.componentInstance.onSubmit();
+
+      expect(emit).toHaveBeenCalledExactlyOnceWith({ ...stored, type: 'preventivo' });
+    });
+
+    it('requires a type: with no allowed types it blocks emission and shows the error', () => {
+      expect.assertions(3);
+      const empty = createWith({ allowedTypes: [] });
+      const emit = vi.spyOn(empty.componentInstance.sendData, 'emit');
+      empty.componentInstance.workOrderForm.patchValue(stored);
+      empty.componentInstance.workOrderForm.controls.type.setValue(null);
+
+      empty.componentInstance.onSubmit();
+      empty.detectChanges();
+
+      expect(emit).not.toHaveBeenCalled();
+      expect(empty.nativeElement.textContent).toContain('El tipo de orden es obligatorio.');
+      expect(typeSelect(empty).getAttribute('aria-describedby')).toBe('type-error');
+    });
+
+    it('keeps the stored type of an existing order over the first allowed one', () => {
+      const editing = createWith({ inputData: stored, allowedTypes: ['preventivo'] });
+
+      expect(editing.componentInstance.workOrderForm.controls.type.value).toBe('correctivo');
+    });
+
+    describe('lockType', () => {
+      it('leaves the select enabled by default', () => {
+        expect(typeSelect(fixture).disabled).toBe(false);
+      });
+
+      it('disables the select but keeps showing the stored type', () => {
+        expect.assertions(2);
+        const locked = createWith({ inputData: stored, lockType: true });
+
+        expect(typeSelect(locked).disabled).toBe(true);
+        expect(typeSelect(locked).value).toBe('correctivo');
+      });
+
+      it('still emits the original type when the locked form is submitted', () => {
+        expect.assertions(1);
+        const locked = createWith({ inputData: stored, lockType: true });
+        const emit = vi.spyOn(locked.componentInstance.sendData, 'emit');
+
+        locked.componentInstance.onSubmit();
+
+        expect(emit).toHaveBeenCalledExactlyOnceWith(stored);
+      });
+    });
   });
 });

@@ -4,7 +4,11 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
 
-import { AuthService, InvalidCredentialsError } from '@core/auth/auth.service';
+import {
+  AuthService,
+  InvalidCredentialsError,
+  InvalidUserRecordError,
+} from '@core/auth/auth.service';
 import { sanitizeReturnUrl } from '@core/auth/return-url';
 import { Alert } from '@shared/components/alert/alert';
 import { Button } from '@shared/components/button/button';
@@ -65,8 +69,8 @@ export class LoginPage {
         },
         error: (error: unknown) => {
           // Los errores de conexión ya los notifica el errorInterceptor con un toast;
-          // acá solo se muestra inline el rechazo de credenciales.
-          if (error instanceof InvalidCredentialsError) {
+          // acá solo se muestran inline el rechazo de credenciales y el perfil inválido.
+          if (error instanceof InvalidCredentialsError || error instanceof InvalidUserRecordError) {
             this.errorMessage.set(error.message);
           }
         },

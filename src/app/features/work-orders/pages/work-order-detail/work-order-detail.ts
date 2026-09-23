@@ -2,6 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { WorkOrderLoader } from '../../data-access/work-order-loader';
+import { TYPE_LABELS } from '../../models/work-order.display';
 import { Alert } from '@shared/components/alert/alert';
 import { Button } from '@shared/components/button/button';
 
@@ -19,6 +20,7 @@ export class WorkOrderDetail implements OnInit {
 
   readonly workOrderDetail = this.loader.workOrder;
   readonly loadError = this.loader.error;
+  readonly typeLabels = TYPE_LABELS;
 
   ngOnInit() {
     const id = this.activatedRoute.snapshot.paramMap.get('id');

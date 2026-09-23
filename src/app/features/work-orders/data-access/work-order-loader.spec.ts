@@ -13,6 +13,7 @@ describe('WorkOrderLoader', () => {
     title: 'Revisar motor',
     description: 'Revisar temperatura del motor',
     asset: 'Motor 1',
+    type: 'correctivo',
     priority: 'medium',
     status: 'pending',
     createdAt: '2026-09-08T10:00:00Z',

@@ -57,9 +57,12 @@ export class WorkOrderEdit implements OnInit {
       return;
     }
 
+    // El tipo se fija al crear: el PUT siempre conserva el de la orden cargada, sin importar
+    // lo que emita el formulario.
     const updatedWorkOrder: WorkOrder = {
       ...current,
       ...workOrderData,
+      type: current.type,
     };
 
     this.isSubmitting.set(true);

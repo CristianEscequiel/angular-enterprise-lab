@@ -1,5 +1,8 @@
 import { Routes, UrlMatcher } from '@angular/router';
 
+import { requireUser } from '@core/auth/auth.guard';
+import { canEditWorkOrder, creatableTypes } from './models/work-order.permissions';
+
 // Los ids de work order son strings numéricos simples (ver db.json,
 // generados por json-server). Un segmento que no matchee este formato
 // no es una orden reconocible por la app: debe caer en el wildcard 404
@@ -39,12 +42,15 @@ export const WORK_ORDERS_ROUTES: Routes = [
   {
     path: 'new',
     title: 'Crear orden de trabajo | Angular Enterprise Lab',
+    // Solo roles que pueden crear algún tipo de orden (la página filtra cuáles).
+    canActivate: [requireUser((user) => creatableTypes(user).length > 0)],
     loadComponent: () =>
       import('./pages/work-order-create/work-order-create').then((m) => m.WorkOrderCreate),
   },
   {
     matcher: matchWorkOrderIdEdit,
     title: 'Editar orden de trabajo | Angular Enterprise Lab',
+    canActivate: [requireUser((user) => canEditWorkOrder(user))],
     loadComponent: () =>
       import('./pages/work-order-edit/work-order-edit').then((m) => m.WorkOrderEdit),
   },

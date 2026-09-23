@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { PaginatedResponse, WorkOrder } from '../models/work-order.model';
+import { PaginatedResponse, WorkOrder, WorkOrderCreateRequest } from '../models/work-order.model';
 import { WorkOrderLoadError, WorkOrdersCriteria, WorkOrdersService } from './work-order.service';
 
 describe('WorkOrdersService', () => {
@@ -15,6 +15,7 @@ describe('WorkOrdersService', () => {
     title: 'Revisar motor',
     description: 'Revisar temperatura del motor',
     asset: 'Motor 1',
+    type: 'correctivo',
     priority: 'medium',
     status: 'pending',
     createdAt: '2026-09-08T10:00:00Z',
@@ -169,4 +170,46 @@ describe('WorkOrdersService', () => {
 
     expect(completed).toBe(true);
   });
+  it('create issues POST /work-orders carrying the order type together with pending status', () => {
+    expect.assertions(6);
+    const payload: WorkOrderCreateRequest = {
+      title: 'Falla en cinta',
+      description: 'La cinta transportadora se detuvo por completo.',
+      asset: 'Transportador 01',
+      type: 'pronto-intervencion',
+      priority: 'high',
+    };
+    let result: WorkOrder | undefined;
+    service.create(payload).subscribe((value) => (result = value));
+
+    const request = httpMock.expectOne(apiUrl);
+    const body = request.request.body as Record<string, unknown>;
+    expect(request.request.method).toBe('POST');
+    expect(body['type']).toBe('pronto-intervencion');
+    expect(body['status']).toBe('pending');
+    expect(body['title']).toBe(payload.title);
+    expect(typeof body['createdAt']).toBe('string');
+    request.flush({ ...order, ...payload });
+
+    expect(result?.type).toBe('pronto-intervencion');
+  });
+
+  it.each(['preventivo', 'correctivo', 'pronto-intervencion'] as const)(
+    'create keeps the %s type untouched in the request body',
+    (type) => {
+      service
+        .create({
+          title: 'Orden',
+          description: 'Descripción suficiente',
+          asset: 'Activo',
+          type,
+          priority: 'low',
+        })
+        .subscribe();
+
+      const request = httpMock.expectOne(apiUrl);
+      expect((request.request.body as { type: string }).type).toBe(type);
+      request.flush({ ...order, type });
+    },
+  );
 });

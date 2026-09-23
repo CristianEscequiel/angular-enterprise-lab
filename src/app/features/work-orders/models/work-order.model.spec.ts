@@ -1,8 +1,10 @@
 import {
   isWorkOrderPriority,
   isWorkOrderStatus,
+  isWorkOrderType,
   WORK_ORDER_PRIORITIES,
   WORK_ORDER_STATUSES,
+  WORK_ORDER_TYPES,
 } from './work-order.model';
 
 describe('work order model guards', () => {
@@ -30,6 +32,25 @@ describe('work order model guards', () => {
     'isWorkOrderPriority rejects %j',
     (value) => {
       expect(isWorkOrderPriority(value)).toBe(false);
+    },
+  );
+
+  it('exposes exactly the three order types of the maintenance domain', () => {
+    expect([...WORK_ORDER_TYPES]).toEqual(['preventivo', 'correctivo', 'pronto-intervencion']);
+  });
+
+  it.each(['preventivo', 'correctivo', 'pronto-intervencion'])(
+    'isWorkOrderType accepts %s',
+    (value) => {
+      expect(isWorkOrderType(value)).toBe(true);
+    },
+  );
+
+  // 'guardia' es un tipo de equipo del técnico, no un tipo de orden: no deben confundirse.
+  it.each(['guardia', 'preventivo-correctivo', 'PREVENTIVO', '', null, undefined, 1, {}])(
+    'isWorkOrderType rejects %j',
+    (value) => {
+      expect(isWorkOrderType(value)).toBe(false);
     },
   );
 });

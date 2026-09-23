@@ -15,7 +15,7 @@ describe('appConfig', () => {
       username: 'admin',
       displayName: 'Administrador',
       email: 'admin@enterprise-lab.dev',
-      role: 'admin',
+      role: 'administrador',
     },
   };
 

@@ -4,25 +4,32 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 
 import { API_BASE_URL } from '../config/api.config';
-import { AuthSession, UserRecord } from './auth.model';
-import { AUTH_STORAGE_KEY, AuthService, InvalidCredentialsError } from './auth.service';
+import { AuthSession, StaffUser, TechnicianUser, UserRecord } from './auth.model';
+import {
+  AUTH_STORAGE_KEY,
+  AuthService,
+  InvalidCredentialsError,
+  InvalidUserRecordError,
+} from './auth.service';
 
 describe('AuthService', () => {
-  const admin: UserRecord = {
+  const admin: StaffUser & { password: string } = {
     id: '1',
     username: 'admin',
     password: 'admin123',
     displayName: 'Administrador',
     email: 'admin@enterprise-lab.dev',
-    role: 'admin',
+    role: 'administrador',
   };
-  const tecnico: UserRecord = {
+  const tecnico: TechnicianUser & { password: string } = {
     id: '2',
     username: 'tecnico',
     password: 'tecnico123',
     displayName: 'Técnico de Mantenimiento',
     email: 'tecnico@enterprise-lab.dev',
     role: 'tecnico',
+    specialty: 'mecanico',
+    teamType: 'guardia',
   };
 
   let httpMock: HttpTestingController;
@@ -81,7 +88,7 @@ describe('AuthService', () => {
         username: 'admin',
         displayName: 'Administrador',
         email: 'admin@enterprise-lab.dev',
-        role: 'admin',
+        role: 'administrador',
       });
       expect(service.token()).toMatch(/^mock-token\.1\.\d+$/);
     });
@@ -96,6 +103,86 @@ describe('AuthService', () => {
       expect(service.currentUser()).not.toHaveProperty('password');
       expect(storedSession()).toMatchObject({ user: { role: 'tecnico' } });
     });
+
+    it('copies the technician specialty and team type into the session and into storage', () => {
+      expect.assertions(2);
+      const service = setup();
+
+      loginAs(service, tecnico);
+
+      expect(service.currentUser()).toMatchObject({ specialty: 'mecanico', teamType: 'guardia' });
+      expect(storedSession()).toMatchObject({
+        user: { specialty: 'mecanico', teamType: 'guardia' },
+      });
+    });
+
+    it('keeps the two technician attributes independent (electricista on preventivo-correctivo)', () => {
+      expect.assertions(1);
+      const service = setup();
+
+      loginAs(service, {
+        ...tecnico,
+        specialty: 'electricista',
+        teamType: 'preventivo-correctivo',
+      });
+
+      expect(service.currentUser()).toMatchObject({
+        specialty: 'electricista',
+        teamType: 'preventivo-correctivo',
+      });
+    });
+
+    it('does not give technician attributes to a team leader', () => {
+      expect.assertions(3);
+      const service = setup();
+
+      loginAs(service, { ...admin, id: '3', role: 'team-leader-mantenimiento' });
+
+      expect(service.currentUser()?.role).toBe('team-leader-mantenimiento');
+      expect(service.currentUser()).not.toHaveProperty('specialty');
+      expect(service.currentUser()).not.toHaveProperty('teamType');
+    });
+
+    it('drops technician attributes carried by a record whose role is not tecnico', () => {
+      expect.assertions(2);
+      const service = setup();
+      const staffWithStrayAttributes = {
+        ...admin,
+        specialty: 'mecanico',
+        teamType: 'guardia',
+      } as UserRecord;
+
+      loginAs(service, staffWithStrayAttributes);
+
+      expect(service.currentUser()).not.toHaveProperty('specialty');
+      expect(service.currentUser()).not.toHaveProperty('teamType');
+    });
+
+    it.each([
+      ['no specialty', { specialty: undefined }],
+      ['no team type', { teamType: undefined }],
+      ['an unknown specialty', { specialty: 'plomero' }],
+      ['an unknown team type', { teamType: 'nocturno' }],
+    ])(
+      'fails with InvalidUserRecordError, without a session, for a technician record with %s',
+      (_label, override) => {
+        expect.assertions(4);
+        const service = setup();
+        let error: unknown;
+
+        service
+          .login({ username: tecnico.username, password: tecnico.password })
+          .subscribe({ error: (e: unknown) => (error = e) });
+        httpMock
+          .expectOne((req) => req.url === `${API_BASE_URL}/users`)
+          .flush([{ ...tecnico, ...override }]);
+
+        expect(error).toBeInstanceOf(InvalidUserRecordError);
+        expect(error).not.toBeInstanceOf(InvalidCredentialsError);
+        expect(service.isAuthenticated()).toBe(false);
+        expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+      },
+    );
 
     it('never keeps the password in the session state or in storage', () => {
       expect.assertions(3);
@@ -196,6 +283,8 @@ describe('AuthService', () => {
           displayName: 'Técnico de Mantenimiento',
           email: 'tecnico@enterprise-lab.dev',
           role: 'tecnico',
+          specialty: 'mecanico',
+          teamType: 'guardia',
         },
       };
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
@@ -217,6 +306,37 @@ describe('AuthService', () => {
       localStorage.setItem(
         AUTH_STORAGE_KEY,
         JSON.stringify({ token: 'mock-token.1.1700000000000', user: legacyUser }),
+      );
+
+      const service = setup();
+
+      expect(service.isAuthenticated()).toBe(false);
+      expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+    });
+
+    it('discards a session stored with the legacy role admin (before 013b) and forces a new login', () => {
+      expect.assertions(2);
+      const legacySession = {
+        token: 'mock-token.1.1700000000000',
+        user: { ...admin, password: undefined, role: 'admin' },
+      };
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(legacySession));
+
+      const service = setup();
+
+      expect(service.isAuthenticated()).toBe(false);
+      expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+    });
+
+    it('discards a stored technician session that lost its specialty', () => {
+      expect.assertions(2);
+      localStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify({
+          token: 'mock-token.2.1700000000000',
+          // JSON.stringify omite `undefined`: la clave queda ausente del storage.
+          user: { ...tecnico, password: undefined, specialty: undefined },
+        }),
       );
 
       const service = setup();

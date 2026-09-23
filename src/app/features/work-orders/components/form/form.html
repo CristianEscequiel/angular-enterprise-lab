@@ -45,6 +45,24 @@
     <div class="form-error" id="asset-error">El activo es obligatorio.</div>
   }
 
+  <label class="form-label" for="type">Tipo de orden:</label>
+  <select
+    class="form-control"
+    id="type"
+    formControlName="type"
+    required
+    [class.form-control--invalid]="isInvalid('type')"
+    [attr.aria-invalid]="isInvalid('type')"
+    [attr.aria-describedby]="isInvalid('type') ? 'type-error' : null"
+  >
+    @for (type of allowedTypes(); track type) {
+      <option [value]="type">{{ typeLabels[type] }}</option>
+    }
+  </select>
+  @if (isInvalid('type')) {
+    <div class="form-error" id="type-error">El tipo de orden es obligatorio.</div>
+  }
+
   <label class="form-label" for="priority">Prioridad:</label>
   <select
     class="form-control"

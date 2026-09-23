@@ -20,7 +20,7 @@ describe('LoginPage', () => {
     password: 'admin123',
     displayName: 'Administrador',
     email: 'admin@enterprise-lab.dev',
-    role: 'admin',
+    role: 'administrador',
   };
 
   let harness: RouterTestingHarness;
@@ -158,6 +158,22 @@ describe('LoginPage', () => {
       expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
       expect(navigateSpy).not.toHaveBeenCalled();
       expect(router.url).toContain('/login');
+    });
+
+    it('shows an inline error, without authenticating, when the user record has an invalid profile', async () => {
+      expect.assertions(3);
+      await setup();
+      fill('admin', 'admin123');
+
+      submit();
+      usersRequests()[0]?.flush([{ ...admin, role: 'tecnico' }]);
+      harness.detectChanges();
+
+      expect(element().querySelector('[role="alert"]')?.textContent).toContain(
+        'El perfil de este usuario está incompleto.',
+      );
+      expect(authService.isAuthenticated()).toBe(false);
+      expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
     });
 
     it('re-enables the submit button after a rejected login', async () => {

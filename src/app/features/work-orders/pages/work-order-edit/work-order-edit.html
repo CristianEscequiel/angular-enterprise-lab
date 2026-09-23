@@ -23,6 +23,7 @@
     <app-form
       mode="edit"
       [inputData]="workOrder"
+      [lockType]="true"
       [submitting]="isSubmitting()"
       (sendData)="onSubmitEdit($event)"
     />

@@ -6,9 +6,10 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { of } from 'rxjs';
 
 import { routes } from './app.routes';
-import { AuthSession } from './core/auth/auth.model';
+import { AuthSession, UserRecord } from './core/auth/auth.model';
 import { AUTH_STORAGE_KEY, AuthService } from './core/auth/auth.service';
 import { API_BASE_URL } from './core/config/api.config';
+import { MessageService } from './core/services/message.service';
 import { WorkOrdersService } from './features/work-orders/data-access/work-order.service';
 import { WorkOrder } from './features/work-orders/models/work-order.model';
 
@@ -18,6 +19,7 @@ describe('app routes', () => {
     title: 'Revisar motor',
     description: 'Revisar temperatura del motor',
     asset: 'Motor 1',
+    type: 'correctivo',
     priority: 'medium',
     status: 'pending',
     createdAt: '2026-09-08T10:00:00Z',
@@ -30,7 +32,7 @@ describe('app routes', () => {
       username: 'admin',
       displayName: 'Administrador',
       email: 'admin@enterprise-lab.dev',
-      role: 'admin',
+      role: 'administrador',
     },
   };
 
@@ -83,6 +85,50 @@ describe('app routes', () => {
     return router.parseUrl(router.url).queryParamMap.get('returnUrl');
   }
 
+  const users = {
+    admin: {
+      id: '1',
+      username: 'admin',
+      password: 'admin123',
+      displayName: 'Administrador',
+      email: 'admin@enterprise-lab.dev',
+      role: 'administrador',
+    },
+    teamLeader: {
+      id: '3',
+      username: 'teamleader',
+      password: 'teamleader123',
+      displayName: 'Team Leader',
+      email: 'teamleader@enterprise-lab.dev',
+      role: 'team-leader-mantenimiento',
+    },
+    produccion: {
+      id: '4',
+      username: 'produccion',
+      password: 'produccion123',
+      displayName: 'Producción',
+      email: 'produccion@enterprise-lab.dev',
+      role: 'personal-produccion',
+    },
+    tecnico: {
+      id: '2',
+      username: 'tecnico',
+      password: 'tecnico123',
+      displayName: 'Técnico',
+      email: 'tecnico@enterprise-lab.dev',
+      role: 'tecnico',
+      specialty: 'mecanico',
+      teamType: 'guardia',
+    },
+  } satisfies Record<string, UserRecord>;
+
+  // Reemplaza la sesión del beforeEach por la de otro usuario, por el mismo camino que el login real.
+  function loginAs(record: UserRecord): void {
+    authService.logout();
+    authService.login({ username: record.username, password: record.password }).subscribe();
+    httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([record]);
+  }
+
   describe('with an active session', () => {
     it('renders NotFound for an undefined root route', async () => {
       await harness.navigateByUrl('/no-existe');
@@ -122,8 +168,9 @@ describe('app routes', () => {
       expect(workOrdersServiceMock.getById).not.toHaveBeenCalled();
     });
 
-    it('resolves /work-orders/new to WorkOrderCreate', async () => {
+    it('resolves /work-orders/new to WorkOrderCreate for a role that can create orders', async () => {
       expect.assertions(2);
+      loginAs(users.teamLeader);
 
       await harness.navigateByUrl('/work-orders/new');
 
@@ -249,7 +296,7 @@ describe('app routes', () => {
             password: 'admin123',
             displayName: 'Administrador',
             email: 'admin@enterprise-lab.dev',
-            role: 'admin',
+            role: 'administrador',
           },
         ]);
       await harness.fixture.whenStable();
@@ -279,6 +326,141 @@ describe('app routes', () => {
 
       expect(router.url).toBe('/no-existe');
       expect(harness.routeNativeElement?.textContent).toContain('Página no encontrada');
+    });
+  });
+
+  describe('role restrictions on work order routes', () => {
+    function deniedWarning() {
+      return TestBed.inject(MessageService).message();
+    }
+
+    it.each([
+      ['team leader', users.teamLeader],
+      ['personal-produccion', users.produccion],
+    ])('lets %s into /work-orders/new', async (_label, record) => {
+      expect.assertions(3);
+      loginAs(record);
+
+      await harness.navigateByUrl('/work-orders/new');
+
+      expect(router.url).toBe('/work-orders/new');
+      expect(harness.routeNativeElement?.textContent).toContain('Crear Orden de Trabajo');
+      expect(deniedWarning()).toBeNull();
+    });
+
+    it.each([
+      ['administrador', users.admin],
+      ['tecnico', users.tecnico],
+    ])(
+      'sends %s away from /work-orders/new to /dashboard with a warning',
+      async (_label, record) => {
+        expect.assertions(4);
+        loginAs(record);
+
+        await harness.navigateByUrl('/work-orders/new');
+
+        expect(router.url).toBe('/dashboard');
+        expect(harness.routeNativeElement?.textContent).not.toContain('Crear Orden de Trabajo');
+        expect(deniedWarning()?.variant).toBe('warning');
+        expect(deniedWarning()?.title).toBe('Acceso denegado');
+      },
+    );
+
+    it.each([
+      ['team leader', users.teamLeader],
+      ['administrador', users.admin],
+    ])('lets %s edit an order', async (_label, record) => {
+      expect.assertions(3);
+      loginAs(record);
+
+      await harness.navigateByUrl('/work-orders/1/edit');
+
+      expect(router.url).toBe('/work-orders/1/edit');
+      expect(workOrdersServiceMock.getById).toHaveBeenCalledWith('1');
+      expect(deniedWarning()).toBeNull();
+    });
+
+    it.each([
+      ['personal-produccion', users.produccion],
+      ['tecnico', users.tecnico],
+    ])(
+      'sends %s away from /work-orders/1/edit to /dashboard with a warning',
+      async (_label, record) => {
+        expect.assertions(3);
+        loginAs(record);
+
+        await harness.navigateByUrl('/work-orders/1/edit');
+
+        expect(router.url).toBe('/dashboard');
+        expect(workOrdersServiceMock.getById).not.toHaveBeenCalled();
+        expect(deniedWarning()?.title).toBe('Acceso denegado');
+      },
+    );
+
+    // Lo que no se restringe: ver el listado y el detalle sigue abierto a cualquier rol con sesión.
+    it.each(Object.entries(users))(
+      'still lets %s view the list and the detail',
+      async (_name, record) => {
+        expect.assertions(3);
+        loginAs(record);
+
+        await harness.navigateByUrl('/work-orders');
+        expect(router.url).toBe('/work-orders');
+
+        await harness.navigateByUrl('/work-orders/1');
+        expect(router.url).toBe('/work-orders/1');
+        expect(deniedWarning()).toBeNull();
+      },
+    );
+
+    // /dashboard es el destino del rechazo: si se restringiera, el rechazo entraría en bucle.
+    it.each(Object.entries(users))('never restricts /dashboard (%s)', async (_name, record) => {
+      loginAs(record);
+
+      await harness.navigateByUrl('/dashboard');
+
+      expect(router.url).toBe('/dashboard');
+    });
+
+    it('sends an anonymous user to login and, after logging in as produccion, returns to /work-orders/new', async () => {
+      expect.assertions(5);
+      authService.logout();
+
+      await harness.navigateByUrl('/work-orders/new');
+      expect(pathname()).toBe('/login');
+      expect(returnUrl()).toBe('/work-orders/new');
+
+      const page = harness.routeNativeElement;
+      const username = page?.querySelector<HTMLInputElement>('#username');
+      const password = page?.querySelector<HTMLInputElement>('#password');
+      if (!page || !username || !password) {
+        throw new Error('login form not rendered');
+      }
+      username.value = users.produccion.username;
+      username.dispatchEvent(new Event('input'));
+      password.value = users.produccion.password;
+      password.dispatchEvent(new Event('input'));
+      page.querySelector('form')?.dispatchEvent(new Event('submit'));
+
+      httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([users.produccion]);
+      await harness.fixture.whenStable();
+
+      expect(router.url).toBe('/work-orders/new');
+      expect(harness.routeNativeElement?.textContent).toContain('Crear Orden de Trabajo');
+      expect(deniedWarning()).toBeNull();
+    });
+
+    it('returns a user without permission to /dashboard, not to the login, even after coming from login', async () => {
+      expect.assertions(2);
+      authService.logout();
+
+      await harness.navigateByUrl('/work-orders/new');
+      expect(pathname()).toBe('/login');
+
+      loginAs(users.tecnico);
+      await harness.navigateByUrl('/work-orders/new');
+
+      expect(router.url).toBe('/dashboard');
     });
   });
 });

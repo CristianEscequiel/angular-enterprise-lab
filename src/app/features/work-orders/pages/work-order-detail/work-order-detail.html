@@ -25,6 +25,9 @@
       <h2 class="card__header">{{ workOrderDetail.title }}</h2>
       <div class="card__content">
         <p class="card__description"><strong>Activo:</strong> {{ workOrderDetail.asset }}</p>
+        <p class="card__description">
+          <strong>Tipo:</strong> {{ typeLabels[workOrderDetail.type] }}
+        </p>
         <p class="card__description">{{ workOrderDetail.description }}</p>
       </div>
       <p class="card__footer"><strong>Estado:</strong> {{ workOrderDetail.status }}</p>

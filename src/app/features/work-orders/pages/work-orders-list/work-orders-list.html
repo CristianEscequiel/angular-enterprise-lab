@@ -11,9 +11,11 @@
       placeholder="Buscar orden de trabajo"
       aria-label="Buscar orden de trabajo por nombre"
     />
-    <app-button variant="primary" (clicked)="navigateToCreateWorkOrder()">
-      Crear Orden de Trabajo
-    </app-button>
+    @if (canCreate()) {
+      <app-button variant="primary" (clicked)="navigateToCreateWorkOrder()">
+        Crear Orden de Trabajo
+      </app-button>
+    }
   </div>
 
   <div class="work-orders-filters d-flex flex-wrap gap-md pb-lg">
@@ -60,6 +62,7 @@
           <tr>
             <th scope="col">Título</th>
             <th scope="col">Activo</th>
+            <th scope="col">Tipo</th>
             <th scope="col">Prioridad</th>
             <th scope="col">Estado</th>
             <th scope="col" class="u-text-center">Acciones</th>
@@ -70,6 +73,7 @@
             <tr>
               <td>{{ workOrder.title }}</td>
               <td>{{ workOrder.asset }}</td>
+              <td>{{ typeLabels[workOrder.type] }}</td>
               <td>
                 <app-badge [variant]="priorityBadge[workOrder.priority]">
                   {{ priorityLabels[workOrder.priority] }}
@@ -104,22 +108,26 @@
                 >
                   Ver
                 </app-button>
-                <app-button
-                  size="sm"
-                  variant="secondary"
-                  [ariaLabel]="'Editar ' + workOrder.title"
-                  (clicked)="editWorkOrder(workOrder.id)"
-                >
-                  Editar
-                </app-button>
-                <app-button
-                  size="sm"
-                  variant="danger"
-                  [ariaLabel]="'Eliminar ' + workOrder.title"
-                  (clicked)="openDeleteModal(workOrder.id)"
-                >
-                  Eliminar
-                </app-button>
+                @if (canEdit()) {
+                  <app-button
+                    size="sm"
+                    variant="secondary"
+                    [ariaLabel]="'Editar ' + workOrder.title"
+                    (clicked)="editWorkOrder(workOrder.id)"
+                  >
+                    Editar
+                  </app-button>
+                }
+                @if (canDelete()) {
+                  <app-button
+                    size="sm"
+                    variant="danger"
+                    [ariaLabel]="'Eliminar ' + workOrder.title"
+                    (clicked)="openDeleteModal(workOrder.id)"
+                  >
+                    Eliminar
+                  </app-button>
+                }
               </td>
             </tr>
           }

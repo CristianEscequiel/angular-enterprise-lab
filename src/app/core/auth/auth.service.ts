@@ -5,7 +5,7 @@ import { map, Observable, tap } from 'rxjs';
 
 import { API_BASE_URL } from '../config/api.config';
 import { LocalStorageService } from '../services/localStorage.service';
-import { AuthSession, isAuthSession, LoginCredentials, UserRecord } from './auth.model';
+import { AuthSession, isAuthSession, LoginCredentials, toAuthUser, UserRecord } from './auth.model';
 
 export const AUTH_STORAGE_KEY = 'auth.session';
 
@@ -13,6 +13,16 @@ export class InvalidCredentialsError extends Error {
   constructor() {
     super('Usuario o contraseña incorrectos.');
     this.name = 'InvalidCredentialsError';
+  }
+}
+
+// El registro existe y las credenciales coinciden, pero su perfil no es válido (p. ej. un técnico
+// sin especialidad). No es un error de credenciales ni de conexión: se distingue para no
+// mostrarlo como "usuario o contraseña incorrectos".
+export class InvalidUserRecordError extends Error {
+  constructor() {
+    super('El perfil de este usuario está incompleto. Contacte al administrador.');
+    this.name = 'InvalidUserRecordError';
   }
 }
 
@@ -50,16 +60,13 @@ export class AuthService {
             throw new InvalidCredentialsError();
           }
 
-          return {
-            token: `mock-token.${record.id}.${Date.now()}`,
-            user: {
-              id: record.id,
-              username: record.username,
-              displayName: record.displayName,
-              email: record.email,
-              role: record.role,
-            },
-          } satisfies AuthSession;
+          const user = toAuthUser(record);
+
+          if (!user) {
+            throw new InvalidUserRecordError();
+          }
+
+          return { token: `mock-token.${record.id}.${Date.now()}`, user } satisfies AuthSession;
         }),
         tap((session) => {
           this.sessionState.set(session);

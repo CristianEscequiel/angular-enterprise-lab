@@ -1,7 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { signal } from '@angular/core';
 import { Observable, of, Subject, throwError } from 'rxjs';
 
+import { AuthUser } from '@core/auth/auth.model';
+import { AuthService } from '@core/auth/auth.service';
 import { LocalStorageService } from '@core/services/localStorage.service';
 import { MessageService } from '@core/services/message.service';
 import { WorkOrdersCriteria, WorkOrdersService } from '../../data-access/work-order.service';
@@ -29,6 +32,7 @@ describe('WorkOrdersList search and pagination', () => {
     title: 'Revisar motor',
     description: 'Revisar temperatura del motor',
     asset: 'Motor 1',
+    type: 'correctivo',
     priority: 'medium',
     status: 'pending',
     createdAt: '2026-09-08T10:00:00Z',
@@ -56,6 +60,36 @@ describe('WorkOrdersList search and pagination', () => {
     set: vi.fn(),
   };
 
+  const administrador: AuthUser = {
+    id: '1',
+    username: 'admin',
+    displayName: 'Administrador',
+    email: 'admin@enterprise-lab.dev',
+    role: 'administrador',
+  };
+  const teamLeader: AuthUser = {
+    ...administrador,
+    id: '3',
+    username: 'teamleader',
+    role: 'team-leader-mantenimiento',
+  };
+  const produccion: AuthUser = {
+    ...administrador,
+    id: '4',
+    username: 'produccion',
+    role: 'personal-produccion',
+  };
+  const tecnico: AuthUser = {
+    ...administrador,
+    id: '2',
+    username: 'tecnico',
+    role: 'tecnico',
+    specialty: 'mecanico',
+    teamType: 'guardia',
+  };
+  // Por defecto el administrador: puede editar y eliminar, como antes de existir los roles.
+  const currentUser = signal<AuthUser | null>(administrador);
+
   const calls = () => service.search.mock.calls.map(([criteria]) => criteria);
 
   beforeEach(async () => {
@@ -65,6 +99,7 @@ describe('WorkOrdersList search and pagination', () => {
     service.delete.mockReset().mockReturnValue(of(undefined));
     storage.get.mockReset().mockReturnValue(null);
     storage.set.mockReset().mockReturnValue(true);
+    currentUser.set(administrador);
 
     await TestBed.configureTestingModule({
       imports: [WorkOrdersList],
@@ -72,6 +107,7 @@ describe('WorkOrdersList search and pagination', () => {
         provideRouter([]),
         { provide: WorkOrdersService, useValue: service },
         { provide: LocalStorageService, useValue: storage },
+        { provide: AuthService, useValue: { currentUser: currentUser.asReadonly() } },
       ],
     }).compileComponents();
   });
@@ -804,6 +840,168 @@ describe('WorkOrdersList search and pagination', () => {
 
       expect(service.updateStatus).not.toHaveBeenCalled();
       expect(select.value).toBe('pending');
+    });
+  });
+
+  describe('permissions by role', () => {
+    const other = {
+      ...order,
+      id: '2',
+      title: 'Cambiar filtro hidráulico',
+      type: 'preventivo' as const,
+    };
+
+    function startAs(user: AuthUser | null): void {
+      currentUser.set(user);
+      service.search.mockReturnValue(of(response(1, [order, other])));
+      start();
+      fixture.detectChanges();
+    }
+
+    function rowActionLabels(): string[] {
+      const buttons: HTMLButtonElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll('tbody button'),
+      );
+      return buttons
+        .map((button) => button.getAttribute('aria-label') ?? '')
+        .filter((label) => /^(Ver|Editar|Eliminar) /.test(label));
+    }
+
+    function createButton(): HTMLButtonElement | undefined {
+      const buttons: HTMLButtonElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll('button'),
+      );
+      return buttons.find((button) => button.textContent?.includes('Crear Orden de Trabajo'));
+    }
+
+    function confirmDeletion(id: string): void {
+      component.openDeleteModal(id);
+      fixture.detectChanges();
+      const confirmButton = fixture.nativeElement.querySelector('[role="dialog"] .btn--danger');
+      if (!confirmButton) throw new Error('No se abrió la confirmación de eliminación');
+      (confirmButton as HTMLButtonElement).click();
+    }
+
+    describe('administrador', () => {
+      it('sees Ver, Editar and Eliminar for every order', () => {
+        startAs(administrador);
+
+        expect(rowActionLabels()).toEqual([
+          'Ver Revisar motor',
+          'Editar Revisar motor',
+          'Eliminar Revisar motor',
+          'Ver Cambiar filtro hidráulico',
+          'Editar Cambiar filtro hidráulico',
+          'Eliminar Cambiar filtro hidráulico',
+        ]);
+      });
+
+      it('deletes an order after confirming: sends DELETE and reloads', () => {
+        expect.assertions(3);
+        startAs(administrador);
+
+        confirmDeletion('1');
+
+        expect(service.delete).toHaveBeenCalledExactlyOnceWith('1');
+        expect(service.search).toHaveBeenCalledTimes(2);
+        expect(TestBed.inject(MessageService).message()?.variant).toBe('success');
+      });
+
+      it('does not offer to create orders (creating is not part of its role)', () => {
+        startAs(administrador);
+
+        expect(createButton()).toBeUndefined();
+      });
+    });
+
+    describe('team leader', () => {
+      it('sees Ver and Editar but not Eliminar', () => {
+        startAs(teamLeader);
+
+        expect(rowActionLabels()).toEqual([
+          'Ver Revisar motor',
+          'Editar Revisar motor',
+          'Ver Cambiar filtro hidráulico',
+          'Editar Cambiar filtro hidráulico',
+        ]);
+      });
+
+      it('sees the button to create orders', () => {
+        startAs(teamLeader);
+
+        expect(createButton()).toBeDefined();
+      });
+
+      it('cannot delete: no DELETE request is sent and a warning is shown', () => {
+        expect.assertions(3);
+        startAs(teamLeader);
+
+        component.deleteWorkOrder('1');
+
+        expect(service.delete).not.toHaveBeenCalled();
+        expect(TestBed.inject(MessageService).message()?.variant).toBe('warning');
+        expect(TestBed.inject(MessageService).message()?.title).toBe('Acceso denegado');
+      });
+
+      it('cannot open the delete confirmation, so it never reaches deleteWorkOrder', () => {
+        expect.assertions(3);
+        startAs(teamLeader);
+
+        component.openDeleteModal('1');
+
+        expect(component.deleteModalOpen()).toBe(false);
+        expect(component.workOrderDeleted()).toBe('');
+        expect(service.delete).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('personal-produccion', () => {
+      it('sees only Ver, plus the button to create orders', () => {
+        expect.assertions(2);
+        startAs(produccion);
+
+        expect(rowActionLabels()).toEqual(['Ver Revisar motor', 'Ver Cambiar filtro hidráulico']);
+        expect(createButton()).toBeDefined();
+      });
+    });
+
+    describe.each<[string, AuthUser | null]>([
+      ['tecnico', tecnico],
+      ['no session', null],
+    ])('%s', (_label, user) => {
+      it('sees only Ver and no button to create orders', () => {
+        expect.assertions(2);
+        startAs(user);
+
+        expect(rowActionLabels()).toEqual(['Ver Revisar motor', 'Ver Cambiar filtro hidráulico']);
+        expect(createButton()).toBeUndefined();
+      });
+
+      it('cannot delete', () => {
+        expect.assertions(2);
+        startAs(user);
+
+        component.deleteWorkOrder('1');
+
+        expect(service.delete).not.toHaveBeenCalled();
+        expect(TestBed.inject(MessageService).message()?.variant).toBe('warning');
+      });
+    });
+
+    describe('type column', () => {
+      it('shows the type of each order with its label', () => {
+        expect.assertions(3);
+        startAs(administrador);
+
+        const headers = Array.from(fixture.nativeElement.querySelectorAll('thead th')).map((th) =>
+          (th as HTMLElement).textContent?.trim(),
+        );
+        const typeIndex = headers.indexOf('Tipo');
+
+        expect(typeIndex).toBeGreaterThanOrEqual(0);
+        expect(rowAt(0).cells[typeIndex]?.textContent?.trim()).toBe('Correctivo');
+        expect(rowAt(1).cells[typeIndex]?.textContent?.trim()).toBe('Preventivo');
+      });
     });
   });
 });

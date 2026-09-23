@@ -3,6 +3,7 @@ import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 
 import { WorkOrderEdit } from './work-order-edit';
+import { MessageService } from '@core/services/message.service';
 import { WorkOrderLoadError, WorkOrdersService } from '../../data-access/work-order.service';
 
 describe('WorkOrderEdit', () => {
@@ -14,6 +15,7 @@ describe('WorkOrderEdit', () => {
     title: 'Orden de prueba',
     description: 'Descripción de prueba',
     asset: 'Máquina 1',
+    type: 'correctivo',
     priority: 'medium',
     status: 'pending',
   };
@@ -22,6 +24,7 @@ describe('WorkOrderEdit', () => {
     title: 'Orden de prueba actualizada',
     description: 'Descripción de prueba',
     asset: 'Máquina 1',
+    type: 'correctivo' as const,
     priority: 'medium' as const,
   };
 
@@ -153,5 +156,85 @@ describe('WorkOrderEdit', () => {
     workOrdersServiceMock.update.mockReturnValueOnce(of(mockWorkOrder));
     component.onSubmitEdit(changedPayload);
     expect(workOrdersServiceMock.update).toHaveBeenCalledTimes(2);
+  });
+
+  describe('order type', () => {
+    function typeSelect(): HTMLSelectElement {
+      const select = fixture.nativeElement.querySelector('#type') as HTMLSelectElement | null;
+      if (!select) throw new Error('No se renderizó el select de tipo');
+      return select;
+    }
+
+    it('shows the stored type in a disabled select', async () => {
+      expect.assertions(2);
+      await createComponent();
+
+      expect(typeSelect().value).toBe('correctivo');
+      expect(typeSelect().disabled).toBe(true);
+    });
+
+    it('keeps the original type in the PUT when the rest of the order changes', async () => {
+      expect.assertions(2);
+      await createComponent();
+
+      component.onSubmitEdit(changedPayload);
+
+      expect(workOrdersServiceMock.update).toHaveBeenCalledTimes(1);
+      expect(workOrdersServiceMock.update).toHaveBeenCalledWith(
+        '1',
+        expect.objectContaining({
+          id: '1',
+          title: 'Orden de prueba actualizada',
+          type: 'correctivo',
+        }),
+      );
+    });
+
+    // Aunque el formulario emitiera otro tipo (p. ej. manipulando el DOM), la página no lo envía.
+    it('never sends a type different from the stored one', async () => {
+      expect.assertions(1);
+      await createComponent();
+
+      component.onSubmitEdit({ ...changedPayload, type: 'pronto-intervencion' });
+
+      expect(workOrdersServiceMock.update).toHaveBeenCalledWith(
+        '1',
+        expect.objectContaining({ type: 'correctivo' }),
+      );
+    });
+
+    it('does not treat a type-only difference as a change', async () => {
+      expect.assertions(2);
+      await createComponent();
+
+      component.onSubmitEdit({
+        title: mockWorkOrder.title,
+        description: mockWorkOrder.description,
+        asset: mockWorkOrder.asset,
+        type: 'pronto-intervencion',
+        priority: 'medium',
+      });
+
+      expect(workOrdersServiceMock.update).not.toHaveBeenCalled();
+      expect(TestBed.inject(MessageService).message()?.message).toBe('No hubo cambios en la orden');
+    });
+
+    it('sends the stored type when the form is submitted from the screen', async () => {
+      expect.assertions(1);
+      await createComponent();
+      const title = fixture.nativeElement.querySelector('#title') as HTMLInputElement;
+      title.value = 'Título modificado desde la pantalla';
+      title.dispatchEvent(new Event('input'));
+
+      fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
+
+      expect(workOrdersServiceMock.update).toHaveBeenCalledWith(
+        '1',
+        expect.objectContaining({
+          title: 'Título modificado desde la pantalla',
+          type: 'correctivo',
+        }),
+      );
+    });
   });
 });

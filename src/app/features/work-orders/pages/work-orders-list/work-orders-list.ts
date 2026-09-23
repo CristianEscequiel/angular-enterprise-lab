@@ -4,6 +4,7 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { catchError, debounceTime, EMPTY, finalize, map, merge, Subject, switchMap } from 'rxjs';
 
+import { AuthService } from '@core/auth/auth.service';
 import { LocalStorageService } from '@core/services/localStorage.service';
 import { MessageService } from '@core/services/message.service';
 import { Alert } from '@shared/components/alert/alert';
@@ -16,6 +17,7 @@ import {
   PRIORITY_LABELS,
   STATUS_BADGE,
   STATUS_LABELS,
+  TYPE_LABELS,
 } from '../../models/work-order.display';
 import {
   isWorkOrderPriority,
@@ -26,6 +28,11 @@ import {
   WorkOrderPriority,
   WorkOrderStatus,
 } from '../../models/work-order.model';
+import {
+  canDeleteWorkOrder,
+  canEditWorkOrder,
+  creatableTypes,
+} from '../../models/work-order.permissions';
 
 interface WorkOrdersSearch {
   searchValue: string;
@@ -44,6 +51,7 @@ export class WorkOrdersList implements OnInit {
   private readonly router = inject(Router);
   private readonly workOrdersService = inject(WorkOrdersService);
   private readonly messageService = inject(MessageService);
+  private readonly authService = inject(AuthService);
   private readonly localStorageService = inject(LocalStorageService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly pageSize = 10;
@@ -64,6 +72,13 @@ export class WorkOrdersList implements OnInit {
   readonly priorityLabels = PRIORITY_LABELS;
   readonly statusBadge = STATUS_BADGE;
   readonly priorityBadge = PRIORITY_BADGE;
+  readonly typeLabels = TYPE_LABELS;
+
+  // Permisos que la política resuelve por rol: la plantilla oculta las acciones y los métodos de
+  // abajo vuelven a comprobarlos, para no depender de lo que muestre la UI.
+  readonly canCreate = computed(() => creatableTypes(this.authService.currentUser()).length > 0);
+  readonly canEdit = computed(() => canEditWorkOrder(this.authService.currentUser()));
+  readonly canDelete = computed(() => canDeleteWorkOrder(this.authService.currentUser()));
 
   readonly workOrders = signal<WorkOrder[]>([]);
   readonly workOrderDeleted = signal<string>('');
@@ -277,11 +292,20 @@ export class WorkOrdersList implements OnInit {
   }
 
   openDeleteModal(id: string): void {
+    if (!this.canDelete()) {
+      this.warnDeleteDenied();
+      return;
+    }
     this.deleteModalOpen.set(true);
     this.workOrderDeleted.set(id);
   }
 
   deleteWorkOrder(id: string): void {
+    if (!this.canDelete()) {
+      this.warnDeleteDenied();
+      return;
+    }
+
     this.workOrdersService
       .delete(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -294,5 +318,9 @@ export class WorkOrdersList implements OnInit {
           this.messageService.showError('Error al eliminar la orden.');
         },
       });
+  }
+
+  private warnDeleteDenied(): void {
+    this.messageService.showWarning('No tiene permiso para eliminar órdenes.', 'Acceso denegado');
   }
 }
