@@ -16,13 +16,38 @@
     </app-button>
   </div>
 
+  <div class="work-orders-filters d-flex flex-wrap gap-md pb-lg">
+    <div class="form-group work-orders-filters__field">
+      <label class="form-label" for="status-filter">Estado</label>
+      <select id="status-filter" class="form-control" [formControl]="statusFilter">
+        <option value="">Todos los estados</option>
+        @for (status of statusOptions; track status) {
+          <option [value]="status">{{ statusLabels[status] }}</option>
+        }
+      </select>
+    </div>
+    <div class="form-group work-orders-filters__field">
+      <label class="form-label" for="priority-filter">Prioridad</label>
+      <select id="priority-filter" class="form-control" [formControl]="priorityFilter">
+        <option value="">Todas las prioridades</option>
+        @for (priority of priorityOptions; track priority) {
+          <option [value]="priority">{{ priorityLabels[priority] }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
   @if (error()) {
     <app-alert title="Error" [message]="error()!" variant="error" />
     <app-button variant="primary" (clicked)="loadWorkOrders()"> Reintentar </app-button>
   } @else if (workOrders().length === 0) {
     <app-alert
       title="Sin órdenes"
-      message="No existen órdenes de trabajo registradas."
+      [message]="
+        hasActiveCriteria()
+          ? 'No hay órdenes que coincidan con los filtros.'
+          : 'No existen órdenes de trabajo registradas.'
+      "
       variant="info"
     />
   } @else {
@@ -35,6 +60,7 @@
           <tr>
             <th scope="col">Título</th>
             <th scope="col">Activo</th>
+            <th scope="col">Prioridad</th>
             <th scope="col">Estado</th>
             <th scope="col" class="u-text-center">Acciones</th>
           </tr>
@@ -45,9 +71,29 @@
               <td>{{ workOrder.title }}</td>
               <td>{{ workOrder.asset }}</td>
               <td>
-                <app-badge [variant]="workOrder.status">
-                  {{ workOrder.status }}
+                <app-badge [variant]="priorityBadge[workOrder.priority]">
+                  {{ priorityLabels[workOrder.priority] }}
                 </app-badge>
+              </td>
+              <td>
+                <div class="work-orders-status d-flex flex-wrap gap-md">
+                  <app-badge [variant]="statusBadge[workOrder.status]">
+                    {{ statusLabels[workOrder.status] }}
+                  </app-badge>
+                  <select
+                    #statusSelect
+                    class="form-control work-orders-status__select"
+                    [attr.aria-label]="'Cambiar estado de ' + workOrder.title"
+                    [disabled]="isUpdating(workOrder.id)"
+                    (change)="changeStatus(workOrder, statusSelect)"
+                  >
+                    @for (status of statusOptions; track status) {
+                      <option [value]="status" [selected]="status === workOrder.status">
+                        {{ statusLabels[status] }}
+                      </option>
+                    }
+                  </select>
+                </div>
               </td>
               <td class="d-flex justify-center gap-sm">
                 <app-button

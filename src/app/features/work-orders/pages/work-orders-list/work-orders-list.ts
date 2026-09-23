@@ -2,7 +2,7 @@ import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angula
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { catchError, debounceTime, EMPTY, map, Subject, switchMap } from 'rxjs';
+import { catchError, debounceTime, EMPTY, finalize, map, merge, Subject, switchMap } from 'rxjs';
 
 import { LocalStorageService } from '@core/services/localStorage.service';
 import { MessageService } from '@core/services/message.service';
@@ -11,10 +11,26 @@ import { Badge } from '@shared/components/badge/badge';
 import { Button } from '@shared/components/button/button';
 import { Modal } from '@shared/components/modal/modal';
 import { WorkOrdersService } from '../../data-access/work-order.service';
-import { WorkOrder } from '../../models/work-order.model';
+import {
+  PRIORITY_BADGE,
+  PRIORITY_LABELS,
+  STATUS_BADGE,
+  STATUS_LABELS,
+} from '../../models/work-order.display';
+import {
+  isWorkOrderPriority,
+  isWorkOrderStatus,
+  WORK_ORDER_PRIORITIES,
+  WORK_ORDER_STATUSES,
+  WorkOrder,
+  WorkOrderPriority,
+  WorkOrderStatus,
+} from '../../models/work-order.model';
 
 interface WorkOrdersSearch {
   searchValue: string;
+  status: WorkOrderStatus | '';
+  priority: WorkOrderPriority | '';
   page: number;
 }
 
@@ -33,8 +49,21 @@ export class WorkOrdersList implements OnInit {
   private readonly pageSize = 10;
   private readonly localStorageKey = 'workOrdersSearch';
 
-  private readonly query = signal<WorkOrdersSearch>({ searchValue: '', page: 1 });
+  private readonly query = signal<WorkOrdersSearch>({
+    searchValue: '',
+    status: '',
+    priority: '',
+    page: 1,
+  });
   private readonly requests = new Subject<WorkOrdersSearch>();
+  private readonly updatingIds = signal<ReadonlySet<string>>(new Set());
+
+  readonly statusOptions = WORK_ORDER_STATUSES;
+  readonly priorityOptions = WORK_ORDER_PRIORITIES;
+  readonly statusLabels = STATUS_LABELS;
+  readonly priorityLabels = PRIORITY_LABELS;
+  readonly statusBadge = STATUS_BADGE;
+  readonly priorityBadge = PRIORITY_BADGE;
 
   readonly workOrders = signal<WorkOrder[]>([]);
   readonly workOrderDeleted = signal<string>('');
@@ -46,8 +75,14 @@ export class WorkOrdersList implements OnInit {
     Array.from({ length: this.totalPages() }, (_, index) => index + 1),
   );
   readonly searchControl = new FormControl('', { nonNullable: true });
+  readonly statusFilter = new FormControl<WorkOrderStatus | ''>('', { nonNullable: true });
+  readonly priorityFilter = new FormControl<WorkOrderPriority | ''>('', { nonNullable: true });
   private readonly searchText = toSignal(this.searchControl.valueChanges, { initialValue: '' });
   readonly isSearchEmpty = computed(() => this.searchText().trim() === '');
+  readonly hasActiveCriteria = computed(() => {
+    const { searchValue, status, priority } = this.query();
+    return searchValue !== '' || status !== '' || priority !== '';
+  });
 
   // Región live siempre presente en el DOM (no dentro de @if/@else) para que
   // el anuncio sea confiable: una región que nace junto con su contenido no
@@ -62,12 +97,20 @@ export class WorkOrdersList implements OnInit {
   ngOnInit(): void {
     const restored = this.readStoredSearch();
     this.searchControl.setValue(restored.searchValue);
+    this.statusFilter.setValue(restored.status);
+    this.priorityFilter.setValue(restored.priority);
 
     this.requests
       .pipe(
         switchMap((query) =>
           this.workOrdersService
-            .searchByName(query.searchValue, query.page.toString(), this.pageSize.toString())
+            .search({
+              title: query.searchValue,
+              status: query.status,
+              priority: query.priority,
+              page: query.page,
+              perPage: this.pageSize,
+            })
             .pipe(
               map((response) => ({ query, response })),
               catchError(() => {
@@ -96,29 +139,97 @@ export class WorkOrdersList implements OnInit {
       )
       .subscribe((searchValue) => {
         if (searchValue !== this.query().searchValue) {
-          this.requestWorkOrders({ searchValue, page: 1 });
+          this.requestWorkOrders({ ...this.criteriaFromControls(1), searchValue });
         }
       });
+
+    merge(this.statusFilter.valueChanges, this.priorityFilter.valueChanges)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.requestWorkOrders(this.criteriaFromControls(1)));
 
     this.requestWorkOrders(restored);
   }
 
   loadWorkOrders(): void {
-    const searchValue = this.searchControl.value.trim();
-    const page = searchValue === this.query().searchValue ? this.currentPage() : 1;
-    this.requestWorkOrders({ searchValue, page });
+    const criteria = this.criteriaFromControls(this.currentPage());
+    this.requestWorkOrders(this.sameCriteria(criteria) ? criteria : { ...criteria, page: 1 });
   }
 
   goToPage(page: number): void {
     if (!Number.isSafeInteger(page) || page < 1) return;
 
-    const searchValue = this.searchControl.value.trim();
-    const targetPage =
-      searchValue === this.query().searchValue ? Math.min(page, this.totalPages()) : 1;
+    const criteria = this.criteriaFromControls(page);
+    const same = this.sameCriteria(criteria);
+    const targetPage = same ? Math.min(page, this.totalPages()) : 1;
 
-    if (searchValue === this.query().searchValue && targetPage === this.currentPage()) return;
+    if (same && targetPage === this.currentPage()) return;
 
-    this.requestWorkOrders({ searchValue, page: targetPage });
+    this.requestWorkOrders({ ...criteria, page: targetPage });
+  }
+
+  changeStatus(order: WorkOrder, select: HTMLSelectElement): void {
+    const status = select.value;
+    if (!isWorkOrderStatus(status)) {
+      select.value = order.status;
+      return;
+    }
+    if (status === order.status || this.isUpdating(order.id)) return;
+
+    this.setUpdating(order.id, true);
+    this.workOrdersService
+      .updateStatus(order.id, status)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.setUpdating(order.id, false)),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.workOrders.update((list) =>
+            list.map((item) => (item.id === updated.id ? updated : item)),
+          );
+          this.messageService.showSuccess('Estado actualizado.');
+
+          const statusFilter = this.query().status;
+          if (statusFilter !== '' && updated.status !== statusFilter) {
+            this.loadWorkOrders();
+          }
+        },
+        error: () => {
+          select.value = order.status;
+          this.messageService.showError('No se pudo actualizar el estado.');
+        },
+      });
+  }
+
+  isUpdating(id: string): boolean {
+    return this.updatingIds().has(id);
+  }
+
+  private setUpdating(id: string, updating: boolean): void {
+    this.updatingIds.update((ids) => {
+      const next = new Set(ids);
+      if (updating) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  private criteriaFromControls(page: number): WorkOrdersSearch {
+    return {
+      searchValue: this.searchControl.value.trim(),
+      status: this.statusFilter.value,
+      priority: this.priorityFilter.value,
+      page,
+    };
+  }
+
+  private sameCriteria(criteria: WorkOrdersSearch): boolean {
+    const applied = this.query();
+    return (
+      criteria.searchValue === applied.searchValue &&
+      criteria.status === applied.status &&
+      criteria.priority === applied.priority
+    );
   }
 
   private requestWorkOrders(query: WorkOrdersSearch): void {
@@ -141,10 +252,16 @@ export class WorkOrdersList implements OnInit {
       Number.isSafeInteger(stored.page) &&
       stored.page >= 1
     ) {
-      return { searchValue: stored.searchValue.trim(), page: stored.page };
+      return {
+        searchValue: stored.searchValue.trim(),
+        status: 'status' in stored && isWorkOrderStatus(stored.status) ? stored.status : '',
+        priority:
+          'priority' in stored && isWorkOrderPriority(stored.priority) ? stored.priority : '',
+        page: stored.page,
+      };
     }
 
-    return { searchValue: '', page: 1 };
+    return { searchValue: '', status: '', priority: '', page: 1 };
   }
 
   viewWorkOrder(id: string): void {

@@ -36,7 +36,7 @@ describe('app routes', () => {
 
   const workOrdersServiceMock = {
     getById: vi.fn().mockReturnValue(of(order)),
-    searchByName: vi
+    search: vi
       .fn()
       .mockReturnValue(
         of({ first: 1, prev: null, next: null, last: 1, pages: 1, items: 1, data: [order] }),
@@ -51,7 +51,7 @@ describe('app routes', () => {
   // Cada test arranca con sesión activa; los de "sin sesión" la cierran en su propio beforeEach.
   beforeEach(async () => {
     workOrdersServiceMock.getById.mockClear();
-    workOrdersServiceMock.searchByName.mockClear();
+    workOrdersServiceMock.search.mockClear();
     localStorage.clear();
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
 
@@ -96,7 +96,7 @@ describe('app routes', () => {
       await harness.navigateByUrl('/work-orders');
 
       expect(router.url).toBe('/work-orders');
-      expect(workOrdersServiceMock.searchByName).toHaveBeenCalled();
+      expect(workOrdersServiceMock.search).toHaveBeenCalled();
       expect(harness.routeNativeElement?.textContent).not.toContain('Iniciar sesión');
     });
 
@@ -206,7 +206,7 @@ describe('app routes', () => {
       expect(pathname()).toBe('/login');
       expect(returnUrl()).toBe('/work-orders');
       expect(harness.routeNativeElement?.querySelector('#username')).not.toBeNull();
-      expect(workOrdersServiceMock.searchByName).not.toHaveBeenCalled();
+      expect(workOrdersServiceMock.search).not.toHaveBeenCalled();
     });
 
     it.each(['/dashboard', '/work-orders/new', '/work-orders/5', '/work-orders/5/edit'])(

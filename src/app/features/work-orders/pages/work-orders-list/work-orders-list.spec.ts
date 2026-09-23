@@ -4,9 +4,21 @@ import { Observable, of, Subject, throwError } from 'rxjs';
 
 import { LocalStorageService } from '@core/services/localStorage.service';
 import { MessageService } from '@core/services/message.service';
-import { WorkOrdersService } from '../../data-access/work-order.service';
-import { PaginatedResponse, WorkOrder } from '../../models/work-order.model';
+import { WorkOrdersCriteria, WorkOrdersService } from '../../data-access/work-order.service';
+import {
+  PaginatedResponse,
+  WorkOrder,
+  WorkOrderPriority,
+  WorkOrderStatus,
+} from '../../models/work-order.model';
 import { WorkOrdersList } from './work-orders-list';
+
+interface StoredQuery {
+  searchValue: string;
+  status: string;
+  priority: string;
+  page: number;
+}
 
 describe('WorkOrdersList search and pagination', () => {
   let fixture: ComponentFixture<WorkOrdersList>;
@@ -26,8 +38,17 @@ describe('WorkOrdersList search and pagination', () => {
     return { first: 1, prev: null, next: 2, last: pages, pages, items: pages * 10, data };
   }
 
+  function expected(over: Partial<WorkOrdersCriteria> = {}): WorkOrdersCriteria {
+    return { title: '', status: '', priority: '', page: 1, perPage: 10, ...over };
+  }
+
+  function stored(over: Partial<StoredQuery> = {}): StoredQuery {
+    return { searchValue: '', status: '', priority: '', page: 1, ...over };
+  }
+
   const service = {
-    searchByName: vi.fn<(...args: string[]) => Observable<PaginatedResponse<WorkOrder>>>(),
+    search: vi.fn<(criteria: WorkOrdersCriteria) => Observable<PaginatedResponse<WorkOrder>>>(),
+    updateStatus: vi.fn<(id: string, status: WorkOrderStatus) => Observable<WorkOrder>>(),
     delete: vi.fn<(...args: string[]) => Observable<void>>(),
   };
   const storage = {
@@ -35,9 +56,12 @@ describe('WorkOrdersList search and pagination', () => {
     set: vi.fn(),
   };
 
+  const calls = () => service.search.mock.calls.map(([criteria]) => criteria);
+
   beforeEach(async () => {
     vi.useFakeTimers();
-    service.searchByName.mockReset().mockReturnValue(of(response()));
+    service.search.mockReset().mockReturnValue(of(response()));
+    service.updateStatus.mockReset();
     service.delete.mockReset().mockReturnValue(of(undefined));
     storage.get.mockReset().mockReturnValue(null);
     storage.set.mockReset().mockReturnValue(true);
@@ -57,8 +81,8 @@ describe('WorkOrdersList search and pagination', () => {
     vi.useRealTimers();
   });
 
-  function start(stored: unknown = null): void {
-    storage.get.mockReturnValue(stored);
+  function start(storedQuery: unknown = null): void {
+    storage.get.mockReturnValue(storedQuery);
     fixture = TestBed.createComponent(WorkOrdersList);
     component = fixture.componentInstance;
     fixture.detectChanges();
@@ -69,16 +93,47 @@ describe('WorkOrdersList search and pagination', () => {
     vi.advanceTimersByTime(300);
   }
 
+  function choose(select: HTMLSelectElement, value: string): void {
+    select.value = value;
+    select.dispatchEvent(new Event('change'));
+  }
+
+  function rows(): HTMLTableRowElement[] {
+    return Array.from(fixture.nativeElement.querySelectorAll('tbody tr'));
+  }
+
+  function inlineSelects(): HTMLSelectElement[] {
+    return Array.from(fixture.nativeElement.querySelectorAll('tbody select'));
+  }
+
+  function rowAt(index: number): HTMLTableRowElement {
+    const row = rows()[index];
+    if (!row) throw new Error(`No hay fila ${index}`);
+    return row;
+  }
+
+  function selectAt(index: number): HTMLSelectElement {
+    const select = inlineSelects()[index];
+    if (!select) throw new Error(`No hay select en la fila ${index}`);
+    return select;
+  }
+
+  function rowBadges(row: HTMLTableRowElement): { priority: HTMLElement; status: HTMLElement } {
+    const [priority, status] = Array.from(row.querySelectorAll<HTMLElement>('app-badge .badge'));
+    if (!priority || !status) throw new Error('La fila no tiene badges de prioridad y estado');
+    return { priority, status };
+  }
+
   it('restores input and page before issuing exactly one request', () => {
     start({ searchValue: ' motor ', page: 3 });
     expect(component.searchControl.value).toBe('motor');
     expect(component.currentPage()).toBe(3);
     expect(component.totalPages()).toBe(4);
-    expect(service.searchByName).toHaveBeenCalledExactlyOnceWith('motor', '3', '10');
-    expect(storage.set).toHaveBeenLastCalledWith('workOrdersSearch', {
-      searchValue: 'motor',
-      page: 3,
-    });
+    expect(service.search).toHaveBeenCalledExactlyOnceWith(expected({ title: 'motor', page: 3 }));
+    expect(storage.set).toHaveBeenLastCalledWith(
+      'workOrdersSearch',
+      stored({ searchValue: 'motor', page: 3 }),
+    );
   });
 
   it.each([
@@ -87,9 +142,9 @@ describe('WorkOrdersList search and pagination', () => {
     { searchValue: 'motor', page: -1 },
     { searchValue: 123, page: 1 },
     { searchValue: 'motor', page: 1.5 },
-  ])('falls back to a valid initial query for invalid stored state: %j', (stored) => {
-    start(stored);
-    expect(service.searchByName).toHaveBeenCalledExactlyOnceWith('', '1', '10');
+  ])('falls back to a valid initial query for invalid stored state: %j', (storedQuery) => {
+    start(storedQuery);
+    expect(service.search).toHaveBeenCalledExactlyOnceWith(expected());
   });
 
   it('debounces typing and resets the page when the filter changes', () => {
@@ -98,42 +153,42 @@ describe('WorkOrdersList search and pagination', () => {
     vi.advanceTimersByTime(200);
     component.searchControl.setValue(' bombas ');
     vi.advanceTimersByTime(299);
-    expect(service.searchByName).toHaveBeenCalledTimes(1);
+    expect(service.search).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(1);
-    expect(service.searchByName).toHaveBeenLastCalledWith('bombas', '1', '10');
+    expect(service.search).toHaveBeenLastCalledWith(expected({ title: 'bombas' }));
     expect(component.currentPage()).toBe(1);
   });
 
   it('preserves the filter and updates metadata when changing page', () => {
     start({ searchValue: 'motor', page: 1 });
-    service.searchByName.mockReturnValue(of(response(3)));
+    service.search.mockReturnValue(of(response(3)));
     component.goToPage(2);
-    expect(service.searchByName).toHaveBeenLastCalledWith('motor', '2', '10');
+    expect(service.search).toHaveBeenLastCalledWith(expected({ title: 'motor', page: 2 }));
     expect(component.currentPage()).toBe(2);
     expect(component.totalPages()).toBe(3);
-    expect(storage.set).toHaveBeenLastCalledWith('workOrdersSearch', {
-      searchValue: 'motor',
-      page: 2,
-    });
+    expect(storage.set).toHaveBeenLastCalledWith(
+      'workOrdersSearch',
+      stored({ searchValue: 'motor', page: 2 }),
+    );
   });
 
   it('does not reread storage or duplicate search subscriptions on reload', () => {
     start({ searchValue: 'motor', page: 2 });
     component.loadWorkOrders();
     component.loadWorkOrders();
-    service.searchByName.mockClear();
+    service.search.mockClear();
     search('bomba');
     expect(storage.get).toHaveBeenCalledTimes(1);
-    expect(service.searchByName).toHaveBeenCalledExactlyOnceWith('bomba', '1', '10');
+    expect(service.search).toHaveBeenCalledExactlyOnceWith(expected({ title: 'bomba' }));
   });
 
   it('cancels a page request when a new search is applied', () => {
     start();
     const oldPage = new Subject<PaginatedResponse<WorkOrder>>();
-    service.searchByName.mockReturnValueOnce(oldPage);
+    service.search.mockReturnValueOnce(oldPage);
     component.goToPage(2);
     const latest = { ...order, id: '2', title: 'Nueva búsqueda' };
-    service.searchByName.mockReturnValueOnce(of(response(1, [latest])));
+    service.search.mockReturnValueOnce(of(response(1, [latest])));
     search('nueva');
     expect(oldPage.observed).toBe(false);
     oldPage.next(response(4, [order]));
@@ -143,27 +198,27 @@ describe('WorkOrdersList search and pagination', () => {
 
   it('shows an error and keeps the query stream alive for retry and later searches', () => {
     start();
-    service.searchByName.mockReturnValueOnce(throwError(() => new Error('offline')));
+    service.search.mockReturnValueOnce(throwError(() => new Error('offline')));
     search('motor');
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('No se pudieron cargar las órdenes');
     expect(fixture.nativeElement.textContent).toContain('Reintentar');
     component.loadWorkOrders();
     expect(component.error()).toBeNull();
-    expect(service.searchByName).toHaveBeenLastCalledWith('motor', '1', '10');
+    expect(service.search).toHaveBeenLastCalledWith(expected({ title: 'motor' }));
     search('bomba');
-    expect(service.searchByName).toHaveBeenLastCalledWith('bomba', '1', '10');
+    expect(service.search).toHaveBeenLastCalledWith(expected({ title: 'bomba' }));
   });
 
   it('recovers after an HTTP error: a later search resolves and renders results', () => {
     expect.assertions(5);
     start();
-    service.searchByName.mockReturnValueOnce(throwError(() => new Error('offline')));
+    service.search.mockReturnValueOnce(throwError(() => new Error('offline')));
     search('motor');
     expect(component.error()).not.toBeNull();
 
     const recovered = { ...order, id: '4', title: 'Bomba reparada' };
-    service.searchByName.mockReturnValueOnce(of(response(1, [recovered])));
+    service.search.mockReturnValueOnce(of(response(1, [recovered])));
     search('bomba');
 
     expect(component.error()).toBeNull();
@@ -174,30 +229,26 @@ describe('WorkOrdersList search and pagination', () => {
   });
 
   it('clamps a restored page that no longer exists and persists the correction', () => {
-    service.searchByName
-      .mockReturnValueOnce(of(response(2, [])))
-      .mockReturnValueOnce(of(response(2)));
+    service.search.mockReturnValueOnce(of(response(2, []))).mockReturnValueOnce(of(response(2)));
     start({ searchValue: 'motor', page: 5 });
-    expect(service.searchByName.mock.calls).toEqual([
-      ['motor', '5', '10'],
-      ['motor', '2', '10'],
+    expect(calls()).toEqual([
+      expected({ title: 'motor', page: 5 }),
+      expected({ title: 'motor', page: 2 }),
     ]);
     expect(component.currentPage()).toBe(2);
     expect(component.workOrders()).toEqual([order]);
-    expect(storage.set).toHaveBeenLastCalledWith('workOrdersSearch', {
-      searchValue: 'motor',
-      page: 2,
-    });
+    expect(storage.set).toHaveBeenLastCalledWith(
+      'workOrdersSearch',
+      stored({ searchValue: 'motor', page: 2 }),
+    );
   });
 
   it('reloads after deletion and goes back when the last page disappears', () => {
     start({ searchValue: 'motor', page: 4 });
-    service.searchByName
-      .mockReturnValueOnce(of(response(3, [])))
-      .mockReturnValueOnce(of(response(3)));
+    service.search.mockReturnValueOnce(of(response(3, []))).mockReturnValueOnce(of(response(3)));
     component.deleteWorkOrder('1');
     expect(service.delete).toHaveBeenCalledExactlyOnceWith('1');
-    expect(service.searchByName).toHaveBeenLastCalledWith('motor', '3', '10');
+    expect(service.search).toHaveBeenLastCalledWith(expected({ title: 'motor', page: 3 }));
     expect(component.currentPage()).toBe(3);
   });
 
@@ -216,17 +267,17 @@ describe('WorkOrdersList search and pagination', () => {
   });
 
   it('uses page 1 when the collection becomes empty', () => {
-    service.searchByName.mockReturnValue(of(response(0, [])));
+    service.search.mockReturnValue(of(response(0, [])));
     start({ searchValue: 'motor', page: 2 });
     expect(component.currentPage()).toBe(1);
     expect(component.workOrders()).toEqual([]);
-    expect(service.searchByName).toHaveBeenCalledTimes(2);
+    expect(service.search).toHaveBeenCalledTimes(2);
   });
 
   it('gives each row a distinct accessible name for its action buttons', () => {
     expect.assertions(3);
     const other = { ...order, id: '2', title: 'Cambiar filtro hidráulico' };
-    service.searchByName.mockReturnValueOnce(of(response(1, [order, other])));
+    service.search.mockReturnValueOnce(of(response(1, [order, other])));
     start();
     fixture.detectChanges();
 
@@ -243,11 +294,11 @@ describe('WorkOrdersList search and pagination', () => {
   it('does not let responses read newer unsubmitted text when persisting a query', () => {
     start();
     const pending = new Subject<PaginatedResponse<WorkOrder>>();
-    service.searchByName.mockReturnValueOnce(pending);
+    service.search.mockReturnValueOnce(pending);
     component.goToPage(2);
     component.searchControl.setValue('pendiente de debounce');
     pending.next(response());
-    expect(storage.set).toHaveBeenLastCalledWith('workOrdersSearch', { searchValue: '', page: 2 });
+    expect(storage.set).toHaveBeenLastCalledWith('workOrdersSearch', stored({ page: 2 }));
   });
 
   it('applies pending text before pagination and skips the later duplicate debounce', () => {
@@ -255,10 +306,7 @@ describe('WorkOrdersList search and pagination', () => {
     component.searchControl.setValue('motor');
     component.goToPage(2);
     vi.advanceTimersByTime(300);
-    expect(service.searchByName.mock.calls).toEqual([
-      ['', '1', '10'],
-      ['motor', '1', '10'],
-    ]);
+    expect(calls()).toEqual([expected(), expected({ title: 'motor' })]);
   });
 
   it('compares typed text with the applied query after a click during debounce', () => {
@@ -267,7 +315,7 @@ describe('WorkOrdersList search and pagination', () => {
     component.searchControl.setValue('bomba');
     component.goToPage(2);
     search('motor');
-    expect(service.searchByName).toHaveBeenLastCalledWith('motor', '1', '10');
+    expect(service.search).toHaveBeenLastCalledWith(expected({ title: 'motor' }));
   });
 
   it('updates the empty-search computed immediately and avoids whitespace-only queries', () => {
@@ -275,13 +323,13 @@ describe('WorkOrdersList search and pagination', () => {
     expect(component.isSearchEmpty()).toBe(true);
     search('motor');
     expect(component.isSearchEmpty()).toBe(false);
-    const count = service.searchByName.mock.calls.length;
+    const count = service.search.mock.calls.length;
     search(' motor ');
-    expect(service.searchByName).toHaveBeenCalledTimes(count);
+    expect(service.search).toHaveBeenCalledTimes(count);
     component.searchControl.setValue('   ');
     expect(component.isSearchEmpty()).toBe(true);
     vi.advanceTimersByTime(300);
-    expect(service.searchByName).toHaveBeenLastCalledWith('', '1', '10');
+    expect(service.search).toHaveBeenLastCalledWith(expected());
   });
 
   it('keeps working if optional persistence cannot write', () => {
@@ -295,13 +343,13 @@ describe('WorkOrdersList search and pagination', () => {
   it('cancels pending HTTP and debounce work when the page is destroyed', () => {
     start();
     const pending = new Subject<PaginatedResponse<WorkOrder>>();
-    service.searchByName.mockReturnValueOnce(pending);
+    service.search.mockReturnValueOnce(pending);
     component.goToPage(2);
     component.searchControl.setValue('motor');
     fixture.destroy();
     vi.advanceTimersByTime(300);
     expect(pending.observed).toBe(false);
-    expect(service.searchByName).toHaveBeenCalledTimes(2);
+    expect(service.search).toHaveBeenCalledTimes(2);
   });
 
   it('after searching and deleting the only item on page 2, goes to page 1 and never renders the empty state', () => {
@@ -309,22 +357,22 @@ describe('WorkOrdersList search and pagination', () => {
     const firstPageOrder = { ...order, id: '3', title: 'X primera' };
     const secondPageOrder = { ...order, id: '2', title: 'X segunda' };
     start();
-    service.searchByName.mockReturnValueOnce(of(response(2, [firstPageOrder])));
+    service.search.mockReturnValueOnce(of(response(2, [firstPageOrder])));
     search('X');
-    service.searchByName.mockReturnValueOnce(of(response(2, [secondPageOrder])));
+    service.search.mockReturnValueOnce(of(response(2, [secondPageOrder])));
     component.goToPage(2);
 
     // Tras eliminar queda una sola página: la 2 vuelve vacía y el re-pedido a la 1 sigue en vuelo.
     const pageOne = new Subject<PaginatedResponse<WorkOrder>>();
-    service.searchByName.mockReturnValueOnce(of(response(1, []))).mockReturnValueOnce(pageOne);
+    service.search.mockReturnValueOnce(of(response(1, []))).mockReturnValueOnce(pageOne);
     component.deleteWorkOrder('2');
 
-    expect(service.searchByName.mock.calls).toEqual([
-      ['', '1', '10'],
-      ['X', '1', '10'],
-      ['X', '2', '10'],
-      ['X', '2', '10'],
-      ['X', '1', '10'],
+    expect(calls()).toEqual([
+      expected(),
+      expected({ title: 'X' }),
+      expected({ title: 'X', page: 2 }),
+      expected({ title: 'X', page: 2 }),
+      expected({ title: 'X' }),
     ]);
     expect(component.currentPage()).toBe(1);
     fixture.detectChanges();
@@ -337,10 +385,7 @@ describe('WorkOrdersList search and pagination', () => {
     expect(component.currentPage()).toBe(1);
     expect(fixture.nativeElement.textContent).toContain('X primera');
     expect(fixture.nativeElement.textContent).not.toContain('Sin órdenes');
-    expect(storage.set).toHaveBeenLastCalledWith('workOrdersSearch', {
-      searchValue: 'X',
-      page: 1,
-    });
+    expect(storage.set).toHaveBeenLastCalledWith('workOrdersSearch', stored({ searchValue: 'X' }));
   });
 
   it('two overlapping searches: only the latest request resolves even if the older one answers last', () => {
@@ -350,15 +395,12 @@ describe('WorkOrdersList search and pagination', () => {
     start();
     const older = new Subject<PaginatedResponse<WorkOrder>>();
     const newer = new Subject<PaginatedResponse<WorkOrder>>();
-    service.searchByName.mockReturnValueOnce(older);
+    service.search.mockReturnValueOnce(older);
     search('a');
-    service.searchByName.mockReturnValueOnce(newer);
+    service.search.mockReturnValueOnce(newer);
     search('ab');
 
-    expect(service.searchByName.mock.calls.slice(-2)).toEqual([
-      ['a', '1', '10'],
-      ['ab', '1', '10'],
-    ]);
+    expect(calls().slice(-2)).toEqual([expected({ title: 'a' }), expected({ title: 'ab' })]);
     expect(older.observed).toBe(false);
     expect(newer.observed).toBe(true);
 
@@ -368,10 +410,7 @@ describe('WorkOrdersList search and pagination', () => {
     expect(component.workOrders()).toEqual([latest]);
     expect(component.totalPages()).toBe(1);
     expect(component.currentPage()).toBe(1);
-    expect(storage.set).toHaveBeenLastCalledWith('workOrdersSearch', {
-      searchValue: 'ab',
-      page: 1,
-    });
+    expect(storage.set).toHaveBeenLastCalledWith('workOrdersSearch', stored({ searchValue: 'ab' }));
   });
 
   it('never keeps more than one active request subscription across search, paging, retry and delete', () => {
@@ -393,7 +432,7 @@ describe('WorkOrdersList search and pagination', () => {
           active--;
         };
       });
-    service.searchByName.mockImplementation(pending);
+    service.search.mockImplementation(pending);
 
     start();
     expect(active).toBe(1);
@@ -402,7 +441,7 @@ describe('WorkOrdersList search and pagination', () => {
     component.goToPage(2);
     expect(active).toBe(1);
 
-    service.searchByName.mockImplementationOnce(failing);
+    service.search.mockImplementationOnce(failing);
     component.goToPage(3);
     expect(component.error()).not.toBeNull();
     expect(active).toBe(0);
@@ -442,6 +481,329 @@ describe('WorkOrdersList search and pagination', () => {
       variant: 'error',
       title: 'Error',
       message: 'Error al eliminar la orden.',
+    });
+  });
+
+  describe('status and priority filters', () => {
+    it('sends the status filter as a request parameter and renders the response as received', () => {
+      start();
+      const completed = { ...order, id: '2', title: 'Otra orden', status: 'completed' as const };
+      service.search.mockReturnValueOnce(of(response(1, [order, completed])));
+
+      component.statusFilter.setValue('pending');
+      fixture.detectChanges();
+
+      expect(service.search).toHaveBeenLastCalledWith(expected({ status: 'pending' }));
+      expect(rows()).toHaveLength(2);
+    });
+
+    it('sends search text, status and priority together and keeps them when one changes', () => {
+      start();
+      search('motor');
+      component.statusFilter.setValue('pending');
+      component.priorityFilter.setValue('high');
+      expect(service.search).toHaveBeenLastCalledWith(
+        expected({ title: 'motor', status: 'pending', priority: 'high' }),
+      );
+
+      service.search.mockClear();
+      component.priorityFilter.setValue('low');
+      expect(service.search).toHaveBeenCalledExactlyOnceWith(
+        expected({ title: 'motor', status: 'pending', priority: 'low' }),
+      );
+
+      component.statusFilter.setValue('');
+      expect(service.search).toHaveBeenLastCalledWith(
+        expected({ title: 'motor', priority: 'low' }),
+      );
+    });
+
+    it('applies pending search text when a filter changes and skips the later duplicate debounce', () => {
+      start();
+      component.searchControl.setValue('motor');
+      component.statusFilter.setValue('completed');
+      vi.advanceTimersByTime(300);
+
+      expect(calls()).toEqual([expected(), expected({ title: 'motor', status: 'completed' })]);
+    });
+
+    it.each<[string, () => void, Partial<WorkOrdersCriteria>]>([
+      ['status', () => component.statusFilter.setValue('completed'), { status: 'completed' }],
+      ['priority', () => component.priorityFilter.setValue('high'), { priority: 'high' }],
+      ['search text', () => search('bomba'), { title: 'bomba' }],
+    ])('resets to page 1 when the %s changes from page 2', (_name, apply, criteria) => {
+      start({ searchValue: 'motor', page: 2 });
+      expect(component.currentPage()).toBe(2);
+
+      apply();
+
+      expect(service.search).toHaveBeenLastCalledWith(
+        expected({ title: 'motor', ...criteria, page: 1 }),
+      );
+      expect(component.currentPage()).toBe(1);
+      expect(storage.set).toHaveBeenLastCalledWith(
+        'workOrdersSearch',
+        expect.objectContaining({ page: 1 }),
+      );
+    });
+
+    it('keeps every active criterion when paging or retrying', () => {
+      start(stored({ searchValue: 'motor', status: 'in-progress', priority: 'high' }));
+      const all = { title: 'motor', status: 'in-progress', priority: 'high' } as const;
+
+      component.goToPage(2);
+      expect(service.search).toHaveBeenLastCalledWith(expected({ ...all, page: 2 }));
+
+      component.loadWorkOrders();
+      expect(service.search).toHaveBeenLastCalledWith(expected({ ...all, page: 2 }));
+    });
+
+    it('persists status and priority with the query', () => {
+      start();
+      component.statusFilter.setValue('pending');
+      component.priorityFilter.setValue('low');
+      expect(storage.set).toHaveBeenLastCalledWith(
+        'workOrdersSearch',
+        stored({ status: 'pending', priority: 'low' }),
+      );
+    });
+
+    it('restores stored filters into the selects with a single request', () => {
+      start(stored({ status: 'in-progress', priority: 'low', page: 2 }));
+
+      expect(component.statusFilter.value).toBe('in-progress');
+      expect(component.priorityFilter.value).toBe('low');
+      expect(fixture.nativeElement.querySelector('#status-filter').value).toBe('in-progress');
+      expect(fixture.nativeElement.querySelector('#priority-filter').value).toBe('low');
+      expect(service.search).toHaveBeenCalledExactlyOnceWith(
+        expected({ status: 'in-progress', priority: 'low', page: 2 }),
+      );
+    });
+
+    it('restores an older stored query without filters', () => {
+      start({ searchValue: 'motor', page: 2 });
+
+      expect(component.statusFilter.value).toBe('');
+      expect(component.priorityFilter.value).toBe('');
+      expect(service.search).toHaveBeenCalledExactlyOnceWith(expected({ title: 'motor', page: 2 }));
+    });
+
+    it('drops stored filter values that are not valid', () => {
+      start(stored({ searchValue: 'motor', status: 'archived', priority: 'urgent', page: 2 }));
+
+      expect(component.statusFilter.value).toBe('');
+      expect(component.priorityFilter.value).toBe('');
+      expect(service.search).toHaveBeenCalledExactlyOnceWith(expected({ title: 'motor', page: 2 }));
+    });
+
+    it('cancels the previous request when a filter changes and keeps only the latest', () => {
+      start();
+      const older = new Subject<PaginatedResponse<WorkOrder>>();
+      service.search.mockReturnValueOnce(older);
+      component.statusFilter.setValue('pending');
+      const latest = { ...order, id: '2', title: 'Última' };
+      service.search.mockReturnValueOnce(of(response(1, [latest])));
+      component.priorityFilter.setValue('high');
+
+      expect(older.observed).toBe(false);
+      older.next(response(4, [order]));
+      expect(component.workOrders()).toEqual([latest]);
+    });
+
+    it('offers every status and priority in the filter selects', () => {
+      start();
+      const options = (id: string) =>
+        Array.from(
+          (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLOptionElement>(
+            `#${id} option`,
+          ),
+        ).map((option) => option.value);
+
+      expect(options('status-filter')).toEqual(['', 'pending', 'in-progress', 'completed']);
+      expect(options('priority-filter')).toEqual(['', 'low', 'medium', 'high']);
+    });
+
+    it('keeps the filter selects visible when there are no results', () => {
+      service.search.mockReturnValue(of(response(0, [])));
+      start(stored({ status: 'pending' }));
+
+      expect(fixture.nativeElement.textContent).toContain(
+        'No hay órdenes que coincidan con los filtros.',
+      );
+      expect(fixture.nativeElement.querySelector('#status-filter')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('#priority-filter')).not.toBeNull();
+    });
+
+    it('keeps the original empty message when no criteria are active', () => {
+      service.search.mockReturnValue(of(response(0, [])));
+      start();
+
+      expect(fixture.nativeElement.textContent).toContain(
+        'No existen órdenes de trabajo registradas.',
+      );
+      expect(fixture.nativeElement.textContent).not.toContain('coincidan con los filtros');
+    });
+  });
+
+  describe('status and priority badges', () => {
+    it.each<[WorkOrderStatus, string, string]>([
+      ['pending', 'badge--warning', 'Pendiente'],
+      ['in-progress', 'badge--info', 'En progreso'],
+      ['completed', 'badge--success', 'Completada'],
+    ])('shows the %s status with the %s variant and label "%s"', (status, cssClass, label) => {
+      service.search.mockReturnValueOnce(of(response(1, [{ ...order, status }])));
+      start();
+
+      const badge = rowBadges(rowAt(0)).status;
+      expect(badge.classList.contains(cssClass)).toBe(true);
+      expect(badge.classList.contains('badge--neutral')).toBe(false);
+      expect(badge.textContent?.trim()).toBe(label);
+    });
+
+    it.each<[WorkOrderPriority, string, string]>([
+      ['low', 'badge--neutral', 'Baja'],
+      ['medium', 'badge--warning', 'Media'],
+      ['high', 'badge--error', 'Alta'],
+    ])('shows the %s priority with the %s variant and label "%s"', (priority, cssClass, label) => {
+      service.search.mockReturnValueOnce(of(response(1, [{ ...order, priority }])));
+      start();
+
+      const badge = rowBadges(rowAt(0)).priority;
+      expect(badge.classList.contains(cssClass)).toBe(true);
+      expect(badge.textContent?.trim()).toBe(label);
+    });
+  });
+
+  describe('inline status change', () => {
+    const second: WorkOrder = { ...order, id: '2', title: 'Segunda orden', status: 'pending' };
+
+    function startWithTwoRows(storedQuery: unknown = null): void {
+      service.search.mockReturnValueOnce(of(response(4, [order, second])));
+      start(storedQuery);
+    }
+
+    it('gives each row select its own accessible name and the three status options', () => {
+      startWithTwoRows();
+
+      const selects = inlineSelects();
+      expect(selects.map((select) => select.getAttribute('aria-label'))).toEqual([
+        'Cambiar estado de Revisar motor',
+        'Cambiar estado de Segunda orden',
+      ]);
+      expect(Array.from(selectAt(0).options).map((option) => option.value)).toEqual([
+        'pending',
+        'in-progress',
+        'completed',
+      ]);
+      expect(selects.map((select) => select.value)).toEqual(['pending', 'pending']);
+    });
+
+    it('patches only the changed row without reloading the list', () => {
+      startWithTwoRows();
+      service.updateStatus.mockReturnValue(of({ ...second, status: 'completed' }));
+
+      choose(selectAt(1), 'completed');
+      fixture.detectChanges();
+
+      expect(service.updateStatus).toHaveBeenCalledExactlyOnceWith('2', 'completed');
+      expect(service.search).toHaveBeenCalledTimes(1);
+      expect(component.workOrders().map((item) => item.status)).toEqual(['pending', 'completed']);
+      expect(rowBadges(rowAt(0)).status.classList.contains('badge--warning')).toBe(true);
+      expect(rowBadges(rowAt(1)).status.classList.contains('badge--success')).toBe(true);
+      expect(inlineSelects().map((select) => select.value)).toEqual(['pending', 'completed']);
+    });
+
+    it('confirms the change with a success message', () => {
+      startWithTwoRows();
+      service.updateStatus.mockReturnValue(of({ ...second, status: 'in-progress' }));
+
+      choose(selectAt(1), 'in-progress');
+
+      expect(TestBed.inject(MessageService).message()).toEqual(
+        expect.objectContaining({ variant: 'success', message: 'Estado actualizado.' }),
+      );
+    });
+
+    it('reloads the current query when the row no longer matches the active status filter', () => {
+      startWithTwoRows(stored({ status: 'pending', page: 2 }));
+      service.updateStatus.mockReturnValue(of({ ...second, status: 'completed' }));
+      service.search.mockClear();
+      service.search.mockReturnValueOnce(of(response(4, [order])));
+
+      choose(selectAt(1), 'completed');
+      fixture.detectChanges();
+
+      expect(service.search).toHaveBeenCalledExactlyOnceWith(
+        expected({ status: 'pending', page: 2 }),
+      );
+      expect(rows()).toHaveLength(1);
+    });
+
+    it('does not reload when only a priority filter is active', () => {
+      startWithTwoRows(stored({ priority: 'medium' }));
+      service.updateStatus.mockReturnValue(of({ ...second, status: 'completed' }));
+      service.search.mockClear();
+
+      choose(selectAt(1), 'completed');
+
+      expect(service.updateStatus).toHaveBeenCalledExactlyOnceWith('2', 'completed');
+      expect(service.search).not.toHaveBeenCalled();
+      expect(component.workOrders().map((item) => item.status)).toEqual(['pending', 'completed']);
+    });
+
+    it('does not call the service when the selected status is the current one', () => {
+      startWithTwoRows();
+
+      choose(selectAt(0), 'pending');
+
+      expect(service.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('restores the select and shows an error when the update fails', () => {
+      startWithTwoRows();
+      service.updateStatus.mockReturnValue(throwError(() => new Error('offline')));
+
+      choose(selectAt(1), 'completed');
+      fixture.detectChanges();
+
+      expect(selectAt(1).value).toBe('pending');
+      expect(component.workOrders().map((item) => item.status)).toEqual(['pending', 'pending']);
+      expect(rowBadges(rowAt(1)).status.classList.contains('badge--warning')).toBe(true);
+      expect(TestBed.inject(MessageService).message()).toEqual({
+        variant: 'error',
+        title: 'Error',
+        message: 'No se pudo actualizar el estado.',
+      });
+      expect(selectAt(1).disabled).toBe(false);
+    });
+
+    it('disables the row select while its update is in flight and ignores a second change', () => {
+      startWithTwoRows();
+      const inFlight = new Subject<WorkOrder>();
+      service.updateStatus.mockReturnValue(inFlight);
+
+      choose(selectAt(1), 'completed');
+      fixture.detectChanges();
+      expect(selectAt(1).disabled).toBe(true);
+      expect(selectAt(0).disabled).toBe(false);
+
+      choose(selectAt(1), 'in-progress');
+      expect(service.updateStatus).toHaveBeenCalledTimes(1);
+
+      inFlight.next({ ...second, status: 'completed' });
+      inFlight.complete();
+      fixture.detectChanges();
+      expect(selectAt(1).disabled).toBe(false);
+    });
+
+    it('ignores a value that is not a valid status', () => {
+      startWithTwoRows();
+      const select = selectAt(0);
+
+      choose(select, 'archived');
+
+      expect(service.updateStatus).not.toHaveBeenCalled();
+      expect(select.value).toBe('pending');
     });
   });
 });

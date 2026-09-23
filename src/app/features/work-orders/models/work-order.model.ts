@@ -1,5 +1,16 @@
-export type WorkOrderPriority = 'low' | 'medium' | 'high';
-export type WorkOrderStatus = 'pending' | 'in-progress' | 'completed';
+export const WORK_ORDER_PRIORITIES = ['low', 'medium', 'high'] as const;
+export const WORK_ORDER_STATUSES = ['pending', 'in-progress', 'completed'] as const;
+
+export type WorkOrderPriority = (typeof WORK_ORDER_PRIORITIES)[number];
+export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number];
+
+export function isWorkOrderPriority(value: unknown): value is WorkOrderPriority {
+  return WORK_ORDER_PRIORITIES.some((priority) => priority === value);
+}
+
+export function isWorkOrderStatus(value: unknown): value is WorkOrderStatus {
+  return WORK_ORDER_STATUSES.some((status) => status === value);
+}
 
 export interface WorkOrder {
   id: string;

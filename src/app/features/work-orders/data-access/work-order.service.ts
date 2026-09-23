@@ -1,8 +1,22 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { catchError, Observable, throwError } from 'rxjs';
 
-import { PaginatedResponse, WorkOrder, WorkOrderCreateRequest } from '../models/work-order.model';
+import {
+  PaginatedResponse,
+  WorkOrder,
+  WorkOrderCreateRequest,
+  WorkOrderPriority,
+  WorkOrderStatus,
+} from '../models/work-order.model';
+
+export interface WorkOrdersCriteria {
+  title: string;
+  status: WorkOrderStatus | '';
+  priority: WorkOrderPriority | '';
+  page: number;
+  perPage: number;
+}
 
 export type WorkOrderLoadErrorKind = 'not-found' | 'connection';
 
@@ -68,28 +82,29 @@ export class WorkOrdersService {
     return this.http.put<WorkOrder>(`${this.apiUrl}/${id}`, workOrder);
   }
 
+  updateStatus(id: string, status: WorkOrderStatus): Observable<WorkOrder> {
+    return this.http.patch<WorkOrder>(`${this.apiUrl}/${id}`, { status });
+  }
+
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
-  searchByName(
-    title: string,
-    page: string,
-    per_page: string,
-  ): Observable<PaginatedResponse<WorkOrder>> {
-    return this.http
-      .get<PaginatedResponse<WorkOrder>>(this.apiUrl, {
-        params: {
-          _page: page,
-          _per_page: per_page,
-          'title:contains': title,
-        },
-      })
-      .pipe(
-        catchError((error: HttpErrorResponse) => {
-          console.error('Error buscando ordenes:', error);
 
-          return throwError(() => new Error('No se pudieron buscar las órdenes de trabajo'));
-        }),
-      );
+  search(criteria: WorkOrdersCriteria): Observable<PaginatedResponse<WorkOrder>> {
+    let params = new HttpParams()
+      .set('_page', criteria.page.toString())
+      .set('_per_page', criteria.perPage.toString());
+
+    if (criteria.title) params = params.set('title:contains', criteria.title);
+    if (criteria.status) params = params.set('status', criteria.status);
+    if (criteria.priority) params = params.set('priority', criteria.priority);
+
+    return this.http.get<PaginatedResponse<WorkOrder>>(this.apiUrl, { params }).pipe(
+      catchError((error: HttpErrorResponse) => {
+        console.error('Error buscando ordenes:', error);
+
+        return throwError(() => new Error('No se pudieron buscar las órdenes de trabajo'));
+      }),
+    );
   }
 }

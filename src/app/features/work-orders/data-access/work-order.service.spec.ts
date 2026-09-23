@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { PaginatedResponse, WorkOrder } from '../models/work-order.model';
-import { WorkOrderLoadError, WorkOrdersService } from './work-order.service';
+import { WorkOrderLoadError, WorkOrdersCriteria, WorkOrdersService } from './work-order.service';
 
 describe('WorkOrdersService', () => {
   const apiUrl = 'http://localhost:3000/work-orders';
@@ -42,9 +42,17 @@ describe('WorkOrdersService', () => {
     vi.restoreAllMocks();
   });
 
-  it('searchByName sends _page, _per_page and title:contains to /work-orders', () => {
+  const criteria: WorkOrdersCriteria = {
+    title: '',
+    status: '',
+    priority: '',
+    page: 1,
+    perPage: 10,
+  };
+
+  it('search sends _page, _per_page and title:contains to /work-orders', () => {
     let result: PaginatedResponse<WorkOrder> | undefined;
-    service.searchByName('motor', '2', '10').subscribe((value) => (result = value));
+    service.search({ ...criteria, title: 'motor', page: 2 }).subscribe((value) => (result = value));
 
     const request = httpMock.expectOne((req) => req.url === apiUrl);
     expect(request.request.method).toBe('GET');
@@ -56,10 +64,45 @@ describe('WorkOrdersService', () => {
     expect(result).toEqual(page);
   });
 
-  it('searchByName maps HTTP failures to a friendly error', () => {
+  it('search sends title, status and priority together in the same request', () => {
+    service
+      .search({ title: 'motor', status: 'in-progress', priority: 'high', page: 2, perPage: 10 })
+      .subscribe();
+
+    const request = httpMock.expectOne((req) => req.url === apiUrl);
+    expect(request.request.params.get('_page')).toBe('2');
+    expect(request.request.params.get('_per_page')).toBe('10');
+    expect(request.request.params.get('title:contains')).toBe('motor');
+    expect(request.request.params.get('status')).toBe('in-progress');
+    expect(request.request.params.get('priority')).toBe('high');
+    request.flush(page);
+  });
+
+  it('search omits empty criteria instead of sending empty parameters', () => {
+    service.search(criteria).subscribe();
+
+    const request = httpMock.expectOne((req) => req.url === apiUrl);
+    expect(request.request.params.has('title:contains')).toBe(false);
+    expect(request.request.params.has('status')).toBe(false);
+    expect(request.request.params.has('priority')).toBe(false);
+    expect(request.request.params.get('_page')).toBe('1');
+    request.flush(page);
+  });
+
+  it('search sends a single filter without the others', () => {
+    service.search({ ...criteria, status: 'pending' }).subscribe();
+
+    const request = httpMock.expectOne((req) => req.url === apiUrl);
+    expect(request.request.params.get('status')).toBe('pending');
+    expect(request.request.params.has('priority')).toBe(false);
+    expect(request.request.params.has('title:contains')).toBe(false);
+    request.flush(page);
+  });
+
+  it('search maps HTTP failures to a friendly error', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     let error: Error | undefined;
-    service.searchByName('motor', '1', '10').subscribe({ error: (err) => (error = err) });
+    service.search({ ...criteria, title: 'motor' }).subscribe({ error: (err) => (error = err) });
 
     httpMock
       .expectOne((req) => req.url === apiUrl)
@@ -101,6 +144,19 @@ describe('WorkOrdersService', () => {
 
     expect(error).toBeInstanceOf(WorkOrderLoadError);
     expect(error?.kind).toBe('connection');
+  });
+
+  it('updateStatus issues PATCH /work-orders/:id with only the new status', () => {
+    let result: WorkOrder | undefined;
+    service.updateStatus('7', 'completed').subscribe((value) => (result = value));
+
+    const request = httpMock.expectOne(`${apiUrl}/7`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ status: 'completed' });
+    const updated = { ...order, id: '7', status: 'completed' as const };
+    request.flush(updated);
+
+    expect(result).toEqual(updated);
   });
 
   it('delete issues DELETE /work-orders/:id', () => {
