@@ -1,6 +1,11 @@
 <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
 
-<app-header [sidebarOpen]="sidebarOpen()" (viewSidebar)="openSidebar()"></app-header>
+<app-header
+  [sidebarOpen]="sidebarOpen()"
+  [userName]="userName()"
+  (viewSidebar)="openSidebar()"
+  (logout)="onLogout()"
+></app-header>
 
 <div [class.sidebar-layout]="sidebarOpen()">
   @if (sidebarOpen()) {

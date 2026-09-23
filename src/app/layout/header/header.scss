@@ -4,3 +4,11 @@ header {
   background-color: #{a.$color-background};
   border: #{a.$border-width} solid #{a.$color-border};
 }
+
+.header__session {
+  flex-shrink: 0;
+}
+
+.header__user {
+  white-space: nowrap;
+}

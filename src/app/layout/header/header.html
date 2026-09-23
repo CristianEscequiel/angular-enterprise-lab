@@ -10,4 +10,10 @@
     <span aria-hidden="true">☰</span>
   </button>
   <h2 class="u-full-width u-text-center">Centro de Gestión de Mantenimiento.</h2>
+  @if (userName() !== null) {
+    <div class="header__session d-flex u-align-center gap-md">
+      <span class="header__user">{{ userName() }}</span>
+      <app-button variant="outline" size="sm" (clicked)="onLogoutClick()">Cerrar sesión</app-button>
+    </div>
+  }
 </header>

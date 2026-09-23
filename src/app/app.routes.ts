@@ -20,6 +20,10 @@ export const routes: Routes = [
       import('./features/work-orders/work-orders.routes').then((m) => m.WORK_ORDERS_ROUTES),
   },
   {
+    path: 'login',
+    loadChildren: () => import('./features/auth/auth.routes').then((m) => m.AUTH_ROUTES),
+  },
+  {
     path: '**',
     loadComponent: () => import('./pages/not-found/not-found').then((m) => m.NotFound),
     title: 'Página no encontrada | Angular Enterprise Lab',

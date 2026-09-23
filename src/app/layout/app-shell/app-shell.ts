@@ -1,5 +1,6 @@
-import { Component, DOCUMENT, inject, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, computed, DOCUMENT, inject, signal } from '@angular/core';
+import { Router, RouterOutlet } from '@angular/router';
+import { AuthService } from '@core/auth/auth.service';
 import { Header } from '../header/header';
 import { Sidebar } from '../sidebar/sidebar';
 
@@ -11,6 +12,11 @@ import { Sidebar } from '../sidebar/sidebar';
   styleUrl: './app-shell.scss',
 })
 export class AppShell {
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+
+  readonly userName = computed(() => this.authService.currentUser()?.displayName ?? null);
+
   sidebarOpen = signal(false);
   toastOpen = signal(false);
   toastType = signal<'success' | 'error' | 'warning'>('success');
@@ -41,5 +47,11 @@ export class AppShell {
     this.sidebarOpen.set(false);
     this.previouslyFocusedElement?.focus();
     this.previouslyFocusedElement = null;
+  }
+
+  // Header solo emite; acá se decide qué implica cerrar sesión.
+  onLogout(): void {
+    this.authService.logout();
+    void this.router.navigate(['/login']);
   }
 }

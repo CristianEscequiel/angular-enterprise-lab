@@ -6,13 +6,19 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { loadingInterceptor } from './core/interceptors/loading.interceptor';
 import { errorInterceptor } from './core/interceptors/error.interceptor';
 import { mockDelayInterceptor } from './core/interceptors/mock-delay.interceptor';
+import { authInterceptor } from './core/interceptors/auth.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
     provideHttpClient(
-      withInterceptors([loadingInterceptor, mockDelayInterceptor, errorInterceptor]),
+      withInterceptors([
+        authInterceptor,
+        loadingInterceptor,
+        mockDelayInterceptor,
+        errorInterceptor,
+      ]),
     ),
   ],
 };
