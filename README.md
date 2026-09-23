@@ -170,13 +170,14 @@ Las páginas de detalle y edición consultan la orden por el identificador de la
 | Ruta                    | Vista                        |
 | ----------------------- | ---------------------------- |
 | `/`                     | Redirección a `/dashboard`   |
+| `/login`                | Inicio de sesión (pública)   |
 | `/dashboard`            | Página inicial del dashboard |
 | `/work-orders`          | Listado de órdenes           |
 | `/work-orders/new`      | Creación de una orden        |
 | `/work-orders/:id`      | Detalle de una orden         |
 | `/work-orders/:id/edit` | Edición de una orden         |
 
-La feature de órdenes utiliza `loadChildren()` y sus páginas se cargan mediante `loadComponent()`. La página 404 y la protección de rutas mediante autenticación están pendientes.
+La feature de órdenes utiliza `loadChildren()` y sus páginas se cargan mediante `loadComponent()`. `/dashboard` y `/work-orders/*` requieren sesión (`authGuard`, spec 011): sin ella se redirige a `/login` conservando la URL pedida para volver tras el login. `/login` redirige al destino de retorno (por defecto `/dashboard`) si ya hay sesión (`guestGuard`), y la página 404 es pública. `requireRole(...roles)` permite restringir una ruta por rol (`admin` o `tecnico`), pero todavía ninguna ruta lo usa. Estos guards son control de navegación: la autorización real corresponde al backend.
 
 ### Signals y RxJS
 
@@ -266,6 +267,7 @@ de las decisiones tomadas para cada feature.
 | Accesibilidad y adaptación responsive                       | [`008b-accesibilidad-responsive`](.claude/specs/008b-accesibilidad-responsive)                   | Implementado (15 tests nuevos, 104→119 en la suite)                                                   |
 | Cobertura de Functions por feature                          | [`009-cobertura-por-feature`](.claude/specs/009-cobertura-por-feature)                           | Implementado (9 tests nuevos, 119→128 en la suite; Functions 79.5%→87.57%)                            |
 | Autenticación simulada, sesión, logout y retorno tras login | [`010-autenticacion-simulada`](.claude/specs/010-autenticacion-simulada)                         | Implementado (82 tests nuevos, 128→210 en la suite; +17 del spec de `errorInterceptor`, 227 en total) |
+| Guards de ruta y permisos por rol                           | [`011-guards-permisos-rol`](.claude/specs/011-guards-permisos-rol)                               | Implementado (31 tests nuevos, 227→258 en la suite)                                                   |
 
 ### Estado de las pruebas
 
@@ -281,18 +283,20 @@ La estrategia a completar incluye:
 
 ### Cobertura
 
-`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `010-autenticacion-simulada` y el spec de `errorInterceptor` (227 tests):
+`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `011-guards-permisos-rol` (258 tests):
 
 | Métrica    | % Cubierto |
 | ---------- | ---------- |
-| Statements | 94.95%     |
-| Branches   | 93.62%     |
-| Functions  | 90.09%     |
-| Lines      | 96.56%     |
+| Statements | 94.55%     |
+| Branches   | 93.72%     |
+| Functions  | 88.88%     |
+| Lines      | 95.96%     |
 
 Es un número **informativo**, no un umbral bloqueante — no hay `coverageThresholds` configurado en `angular.json`, así que no falla el comando ni el commit si baja. El desbalance de Functions detectado en spec 007 (72.95% sobre specs 001-006, 79.5% recalculado tras 008a/008b) se cerró en spec 009 con tests dirigidos a funciones de lógica real sin cobertura (ver `.claude/specs/009-cobertura-por-feature`); no se persigue el 100%, solo un nivel consistente con el resto de las métricas.
 
 El código nuevo de spec 010 quedó al 100% en las cuatro métricas. Al agregar `app.config.spec.ts`, `errorInterceptor` (que ningún test importaba y por eso no figuraba en el reporte) apareció con 0/21 ramas y Branches bajó transitoriamente a 88.83%; el spec propio de `errorInterceptor` lo llevó a 100% y dejó Branches en 93.62% (antes 91.86%). Detalle en `.claude/specs/010-autenticacion-simulada/notes.md`.
+
+El código nuevo de spec 011 (`auth.guard.ts`, `auth.model.ts`, `app.routes.ts`, `login-page.ts`) quedó al 100% en las cuatro métricas. Branches es el número estable entre corridas (93.62% → 93.72%, 411/439 → 418/446). Statements, Functions y Lines oscilan entre corridas sobre el mismo código, como ya se documentó en 010: dos corridas consecutivas de 011 dieron 95.03% / 90.33% / 96.63% y 94.55% / 88.88% / 95.96%; la tabla usa la última. Por eso la baja de Functions respecto de 90.09% no se atribuye a código nuevo sin cubrir. Detalle en `.claude/specs/011-guards-permisos-rol/notes.md`.
 
 ### Última verificación registrada
 
@@ -335,6 +339,17 @@ Revisión del **23 de septiembre de 2026**, tras `010-autenticacion-simulada` y 
 - Mutation testing: 2 mutaciones deliberadas (retorno a `returnUrl` en `LoginPage` y `logout()` en `AppShell`) hicieron fallar los tests esperados antes de revertirse.
 - Verificación manual de login contra `pnpm api` + `pnpm start`: no registrada en esta revisión (pasos en `.claude/specs/010-autenticacion-simulada/notes.md`).
 
+Revisión del **23 de septiembre de 2026**, tras `011-guards-permisos-rol`:
+
+- Build de producción: correcto, sin warnings.
+- ESLint: correcto.
+- Tests: 258 correctos en 32 archivos (227 antes de spec 011).
+- Prettier: `pnpm exec prettier . --check` limpio.
+- `tsc --noEmit`: 0 errores en `tsconfig.app.json` y `tsconfig.spec.json`.
+- Cobertura: ver sección "Cobertura" arriba (Branches 93.62%→93.72%; Functions 88.88% dentro de la variabilidad entre corridas descrita ahí).
+- Mutation testing: 8 mutaciones deliberadas sobre `authGuard`, `guestGuard`, `requireRole` y la estructura de `app.routes.ts` (7 hicieron fallar los tests esperados; la mutación de mover `**` dentro del grupo protegido provocó un bucle de redirecciones y la suite no terminó). Tabla completa en `.claude/specs/011-guards-permisos-rol/notes.md`.
+- Verificación manual con `pnpm api` + `pnpm start`: realizada por el autor del proyecto (retorno tras login, `/login` con sesión, logout y 404 público).
+
 Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones`:
 
 - Build de producción: correcto, sin warnings.
@@ -362,7 +377,7 @@ Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones
 ### 2. Autenticación y evolución funcional
 
 - [x] Implementar autenticación simulada, sesión, logout y retorno después del login (spec 010).
-- [ ] Agregar guards y permisos por rol.
+- [x] Agregar guards y permisos por rol (spec 011: mecanismo de guards y `requireRole`; qué puede hacer cada rol se define en las specs de cada feature).
 - [ ] Completar filtros por estado y prioridad y cambio de estado de las órdenes.
 - [ ] Incorporar gestión de equipos y técnicos de forma incremental.
 - [ ] Desarrollar los indicadores del dashboard.
