@@ -330,13 +330,31 @@ que los porcentajes por archivo se leyeron del reporte HTML.
      maestro; editar su especialidad y volver a loguearse la refleja.
   5. Sin sesión, `/maintenance/teams` lleva a login y, tras entrar como
      `teamleader`, vuelve a `/maintenance/teams`.
-- **`db.json` tiene cambios que no son de 013c**, mezclados con los datos de
-  prueba: los estados de las órdenes 1 y 6, la orden de prueba `-F0Rxw22vkQ`,
-  y la edición manual del equipo 1 ("Guardia Grupo A", con los técnicos `1001` y
-  `1002`). Antes de commitear la tarea 16, dejar en el índice solo los datos de
-  prueba de `tecnicos`, `equipos` y `users` (`git add -p src/app/features/work-orders/data-access/db.json`,
-  rechazando los otros hunks) y descartar el resto. Mientras un JSON Server local
+- **`db.json` de trabajo tiene ediciones manuales sin commitear**, que se dejaron
+  fuera del commit de datos: los estados de las órdenes 1 y 6, la orden de prueba
+  `-F0Rxw22vkQ` y la edición del equipo 1 ("Guardia Grupo A", con los técnicos
+  `1001` y `1002`). El commit contiene solo los datos de `tecnicos`, `equipos` y
+  `users`; `git checkout -- src/app/features/work-orders/data-access/db.json`
+  descarta las ediciones cuando ya no hagan falta. Mientras un JSON Server local
   esté corriendo, reescribe `db.json` sin el salto de línea final y
   `prettier --check` lo marca.
-- **`spec.md` sin formatear** (el spec original): `prettier --write` lo arregla.
-- **Nada quedó commiteado.** Los cambios están en el árbol de trabajo.
+
+## Commits
+
+Siete commits en orden de dependencia (más el que actualiza estas notas). Cada uno se verificó por separado en un
+árbol limpio (tests y lint; el de rutas y menú también `ng build`), así que cada
+punto de la historia compila y pasa la suite:
+
+| Commit                                                         | Tests |
+| -------------------------------------------------------------- | ----- |
+| `feat(auth)`: legajo, login contra el maestro y `UsersService` | 583   |
+| `feat(maintenance)`: modelos, política y servicios             | 742   |
+| `feat(maintenance)`: las cuatro páginas                        | 888   |
+| `feat(maintenance)`: rutas con guards y links del menú         | 957   |
+| `test(maintenance)`: integridad de los datos de prueba         | 972   |
+| `docs(spec)` y `docs(readme)`                                  | 972   |
+
+El primero incluye los datos de prueba de `db.json` (`tecnicos`, `equipos` y los
+usuarios técnicos con `legajo`), porque sin ellos el login de un técnico deja de
+andar en desarrollo apenas cambia el modelo. `spec.md` quedó reformateado por el
+hook de pre-commit al commitearse.
