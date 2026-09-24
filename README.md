@@ -4,7 +4,7 @@ Laboratorio de arquitectura Angular aplicado a un sistema de gestión de órdene
 
 El proyecto busca construir una aplicación pequeña y mantenible que sirva como referencia técnica, base de aprendizaje y material para explicar decisiones de desarrollo. El foco está en la separación de responsabilidades, la reutilización, el manejo de estado, las pruebas y la documentación.
 
-**Estado:** en desarrollo. El flujo CRUD está implementado y la búsqueda con paginación está en proceso de estabilización. La autenticación simulada, los roles y la gestión de técnicos y equipos ya están implementados (specs 010, 011, 013b y 013c); los indicadores del dashboard y la asignación de órdenes forman parte del roadmap.
+**Estado:** en desarrollo. El flujo CRUD está implementado y la búsqueda con paginación está en proceso de estabilización. La autenticación simulada, los roles y la gestión de técnicos y equipos ya están implementados (specs 010, 011, 013b y 013c), igual que el maestro de máquinas con su árbol de partes (spec 013a); los indicadores del dashboard y la asignación de órdenes forman parte del roadmap.
 
 ## Metodología de desarrollo
 
@@ -90,7 +90,7 @@ src/app/features/work-orders/data-access/db.json
 
 JSON Server utiliza ese archivo como almacenamiento local; las operaciones de escritura pueden modificarlo. Revisá los cambios de datos antes de incluirlos en un commit.
 
-`db.json` tiene cuatro colecciones: `work-orders`, `users` (usuarios de login), `tecnicos` (maestro de técnicos) y `equipos` (spec 013c). Un JSON Server en ejecución reescribe el archivo cada vez que se guarda algo desde la interfaz (y le quita el salto de línea final), así que las pruebas manuales dejan cambios que conviene descartar antes de commitear. `db.seed.spec.ts` comprueba la integridad de los datos de prueba (legajos únicos, referencias que existen, un usuario por rol).
+`db.json` tiene seis colecciones: `work-orders`, `users` (usuarios de login), `tecnicos` (maestro de técnicos), `equipos` (spec 013c), `maquinas` y `partes` (spec 013a). Un JSON Server en ejecución reescribe el archivo cada vez que se guarda algo desde la interfaz (y le quita el salto de línea final), así que las pruebas manuales dejan cambios que conviene descartar antes de commitear. `db.seed.spec.ts` comprueba la integridad de los datos de prueba (legajos únicos, referencias que existen, un usuario por rol y, para máquinas y partes, ids y códigos únicos, padres que existen en la misma máquina, árboles sin huérfanas y uno de 4 niveles).
 
 Actualmente, la URL `http://localhost:3000/work-orders` se define en `WorkOrdersService`. Su extracción a una configuración central está pendiente. Si cambiás el puerto del servidor, debés mantener coherente la URL utilizada por el frontend.
 
@@ -131,6 +131,16 @@ El **maestro de técnicos** (`tecnicos`) es una entidad independiente del usuari
 
 Un técnico con usuario de login o miembro de un equipo no se puede eliminar. Crear un usuario de login con rol `tecnico` exige que su legajo exista en el maestro. La regla vive en `features/maintenance/models/maintenance.permissions.ts` y, como la de las órdenes, es control de navegación y de interfaz.
 
+### Máquinas y árbol de partes
+
+El **maestro de máquinas** (`maquinas`) guarda `code` (único, en mayúsculas, hasta 20 letras, dígitos o guiones) y `name`. Cada máquina tiene un **árbol de partes** de profundidad variable en la colección `partes` (spec 013a): cada parte apunta a su máquina (`machineId`) y a su padre (`parentId`, `null` en las de primer nivel), y una parte sin hijos es una hoja. Es la base para que la spec 013d asocie cada orden a "qué máquina y qué parte". Los datos de prueba traen tres máquinas: la Envasadora (árbol de 4 niveles, con una hoja hermana en el nivel 2), la Selladora (2 niveles) y la Rotuladora (sin partes, la única que se puede eliminar).
+
+| Acción                                                            | Permitido a                                  |
+| ----------------------------------------------------------------- | -------------------------------------------- |
+| Ver la gestión, crear, modificar y eliminar máquinas y sus partes | `administrador`, `team-leader-mantenimiento` |
+
+`personal-produccion` y `tecnico` no acceden a la gestión. Una parte con sub-partes no se puede eliminar, y una máquina con partes tampoco: no hay cascada, así que un subárbol se elimina de las hojas hacia arriba (así nunca quedan partes sin padre). La regla vive en `features/machines/models/machines.permissions.ts` y, como las demás, es control de navegación y de interfaz.
+
 ## Funcionalidades actuales
 
 - Listado de órdenes de mantenimiento.
@@ -143,6 +153,7 @@ Un técnico con usuario de login o miembro de un equipo no se puede eliminar. Cr
 - Autenticación simulada con cuatro roles: crear, editar y eliminar órdenes dependen del rol (ver "Usuarios de prueba").
 - Gestión de técnicos (listado con búsqueda, alta, edición y baja) y de equipos (listado, alta, edición y baja), según el rol (ver "Técnicos y equipos").
 - Alta de miembros de un equipo por legajo, con validación en tiempo real: muestra si el técnico existe, si ya es miembro o si el legajo no es válido antes de confirmar.
+- Gestión de máquinas (listado con la cantidad de partes, alta, edición y baja) y de su árbol de partes de profundidad variable (agregar sub-partes, renombrar y eliminar, con bloqueo si hay sub-partes), según el rol (ver "Máquinas y árbol de partes").
 - Menú lateral que ofrece solo las secciones permitidas al rol.
 - Eliminación con confirmación.
 - Indicador global de peticiones en curso.
@@ -162,10 +173,12 @@ src/
 │   ├── core/
 │   │   ├── auth/
 │   │   ├── interceptors/
-│   │   └── services/
+│   │   ├── services/
+│   │   └── testing/
 │   ├── features/
 │   │   ├── auth/
 │   │   ├── dashboard/
+│   │   ├── machines/
 │   │   ├── maintenance/
 │   │   └── work-orders/
 │   │       ├── components/form/
@@ -220,6 +233,12 @@ El maestro y el usuario de login se mantienen separados: `core/auth` no importa 
 
 El alta de miembros por legajo espera 300 ms sin tipear, cancela la consulta en vuelo apenas cambia el campo (así una respuesta tardía nunca pisa a un legajo más nuevo) y resuelve "ya es miembro" sin HTTP. Detalle de las decisiones en `.claude/specs/013c-tecnicos-equipos/notes.md`.
 
+### Máquinas y árbol de partes
+
+La feature `machines` tiene sus propios servicios (`MachinesService` y `PartsService`), un componente presentacional recursivo (`PartTree`, sin HTTP ni permisos, reutilizable por la spec 013d para elegir una parte) y tres páginas: `machines-list`, `machine-form` y `machine-parts` (el árbol de una máquina). Las páginas deciden el permiso, traducen los errores de los servicios a avisos y recargan el árbol desde el servidor tras cada cambio.
+
+El árbol se guarda como **lista de adyacencia plana** (cada parte con su `parentId`) y `buildPartTree` lo arma desde las raíces: lo que no cuelga de ninguna (datos rotos a mano) se muestra aparte como "partes sin padre" en vez de perderse. `machineId` y `parentId` no cambian después de crear la parte. JSON Server no tiene cascada, acepta huérfanos y `code` repetidos, descarta el `id` que manda el cliente al crear y convierte a número los valores numéricos del query string (`?machineId=1` no encuentra `"1"`): por eso los servicios leen todas las partes y filtran en el cliente, verifican máquina y padre antes de escribir y, antes de eliminar, vuelven a leer los datos para bloquear si hay hijos o partes. Para probar todo esto de punta a punta hay un emulador fiel de JSON Server para tests (`core/testing/in-memory-api.ts`). Detalle de las decisiones, los hallazgos y el defecto de 013c que apareció por el camino en `.claude/specs/013a-maestro-maquinas-partes/notes.md`.
+
 ### Routing
 
 | Ruta                                    | Vista                        |
@@ -239,7 +258,7 @@ El alta de miembros por legajo espera 300 ms sin tipear, cancela la consulta en 
 | `/maintenance/teams/new`                | Alta de un equipo            |
 | `/maintenance/teams/:id/edit`           | Edición de un equipo         |
 
-La feature de órdenes utiliza `loadChildren()` y sus páginas se cargan mediante `loadComponent()`. `/dashboard` y `/work-orders/*` requieren sesión (`authGuard`, spec 011): sin ella se redirige a `/login` conservando la URL pedida para volver tras el login. `/login` redirige al destino de retorno (por defecto `/dashboard`) si ya hay sesión (`guestGuard`), y la página 404 es pública. Los roles son `administrador`, `team-leader-mantenimiento`, `personal-produccion` y `tecnico` (este último con especialidad y tipo de equipo, spec 013b). `requireUser(predicate)` restringe una ruta con una regla sobre el usuario y `requireRole(...roles)` es su atajo por rol: `/work-orders/new` exige un rol que pueda crear órdenes y `/work-orders/:id/edit` uno que pueda editarlas, según la política de `work-order.permissions.ts`; sin permiso se vuelve a `/dashboard` con un aviso. `/maintenance/*` sigue el mismo esquema con la política de `maintenance.permissions.ts` (técnicos: Administrador y TeamLeader; equipos: solo TeamLeader), y un legajo con formato inválido en la URL de edición cae en la página 404 sin cargar el formulario. Estos guards son control de navegación: la autorización real corresponde al backend.
+La feature de órdenes utiliza `loadChildren()` y sus páginas se cargan mediante `loadComponent()`. `/dashboard` y `/work-orders/*` requieren sesión (`authGuard`, spec 011): sin ella se redirige a `/login` conservando la URL pedida para volver tras el login. `/login` redirige al destino de retorno (por defecto `/dashboard`) si ya hay sesión (`guestGuard`), y la página 404 es pública. Los roles son `administrador`, `team-leader-mantenimiento`, `personal-produccion` y `tecnico` (este último con especialidad y tipo de equipo, spec 013b). `requireUser(predicate)` restringe una ruta con una regla sobre el usuario y `requireRole(...roles)` es su atajo por rol: `/work-orders/new` exige un rol que pueda crear órdenes y `/work-orders/:id/edit` uno que pueda editarlas, según la política de `work-order.permissions.ts`; sin permiso se vuelve a `/dashboard` con un aviso. `/maintenance/*` sigue el mismo esquema con la política de `maintenance.permissions.ts` (técnicos: Administrador y TeamLeader; equipos: solo TeamLeader), y un legajo con formato inválido en la URL de edición cae en la página 404 sin cargar el formulario. `/machines/*` (listado, alta, `:id/edit` y `:id/parts`) exige `canManageMachines` (Administrador y TeamLeader) en cada ruta, y un id con forma insegura (puntos, espacios, más de 64 caracteres) cae en la página 404 sin cargar la página. Estos guards son control de navegación: la autorización real corresponde al backend.
 
 ### Signals y RxJS
 
@@ -333,6 +352,7 @@ de las decisiones tomadas para cada feature.
 | Filtros por estado y prioridad, cambio de estado de órdenes | [`012-filtros-estado-prioridad`](.claude/specs/012-filtros-estado-prioridad)                     | Implementado (76 tests nuevos, 258→334 en la suite)                                                   |
 | Roles extendidos del dominio de mantenimiento               | [`013b-roles-extendidos`](.claude/specs/013b-roles-extendidos)                                   | Implementado (189 tests nuevos, 334→523 en la suite)                                                  |
 | Gestión de técnicos y equipos                               | [`013c-tecnicos-equipos`](.claude/specs/013c-tecnicos-equipos)                                   | Implementado (449 tests nuevos, 523→972 en la suite)                                                  |
+| Maestro de máquinas y árbol de partes                       | [`013a-maestro-maquinas-partes`](.claude/specs/013a-maestro-maquinas-partes)                     | Implementado (671 tests nuevos, 972→1643 en la suite; incluye el arreglo de 013c)                     |
 
 ### Estado de las pruebas
 
@@ -346,18 +366,19 @@ La estrategia a completar incluye:
 - Tests de detalle y edición ante registros inexistentes y fallos de carga: cubierto (spec 003).
 - Tests de roles y permisos: modelo del usuario y atributos del técnico, guard `requireUser`, política de permisos, rutas de crear y editar con las rutas reales, y botones y acciones del listado según el rol: cubierto (spec 013b).
 - Tests de técnicos y equipos: modelos y validadores, política de permisos, servicios HTTP (unicidad del legajo, consultas por ruta, errores de red distintos de "no existe"), validación cruzada del usuario técnico contra el maestro, las cuatro páginas (incluido el alta por legajo en tiempo real con timers y respuestas fuera de orden), las rutas reales con sus guards, el sidebar por rol y la integridad de los datos de prueba: cubierto (spec 013c).
+- Tests de máquinas y árbol de partes: modelos y validadores, `buildPartTree` (5 niveles desordenados, huérfanas, ciclos, ids repetidos), política de permisos, servicios HTTP (verificación de máquina y padre antes de escribir, bloqueo de la eliminación con datos frescos, errores de red distintos de "no existe"), un emulador fiel de JSON Server y la ida y vuelta de los criterios de aceptación contra él (incluida una secuencia de 120 operaciones que nunca deja una huérfana), el componente `PartTree`, las tres páginas, las rutas reales con sus guards, el sidebar por rol y la integridad de los datos de prueba: cubierto (spec 013a).
 - Tests de interceptores: `loadingInterceptor` cubierto (spec 002); `authInterceptor` cubierto (spec 010); `errorInterceptor` cubierto (spec propio, agregado tras 010). Foco y limpieza del modal: cubierto (spec 005).
 
 ### Cobertura
 
-`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `013c-tecnicos-equipos` (972 tests):
+`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `013a-maestro-maquinas-partes` (1643 tests):
 
 | Métrica    | % Cubierto |
 | ---------- | ---------- |
-| Statements | 97.56%     |
-| Branches   | 97.43%     |
-| Functions  | 95.73%     |
-| Lines      | 98.73%     |
+| Statements | 98.24%     |
+| Branches   | 97.94%     |
+| Functions  | 97.01%     |
+| Lines      | 99.09%     |
 
 Es un número **informativo**, no un umbral bloqueante — no hay `coverageThresholds` configurado en `angular.json`, así que no falla el comando ni el commit si baja. El desbalance de Functions detectado en spec 007 (72.95% sobre specs 001-006, 79.5% recalculado tras 008a/008b) se cerró en spec 009 con tests dirigidos a funciones de lógica real sin cobertura (ver `.claude/specs/009-cobertura-por-feature`); no se persigue el 100%, solo un nivel consistente con el resto de las métricas.
 
@@ -370,6 +391,8 @@ El código nuevo o modificado de spec 012 (`work-orders-list.ts`, `work-order.se
 El código nuevo o modificado de spec 013b (`auth.guard.ts`, `auth.model.ts`, `work-order.permissions.ts`, `work-orders.routes.ts`) no aparece en la tabla de archivos con huecos: 100% en las cuatro métricas. `auth.model.ts` bajó a 95.65% en una medición intermedia (la rama de `toAuthUser` con un registro que no es un objeto) y se cerró con tests directos. Branches subió de 95.43% a 96.81% (460/482 → 516/533). Statements, Functions y Lines volvieron a variar entre corridas sobre el mismo código: otra corrida dio 96.38% / 92.77% / 97.70%; la tabla usa la de Functions más alta. Detalle en `.claude/specs/013b-roles-extendidos/notes.md`.
 
 El código nuevo o modificado de spec 013c (`auth.model.ts`, `auth.service.ts`, `users.service.ts`, los servicios, modelos, política y rutas de `maintenance`, los dos listados, el sidebar y `app.routes.ts`) está al 100% en las cuatro métricas; `technician-form.ts` (98.66% Statements, 97.77% Branches) y `team-form.ts` (99.23%, 98.41%) tienen una rama sin cubrir. Branches subió de 96.81% a 97.43% (516/533 → 836/858). Statements, Functions y Lines volvieron a variar entre corridas sobre el mismo código: otra corrida dio 97.42% / 95.30% / 98.54%; la tabla usa la de Functions más alta. La tabla de la consola no lista los archivos al 100%, por lo que los porcentajes por archivo se leen del reporte HTML. Detalle en `.claude/specs/013c-tecnicos-equipos/notes.md`.
+
+El código nuevo o modificado de spec 013a (los modelos, la política, los servicios y las rutas de `machines`, `PartTree`, `TechnicianDirectory`, el sidebar y `app.routes.ts`) está al 100% en las cuatro métricas. Las únicas ramas sin cubrir son los enlaces bidireccionales `[(isOpen)]` y `[(selectedId)]` que genera el compilador en las plantillas de `machines-list` y `machine-parts` (las mismas que ya tenían `teams-list` y `technicians-list`). El emulador de JSON Server de `core/testing` se excluye de la medición (`coverageExclude` en `angular.json`): es código de test y, cubierto, inflaba el número. Las cuatro métricas subieron respecto de 013c (Branches 97.43%→97.94%, 836/858 → 1192/1217). Statements, Functions y Lines volvieron a variar entre corridas sobre el mismo código: otra corrida dio 98.14% / 96.71% / 98.96%; la tabla usa la de Functions más alta. Detalle en `.claude/specs/013a-maestro-maquinas-partes/notes.md`.
 
 ### Última verificación registrada
 
@@ -411,6 +434,19 @@ Revisión del **23 de septiembre de 2026**, tras `010-autenticacion-simulada` y 
 - Cobertura: ver sección "Cobertura" arriba (Functions 87.57%→90.09%, Branches 91.86%→93.62%; ninguna métrica bajó).
 - Mutation testing: 2 mutaciones deliberadas (retorno a `returnUrl` en `LoginPage` y `logout()` en `AppShell`) hicieron fallar los tests esperados antes de revertirse.
 - Verificación manual de login contra `pnpm api` + `pnpm start`: no registrada en esta revisión (pasos en `.claude/specs/010-autenticacion-simulada/notes.md`).
+
+Revisión del **24 de septiembre de 2026**, tras `013a-maestro-maquinas-partes`:
+
+- Build de producción: correcto (cada página nueva queda como chunk lazy).
+- ESLint: correcto.
+- Tests: 1643 correctos en 62 archivos (972 antes de spec 013a).
+- Prettier: `pnpm exec prettier . --check` limpio salvo `spec.md` y `plan.md` de esta spec (sin formatear hasta el commit) y `db.json` mientras hay un JSON Server local en ejecución.
+- `tsc --noEmit`: 0 errores en `tsconfig.app.json` y `tsconfig.spec.json`.
+- Cobertura: ver sección "Cobertura" arriba (las cuatro métricas subieron; Branches 97.43%→97.94%).
+- Mutation testing: 158 mutaciones deliberadas sobre los modelos, la política, los servicios, el componente `PartTree`, las tres páginas, las rutas, el sidebar y los datos de prueba (más 8 sobre el arreglo de 013c); 156 hicieron fallar los tests esperados y 2 son equivalentes (el recorte del nombre lo hace también el servicio). Las que no compilaban o no llegaron a aplicarse se repitieron con variantes válidas. Tabla en `.claude/specs/013a-maestro-maquinas-partes/notes.md`.
+- Defecto de 013c corregido: `POST` descarta el `id` que manda el cliente, así que un técnico creado desde la app no se podía editar ni buscar por legajo; el `id` pasa a ser opaco y el legajo se busca con `TechnicianDirectory` (detalle en las notas de 013c).
+- Contrato con JSON Server (`pnpm api`, sobre copias del `db.json`): la ida y vuelta de un árbol de 5 niveles, el bloqueo de borrados, los datos sembrados de máquinas y partes y el alta, edición y baja de técnicos, comprobados con scripts de un solo uso (los tests permanentes son el emulador y `db.seed.spec.ts`).
+- Verificación manual de la interfaz: no registrada en esta revisión (pasos en `.claude/specs/013a-maestro-maquinas-partes/notes.md`).
 
 Revisión del **24 de septiembre de 2026**, tras `013c-tecnicos-equipos`:
 
@@ -491,6 +527,7 @@ Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones
 - [x] Completar filtros por estado y prioridad y cambio de estado de las órdenes (spec 012: tres estados; la restricción por rol y las transiciones permitidas quedan para specs posteriores).
 - [x] Definir los roles del dominio de mantenimiento y sus permisos sobre las órdenes (spec 013b: cuatro roles, atributos del técnico, tipo de orden, crear/editar/eliminar por rol; la asignación por especialidad y tipo de equipo queda para 013d).
 - [x] Incorporar gestión de equipos y técnicos de forma incremental (spec 013c: maestro de técnicos y equipos con su alta, edición y baja, y el alta de miembros por legajo; la asignación de órdenes a técnicos y equipos queda para 013d).
+- [x] Incorporar el maestro de máquinas y su árbol de partes de profundidad variable (spec 013a: alta, edición y baja de máquinas y partes, bloqueo de la eliminación si hay sub-partes o partes, y un componente de árbol reutilizable; asociar órdenes a máquina y parte queda para 013d).
 - [ ] Desarrollar los indicadores del dashboard.
 
 ### 3. Cierre y evolución posterior
