@@ -74,6 +74,7 @@
           "configurations": {
             "coverage": {
               "coverage": true,
+              "coverageExclude": ["src/app/**/testing/**"],
               "coverageReporters": ["text", "html"]
             }
           }
