@@ -1,0 +1,95 @@
+<section>
+  <h1>Técnicos</h1>
+
+  <p class="u-sr-only" aria-live="polite" role="status">{{ resultsAnnouncement() }}</p>
+
+  <div class="d-flex flex-wrap justify-between gap-md py-lg">
+    <input
+      class="form-control"
+      type="search"
+      [formControl]="searchControl"
+      placeholder="Buscar por legajo o nombre"
+      aria-label="Buscar técnico por legajo o nombre"
+    />
+    @if (canCreate()) {
+      <app-button variant="primary" (clicked)="navigateToCreate()"> Crear técnico </app-button>
+    }
+  </div>
+
+  @if (error()) {
+    <app-alert title="Error" [message]="error()!" variant="error" />
+    <app-button variant="primary" (clicked)="loadTechnicians()"> Reintentar </app-button>
+  } @else if (visibleTechnicians().length === 0) {
+    <app-alert
+      title="Sin técnicos"
+      [message]="
+        hasSearch()
+          ? 'No hay técnicos que coincidan con la búsqueda.'
+          : 'No existen técnicos registrados.'
+      "
+      variant="info"
+    />
+  } @else {
+    <div class="table-wrapper">
+      <table class="table">
+        <caption class="u-sr-only">
+          Listado de técnicos
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Legajo</th>
+            <th scope="col">Nombre</th>
+            <th scope="col">Especialidad</th>
+            <th scope="col">Tipo de equipo</th>
+            @if (canEdit() || canDelete()) {
+              <th scope="col" class="u-text-center">Acciones</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (technician of visibleTechnicians(); track technician.id) {
+            <tr>
+              <td>{{ technician.legajo }}</td>
+              <td>{{ fullName(technician) }}</td>
+              <td>{{ specialtyLabels[technician.specialty] }}</td>
+              <td>{{ teamTypeLabels[technician.teamType] }}</td>
+              @if (canEdit() || canDelete()) {
+                <td class="d-flex justify-center gap-sm">
+                  @if (canEdit()) {
+                    <app-button
+                      size="sm"
+                      variant="secondary"
+                      [ariaLabel]="'Editar ' + fullName(technician)"
+                      (clicked)="editTechnician(technician.legajo)"
+                    >
+                      Editar
+                    </app-button>
+                  }
+                  @if (canDelete()) {
+                    <app-button
+                      size="sm"
+                      variant="danger"
+                      [ariaLabel]="'Eliminar ' + fullName(technician)"
+                      (clicked)="openDeleteModal(technician)"
+                    >
+                      Eliminar
+                    </app-button>
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <app-modal
+    [(isOpen)]="deleteModalOpen"
+    title="Eliminar técnico"
+    [message]="deleteMessage()"
+    confirmText="Eliminar"
+    cancelText="Cancelar"
+    (confirmed)="deleteTechnician(technicianToDelete()!.legajo)"
+  />
+</section>

@@ -1,0 +1,74 @@
+<section>
+  <h1>Equipos</h1>
+
+  <p class="u-sr-only" aria-live="polite" role="status">{{ resultsAnnouncement() }}</p>
+
+  @if (canManage()) {
+    <div class="d-flex flex-wrap justify-end gap-md py-lg">
+      <app-button variant="primary" (clicked)="navigateToCreate()"> Crear equipo </app-button>
+    </div>
+  }
+
+  @if (error()) {
+    <app-alert title="Error" [message]="error()!" variant="error" />
+    <app-button variant="primary" (clicked)="loadTeams()"> Reintentar </app-button>
+  } @else if (teams().length === 0) {
+    <app-alert title="Sin equipos" message="No existen equipos registrados." variant="info" />
+  } @else {
+    <div class="table-wrapper">
+      <table class="table">
+        <caption class="u-sr-only">
+          Listado de equipos
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Equipo</th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Miembros</th>
+            @if (canManage()) {
+              <th scope="col" class="u-text-center">Acciones</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (team of teams(); track team.id) {
+            <tr>
+              <td>{{ team.name }}</td>
+              <td>{{ typeLabels[team.type] }}</td>
+              <td>{{ membersLabel(team) }}</td>
+              @if (canManage()) {
+                <td class="d-flex justify-center gap-sm">
+                  <app-button
+                    size="sm"
+                    variant="secondary"
+                    [ariaLabel]="'Editar ' + team.name"
+                    (clicked)="editTeam(team.id)"
+                  >
+                    Editar
+                  </app-button>
+                  <app-button
+                    size="sm"
+                    variant="danger"
+                    [ariaLabel]="'Eliminar ' + team.name"
+                    (clicked)="openDeleteModal(team)"
+                  >
+                    Eliminar
+                  </app-button>
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <app-modal
+    [(isOpen)]="deleteModalOpen"
+    title="Eliminar equipo"
+    [message]="deleteMessage()"
+    confirmText="Eliminar"
+    cancelText="Cancelar"
+    (confirmed)="deleteTeam(teamToDelete()!.id)"
+  />
+</section>

@@ -1,0 +1,113 @@
+<section>
+  <div class="d-flex flex-wrap justify-between gap-md py-lg">
+    <h1>{{ isEdit ? 'Editar equipo' : 'Crear equipo' }}</h1>
+    <app-button variant="primary" (clicked)="navigateToList()"> Volver a Lista </app-button>
+  </div>
+
+  @if (loadError() === 'not-found') {
+    <app-alert
+      title="Equipo no encontrado"
+      message="El equipo solicitado no existe o fue eliminado."
+      variant="error"
+    />
+    <app-button variant="primary" (clicked)="loadTeam()"> Reintentar </app-button>
+  } @else if (loadError() === 'connection') {
+    <app-alert
+      title="Error de conexión"
+      message="No pudimos conectar con el servidor. Intentá nuevamente."
+      variant="error"
+    />
+    <app-button variant="primary" (clicked)="loadTeam()"> Reintentar </app-button>
+  } @else if (showForm()) {
+    <form class="form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <label class="form-label" for="name">Nombre del equipo:</label>
+      <input
+        class="form-control"
+        id="name"
+        formControlName="name"
+        required
+        [class.form-control--invalid]="isInvalid('name')"
+        [attr.aria-invalid]="isInvalid('name')"
+        [attr.aria-describedby]="isInvalid('name') ? 'name-error' : null"
+      />
+      @if (isInvalid('name')) {
+        <div class="form-error" id="name-error">El nombre del equipo es obligatorio.</div>
+      }
+
+      <label class="form-label" for="type">Tipo de equipo:</label>
+      <select
+        class="form-control"
+        id="type"
+        formControlName="type"
+        required
+        [class.form-control--invalid]="isInvalid('type')"
+        [attr.aria-invalid]="isInvalid('type')"
+        [attr.aria-describedby]="isInvalid('type') ? 'type-error' : null"
+      >
+        <option value="" disabled>Seleccioná un tipo de equipo</option>
+        @for (teamType of teamTypes; track teamType) {
+          <option [value]="teamType">{{ teamTypeLabels[teamType] }}</option>
+        }
+      </select>
+      @if (isInvalid('type')) {
+        <div class="form-error" id="type-error">El tipo de equipo es obligatorio.</div>
+      }
+
+      <fieldset class="team-form__members">
+        <legend class="form-label">Miembros</legend>
+
+        <label class="form-label" for="member-legajo">Agregar técnico por legajo:</label>
+        <div class="team-form__add d-flex flex-wrap gap-md">
+          <input
+            class="form-control team-form__legajo"
+            id="member-legajo"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            [formControl]="searchControl"
+            aria-describedby="member-feedback"
+            (keydown.enter)="onSearchEnter($event)"
+          />
+          <app-button variant="secondary" [disabled]="!canAdd()" (clicked)="addTechnician()">
+            Agregar
+          </app-button>
+        </div>
+        <!-- Región live siempre presente: el feedback se anuncia antes de confirmar. -->
+        <p
+          id="member-feedback"
+          class="team-form__feedback"
+          [class.form-error]="lookupIsProblem()"
+          [class.team-form__feedback--found]="canAdd()"
+          role="status"
+          aria-live="polite"
+        >
+          {{ lookupMessage() }}
+        </p>
+
+        @if (memberLegajos().length === 0) {
+          <p class="u-text-muted">Todavía no hay miembros en el equipo.</p>
+        } @else {
+          <ul class="team-form__list">
+            @for (legajo of memberLegajos(); track legajo) {
+              <li class="team-form__member d-flex justify-between gap-md">
+                <span>{{ memberLabel(legajo) }}</span>
+                <app-button
+                  size="sm"
+                  variant="outline"
+                  [ariaLabel]="'Quitar ' + memberLabel(legajo)"
+                  (clicked)="removeTechnician(legajo)"
+                >
+                  Quitar
+                </app-button>
+              </li>
+            }
+          </ul>
+        }
+      </fieldset>
+
+      <app-button type="submit" size="full" variant="primary" [disabled]="isSubmitting()">{{
+        isSubmitting() ? 'Guardando...' : 'Guardar equipo'
+      }}</app-button>
+    </form>
+  }
+</section>

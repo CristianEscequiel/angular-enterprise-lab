@@ -1,0 +1,29 @@
+.team-form__members {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.team-form__legajo {
+  flex: 0 1 14rem;
+}
+
+.team-form__feedback {
+  min-height: 1.5em;
+  margin: 0;
+}
+
+.team-form__feedback--found {
+  color: var(--color-success);
+}
+
+.team-form__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.team-form__member {
+  align-items: center;
+  padding: 0.5rem 0;
+}

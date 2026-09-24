@@ -1,0 +1,116 @@
+<section>
+  <div class="d-flex flex-wrap justify-between gap-md py-lg">
+    <h1>{{ isEdit ? 'Editar técnico' : 'Crear técnico' }}</h1>
+    <app-button variant="primary" (clicked)="navigateToList()"> Volver a Lista </app-button>
+  </div>
+
+  @if (loadError() === 'not-found') {
+    <app-alert
+      title="Técnico no encontrado"
+      message="El técnico solicitado no existe o fue eliminado."
+      variant="error"
+    />
+    <app-button variant="primary" (clicked)="loadTechnician()"> Reintentar </app-button>
+  } @else if (loadError() === 'connection') {
+    <app-alert
+      title="Error de conexión"
+      message="No pudimos conectar con el servidor. Intentá nuevamente."
+      variant="error"
+    />
+    <app-button variant="primary" (clicked)="loadTechnician()"> Reintentar </app-button>
+  } @else if (showForm()) {
+    <form class="form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <label class="form-label" for="legajo">Legajo:</label>
+      <input
+        class="form-control"
+        id="legajo"
+        formControlName="legajo"
+        inputmode="numeric"
+        autocomplete="off"
+        required
+        [class.form-control--invalid]="isInvalid('legajo')"
+        [attr.aria-invalid]="isInvalid('legajo')"
+        [attr.aria-describedby]="isInvalid('legajo') ? 'legajo-error' : null"
+      />
+      @if (isInvalid('legajo')) {
+        <div class="form-error" id="legajo-error">
+          @if (form.controls.legajo.hasError('duplicate')) {
+            Ya existe un técnico con ese legajo.
+          } @else {
+            El legajo es obligatorio y debe tener entre 1 y 8 dígitos.
+          }
+        </div>
+      }
+
+      <label class="form-label" for="firstName">Nombre:</label>
+      <input
+        class="form-control"
+        id="firstName"
+        formControlName="firstName"
+        required
+        [class.form-control--invalid]="isInvalid('firstName')"
+        [attr.aria-invalid]="isInvalid('firstName')"
+        [attr.aria-describedby]="isInvalid('firstName') ? 'firstName-error' : null"
+      />
+      @if (isInvalid('firstName')) {
+        <div class="form-error" id="firstName-error">El nombre es obligatorio.</div>
+      }
+
+      <label class="form-label" for="lastName">Apellido:</label>
+      <input
+        class="form-control"
+        id="lastName"
+        formControlName="lastName"
+        required
+        [class.form-control--invalid]="isInvalid('lastName')"
+        [attr.aria-invalid]="isInvalid('lastName')"
+        [attr.aria-describedby]="isInvalid('lastName') ? 'lastName-error' : null"
+      />
+      @if (isInvalid('lastName')) {
+        <div class="form-error" id="lastName-error">El apellido es obligatorio.</div>
+      }
+
+      <label class="form-label" for="specialty">Especialidad:</label>
+      <select
+        class="form-control"
+        id="specialty"
+        formControlName="specialty"
+        required
+        [class.form-control--invalid]="isInvalid('specialty')"
+        [attr.aria-invalid]="isInvalid('specialty')"
+        [attr.aria-describedby]="isInvalid('specialty') ? 'specialty-error' : null"
+      >
+        <option value="" disabled>Seleccioná una especialidad</option>
+        @for (specialty of specialties; track specialty) {
+          <option [value]="specialty">{{ specialtyLabels[specialty] }}</option>
+        }
+      </select>
+      @if (isInvalid('specialty')) {
+        <div class="form-error" id="specialty-error">La especialidad es obligatoria.</div>
+      }
+
+      <label class="form-label" for="teamType">Tipo de equipo:</label>
+      <select
+        class="form-control"
+        id="teamType"
+        formControlName="teamType"
+        required
+        [class.form-control--invalid]="isInvalid('teamType')"
+        [attr.aria-invalid]="isInvalid('teamType')"
+        [attr.aria-describedby]="isInvalid('teamType') ? 'teamType-error' : null"
+      >
+        <option value="" disabled>Seleccioná un tipo de equipo</option>
+        @for (teamType of teamTypes; track teamType) {
+          <option [value]="teamType">{{ teamTypeLabels[teamType] }}</option>
+        }
+      </select>
+      @if (isInvalid('teamType')) {
+        <div class="form-error" id="teamType-error">El tipo de equipo es obligatorio.</div>
+      }
+
+      <app-button type="submit" size="full" variant="primary" [disabled]="isSubmitting()">{{
+        isSubmitting() ? 'Guardando...' : 'Guardar técnico'
+      }}</app-button>
+    </form>
+  }
+</section>
