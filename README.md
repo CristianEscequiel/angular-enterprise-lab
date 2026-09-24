@@ -4,7 +4,7 @@ Laboratorio de arquitectura Angular aplicado a un sistema de gestión de órdene
 
 El proyecto busca construir una aplicación pequeña y mantenible que sirva como referencia técnica, base de aprendizaje y material para explicar decisiones de desarrollo. El foco está en la separación de responsabilidades, la reutilización, el manejo de estado, las pruebas y la documentación.
 
-**Estado:** en desarrollo. El flujo CRUD está implementado y la búsqueda con paginación está en proceso de estabilización. La autenticación y los indicadores del dashboard forman parte del roadmap.
+**Estado:** en desarrollo. El flujo CRUD está implementado y la búsqueda con paginación está en proceso de estabilización. La autenticación simulada, los roles y la gestión de técnicos y equipos ya están implementados (specs 010, 011, 013b y 013c); los indicadores del dashboard y la asignación de órdenes forman parte del roadmap.
 
 ## Metodología de desarrollo
 
@@ -90,21 +90,23 @@ src/app/features/work-orders/data-access/db.json
 
 JSON Server utiliza ese archivo como almacenamiento local; las operaciones de escritura pueden modificarlo. Revisá los cambios de datos antes de incluirlos en un commit.
 
+`db.json` tiene cuatro colecciones: `work-orders`, `users` (usuarios de login), `tecnicos` (maestro de técnicos) y `equipos` (spec 013c). Un JSON Server en ejecución reescribe el archivo cada vez que se guarda algo desde la interfaz (y le quita el salto de línea final), así que las pruebas manuales dejan cambios que conviene descartar antes de commitear. `db.seed.spec.ts` comprueba la integridad de los datos de prueba (legajos únicos, referencias que existen, un usuario por rol).
+
 Actualmente, la URL `http://localhost:3000/work-orders` se define en `WorkOrdersService`. Su extracción a una configuración central está pendiente. Si cambiás el puerto del servidor, debés mantener coherente la URL utilizada por el frontend.
 
 La integración utiliza `_page`, `_per_page`, `title:contains` y los filtros por igualdad `status` y `priority` (los parámetros vacíos no se envían, porque `?status=` filtra por cadena vacía). El cambio de estado usa `PATCH /work-orders/:id` con `{ status }`. La versión de JSON Server elegida debe soportar esos parámetros y devolver el formato paginado esperado por `PaginatedResponse<T>`. Consultá la [documentación de JSON Server](https://github.com/typicode/json-server#query-params) al cambiar de versión.
 
 ### Usuarios de prueba
 
-La autenticación es simulada: el login consulta la colección `users` de `db.json` (spec 010). Cada usuario tiene un rol y, si es técnico, una especialidad y un tipo de equipo (spec 013b):
+La autenticación es simulada: el login consulta la colección `users` de `db.json` (spec 010). Cada usuario tiene un rol y, si es técnico, un `legajo` que lo vincula con el maestro de técnicos (`tecnicos`): de ahí el login toma su especialidad y su tipo de equipo (specs 013b y 013c):
 
-| Usuario        | Contraseña        | Rol                         | Especialidad / tipo de equipo            |
-| -------------- | ----------------- | --------------------------- | ---------------------------------------- |
-| `admin`        | `admin123`        | `administrador`             | —                                        |
-| `teamleader`   | `teamleader123`   | `team-leader-mantenimiento` | —                                        |
-| `produccion`   | `produccion123`   | `personal-produccion`       | —                                        |
-| `tecnico`      | `tecnico123`      | `tecnico`                   | `mecanico` / `guardia`                   |
-| `electricista` | `electricista123` | `tecnico`                   | `electricista` / `preventivo-correctivo` |
+| Usuario        | Contraseña        | Rol                         | Legajo → especialidad / tipo de equipo            |
+| -------------- | ----------------- | --------------------------- | ------------------------------------------------- |
+| `admin`        | `admin123`        | `administrador`             | —                                                 |
+| `teamleader`   | `teamleader123`   | `team-leader-mantenimiento` | —                                                 |
+| `produccion`   | `produccion123`   | `personal-produccion`       | —                                                 |
+| `tecnico`      | `tecnico123`      | `tecnico`                   | `1001` → `mecanico` / `guardia`                   |
+| `electricista` | `electricista123` | `tecnico`                   | `1002` → `electricista` / `preventivo-correctivo` |
 
 Qué puede hacer cada rol sobre las órdenes (la regla vive en `features/work-orders/models/work-order.permissions.ts` y la usan las rutas, las páginas y el listado):
 
@@ -117,6 +119,18 @@ Qué puede hacer cada rol sobre las órdenes (la regla vive en `features/work-or
 
 El técnico gestiona (toma, comenta, cierra) las órdenes de su especialidad y tipo de equipo: `general` cubre ambas especialidades y `guardia` atiende `pronto-intervencion`, mientras que `preventivo-correctivo` atiende `preventivo` y `correctivo`. Hoy solo existe la consulta (`canTechnicianHandle`); la asignación real de órdenes es de la spec 013d. Estas reglas son control de navegación y de interfaz: el rol vive en `localStorage` y es editable, así que la autorización real corresponde al backend.
 
+### Técnicos y equipos
+
+El **maestro de técnicos** (`tecnicos`) es una entidad independiente del usuario de login (spec 013c): guarda `legajo` (único), nombre, apellido, especialidad y tipo de equipo, y existe aunque el técnico no tenga usuario. Se vincula con `users` solo por `legajo`. Un **equipo** (`equipos`) tiene nombre, tipo (`guardia` o `preventivo-correctivo`) y la lista de legajos de sus miembros. Los datos de prueba traen tres técnicos (`1001`, `1002` y `1003`, este último sin usuario ni equipo) y dos equipos.
+
+| Acción                                   | Permitido a                                  |
+| ---------------------------------------- | -------------------------------------------- |
+| Ver, crear y modificar técnicos          | `administrador`, `team-leader-mantenimiento` |
+| Eliminar técnicos                        | `administrador`                              |
+| Ver, crear, modificar y eliminar equipos | `team-leader-mantenimiento`                  |
+
+Un técnico con usuario de login o miembro de un equipo no se puede eliminar. Crear un usuario de login con rol `tecnico` exige que su legajo exista en el maestro. La regla vive en `features/maintenance/models/maintenance.permissions.ts` y, como la de las órdenes, es control de navegación y de interfaz.
+
 ## Funcionalidades actuales
 
 - Listado de órdenes de mantenimiento.
@@ -127,6 +141,9 @@ El técnico gestiona (toma, comenta, cierra) las órdenes de su especialidad y t
 - Creación y edición con un formulario compartido.
 - Tipo de orden (`preventivo`, `correctivo`, `pronto-intervencion`): se elige al crear, no se cambia al editar y se muestra en el listado y el detalle.
 - Autenticación simulada con cuatro roles: crear, editar y eliminar órdenes dependen del rol (ver "Usuarios de prueba").
+- Gestión de técnicos (listado con búsqueda, alta, edición y baja) y de equipos (listado, alta, edición y baja), según el rol (ver "Técnicos y equipos").
+- Alta de miembros de un equipo por legajo, con validación en tiempo real: muestra si el técnico existe, si ya es miembro o si el legajo no es válido antes de confirmar.
+- Menú lateral que ofrece solo las secciones permitidas al rol.
 - Eliminación con confirmación.
 - Indicador global de peticiones en curso.
 - Mensajes globales de éxito, advertencia y error.
@@ -149,6 +166,7 @@ src/
 │   ├── features/
 │   │   ├── auth/
 │   │   ├── dashboard/
+│   │   ├── maintenance/
 │   │   └── work-orders/
 │   │       ├── components/form/
 │   │       ├── data-access/
@@ -194,19 +212,34 @@ Las páginas coordinan la carga de datos, las acciones y la navegación. `WorkOr
 
 Las páginas de detalle y edición consultan la orden por el identificador de la ruta. No necesitan recibir el objeto completo desde la lista, por lo que pueden cargar los datos al acceder directamente a una URL existente.
 
+### Técnicos y equipos
+
+La feature `maintenance` agrupa técnicos y equipos (una sola feature porque borrar un técnico exige mirar equipos y armar un equipo exige mirar técnicos). `TechniciansService` y `TeamsService` encapsulan el HTTP; las páginas (`technicians-list`, `technician-form`, `teams-list`, `team-form`) coordinan y deciden. El listado de técnicos, antes de eliminar, consulta usuarios y equipos y bloquea con un aviso si hay referencias.
+
+El maestro y el usuario de login se mantienen separados: `core/auth` no importa de `features`, así que el login y `UsersService` consultan `/tecnicos/:legajo` con un tipo mínimo (`TechnicianProfile`) y el modelo completo (`Technician`) vive en la feature. En `tecnicos`, `id` y `legajo` son iguales y el legajo no se edita. JSON Server no rechaza ids repetidos ni tiene integridad referencial, y convierte a número los valores numéricos del query string (`?legajo=100` no encuentra `"100"`): por eso el maestro se consulta por ruta y la unicidad y las referencias se validan en el cliente. Con el backend real pasan a ser una FK y un índice único.
+
+El alta de miembros por legajo espera 300 ms sin tipear, cancela la consulta en vuelo apenas cambia el campo (así una respuesta tardía nunca pisa a un legajo más nuevo) y resuelve "ya es miembro" sin HTTP. Detalle de las decisiones en `.claude/specs/013c-tecnicos-equipos/notes.md`.
+
 ### Routing
 
-| Ruta                    | Vista                        |
-| ----------------------- | ---------------------------- |
-| `/`                     | Redirección a `/dashboard`   |
-| `/login`                | Inicio de sesión (pública)   |
-| `/dashboard`            | Página inicial del dashboard |
-| `/work-orders`          | Listado de órdenes           |
-| `/work-orders/new`      | Creación de una orden        |
-| `/work-orders/:id`      | Detalle de una orden         |
-| `/work-orders/:id/edit` | Edición de una orden         |
+| Ruta                                    | Vista                        |
+| --------------------------------------- | ---------------------------- |
+| `/`                                     | Redirección a `/dashboard`   |
+| `/login`                                | Inicio de sesión (pública)   |
+| `/dashboard`                            | Página inicial del dashboard |
+| `/work-orders`                          | Listado de órdenes           |
+| `/work-orders/new`                      | Creación de una orden        |
+| `/work-orders/:id`                      | Detalle de una orden         |
+| `/work-orders/:id/edit`                 | Edición de una orden         |
+| `/maintenance`                          | Redirección a los técnicos   |
+| `/maintenance/technicians`              | Listado de técnicos          |
+| `/maintenance/technicians/new`          | Alta de un técnico           |
+| `/maintenance/technicians/:legajo/edit` | Edición de un técnico        |
+| `/maintenance/teams`                    | Listado de equipos           |
+| `/maintenance/teams/new`                | Alta de un equipo            |
+| `/maintenance/teams/:id/edit`           | Edición de un equipo         |
 
-La feature de órdenes utiliza `loadChildren()` y sus páginas se cargan mediante `loadComponent()`. `/dashboard` y `/work-orders/*` requieren sesión (`authGuard`, spec 011): sin ella se redirige a `/login` conservando la URL pedida para volver tras el login. `/login` redirige al destino de retorno (por defecto `/dashboard`) si ya hay sesión (`guestGuard`), y la página 404 es pública. Los roles son `administrador`, `team-leader-mantenimiento`, `personal-produccion` y `tecnico` (este último con especialidad y tipo de equipo, spec 013b). `requireUser(predicate)` restringe una ruta con una regla sobre el usuario y `requireRole(...roles)` es su atajo por rol: `/work-orders/new` exige un rol que pueda crear órdenes y `/work-orders/:id/edit` uno que pueda editarlas, según la política de `work-order.permissions.ts`; sin permiso se vuelve a `/dashboard` con un aviso. Estos guards son control de navegación: la autorización real corresponde al backend.
+La feature de órdenes utiliza `loadChildren()` y sus páginas se cargan mediante `loadComponent()`. `/dashboard` y `/work-orders/*` requieren sesión (`authGuard`, spec 011): sin ella se redirige a `/login` conservando la URL pedida para volver tras el login. `/login` redirige al destino de retorno (por defecto `/dashboard`) si ya hay sesión (`guestGuard`), y la página 404 es pública. Los roles son `administrador`, `team-leader-mantenimiento`, `personal-produccion` y `tecnico` (este último con especialidad y tipo de equipo, spec 013b). `requireUser(predicate)` restringe una ruta con una regla sobre el usuario y `requireRole(...roles)` es su atajo por rol: `/work-orders/new` exige un rol que pueda crear órdenes y `/work-orders/:id/edit` uno que pueda editarlas, según la política de `work-order.permissions.ts`; sin permiso se vuelve a `/dashboard` con un aviso. `/maintenance/*` sigue el mismo esquema con la política de `maintenance.permissions.ts` (técnicos: Administrador y TeamLeader; equipos: solo TeamLeader), y un legajo con formato inválido en la URL de edición cae en la página 404 sin cargar el formulario. Estos guards son control de navegación: la autorización real corresponde al backend.
 
 ### Signals y RxJS
 
@@ -299,6 +332,7 @@ de las decisiones tomadas para cada feature.
 | Guards de ruta y permisos por rol                           | [`011-guards-permisos-rol`](.claude/specs/011-guards-permisos-rol)                               | Implementado (31 tests nuevos, 227→258 en la suite)                                                   |
 | Filtros por estado y prioridad, cambio de estado de órdenes | [`012-filtros-estado-prioridad`](.claude/specs/012-filtros-estado-prioridad)                     | Implementado (76 tests nuevos, 258→334 en la suite)                                                   |
 | Roles extendidos del dominio de mantenimiento               | [`013b-roles-extendidos`](.claude/specs/013b-roles-extendidos)                                   | Implementado (189 tests nuevos, 334→523 en la suite)                                                  |
+| Gestión de técnicos y equipos                               | [`013c-tecnicos-equipos`](.claude/specs/013c-tecnicos-equipos)                                   | Implementado (449 tests nuevos, 523→972 en la suite)                                                  |
 
 ### Estado de las pruebas
 
@@ -311,18 +345,19 @@ La estrategia a completar incluye:
 - Tests de formularios: validación y protección frente a envíos repetidos.
 - Tests de detalle y edición ante registros inexistentes y fallos de carga: cubierto (spec 003).
 - Tests de roles y permisos: modelo del usuario y atributos del técnico, guard `requireUser`, política de permisos, rutas de crear y editar con las rutas reales, y botones y acciones del listado según el rol: cubierto (spec 013b).
+- Tests de técnicos y equipos: modelos y validadores, política de permisos, servicios HTTP (unicidad del legajo, consultas por ruta, errores de red distintos de "no existe"), validación cruzada del usuario técnico contra el maestro, las cuatro páginas (incluido el alta por legajo en tiempo real con timers y respuestas fuera de orden), las rutas reales con sus guards, el sidebar por rol y la integridad de los datos de prueba: cubierto (spec 013c).
 - Tests de interceptores: `loadingInterceptor` cubierto (spec 002); `authInterceptor` cubierto (spec 010); `errorInterceptor` cubierto (spec propio, agregado tras 010). Foco y limpieza del modal: cubierto (spec 005).
 
 ### Cobertura
 
-`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `013b-roles-extendidos` (523 tests):
+`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `013c-tecnicos-equipos` (972 tests):
 
 | Métrica    | % Cubierto |
 | ---------- | ---------- |
-| Statements | 96.62%     |
-| Branches   | 96.81%     |
-| Functions  | 93.57%     |
-| Lines      | 98.03%     |
+| Statements | 97.56%     |
+| Branches   | 97.43%     |
+| Functions  | 95.73%     |
+| Lines      | 98.73%     |
 
 Es un número **informativo**, no un umbral bloqueante — no hay `coverageThresholds` configurado en `angular.json`, así que no falla el comando ni el commit si baja. El desbalance de Functions detectado en spec 007 (72.95% sobre specs 001-006, 79.5% recalculado tras 008a/008b) se cerró en spec 009 con tests dirigidos a funciones de lógica real sin cobertura (ver `.claude/specs/009-cobertura-por-feature`); no se persigue el 100%, solo un nivel consistente con el resto de las métricas.
 
@@ -333,6 +368,8 @@ El código nuevo de spec 011 (`auth.guard.ts`, `auth.model.ts`, `app.routes.ts`,
 El código nuevo o modificado de spec 012 (`work-orders-list.ts`, `work-order.service.ts`, `work-order.model.ts`, `work-order.display.ts`, `badge.ts`) no aparece en la tabla de archivos con huecos. Branches subió de 93.72% a 95.43% (418/446 → 460/482). Statements, Functions y Lines volvieron a variar entre corridas sobre el mismo código: otra corrida dio 95.33% / 89.82% / 96.73%; la tabla usa la de Functions más alta (91.15%). Detalle en `.claude/specs/012-filtros-estado-prioridad/notes.md`.
 
 El código nuevo o modificado de spec 013b (`auth.guard.ts`, `auth.model.ts`, `work-order.permissions.ts`, `work-orders.routes.ts`) no aparece en la tabla de archivos con huecos: 100% en las cuatro métricas. `auth.model.ts` bajó a 95.65% en una medición intermedia (la rama de `toAuthUser` con un registro que no es un objeto) y se cerró con tests directos. Branches subió de 95.43% a 96.81% (460/482 → 516/533). Statements, Functions y Lines volvieron a variar entre corridas sobre el mismo código: otra corrida dio 96.38% / 92.77% / 97.70%; la tabla usa la de Functions más alta. Detalle en `.claude/specs/013b-roles-extendidos/notes.md`.
+
+El código nuevo o modificado de spec 013c (`auth.model.ts`, `auth.service.ts`, `users.service.ts`, los servicios, modelos, política y rutas de `maintenance`, los dos listados, el sidebar y `app.routes.ts`) está al 100% en las cuatro métricas; `technician-form.ts` (98.66% Statements, 97.77% Branches) y `team-form.ts` (99.23%, 98.41%) tienen una rama sin cubrir. Branches subió de 96.81% a 97.43% (516/533 → 836/858). Statements, Functions y Lines volvieron a variar entre corridas sobre el mismo código: otra corrida dio 97.42% / 95.30% / 98.54%; la tabla usa la de Functions más alta. La tabla de la consola no lista los archivos al 100%, por lo que los porcentajes por archivo se leen del reporte HTML. Detalle en `.claude/specs/013c-tecnicos-equipos/notes.md`.
 
 ### Última verificación registrada
 
@@ -374,6 +411,19 @@ Revisión del **23 de septiembre de 2026**, tras `010-autenticacion-simulada` y 
 - Cobertura: ver sección "Cobertura" arriba (Functions 87.57%→90.09%, Branches 91.86%→93.62%; ninguna métrica bajó).
 - Mutation testing: 2 mutaciones deliberadas (retorno a `returnUrl` en `LoginPage` y `logout()` en `AppShell`) hicieron fallar los tests esperados antes de revertirse.
 - Verificación manual de login contra `pnpm api` + `pnpm start`: no registrada en esta revisión (pasos en `.claude/specs/010-autenticacion-simulada/notes.md`).
+
+Revisión del **24 de septiembre de 2026**, tras `013c-tecnicos-equipos`:
+
+- Build de producción: correcto (cada página nueva queda como chunk lazy).
+- ESLint: correcto.
+- Tests: 972 correctos en 48 archivos (523 antes de spec 013c).
+- Prettier: `pnpm exec prettier . --check` limpio salvo `spec.md` (el spec original) y `db.json` mientras hay un JSON Server local en ejecución.
+- `tsc --noEmit`: 0 errores en `tsconfig.app.json` y `tsconfig.spec.json`.
+- Cobertura: ver sección "Cobertura" arriba (Branches 96.81%→97.43%; Functions dentro de la variabilidad entre corridas descrita ahí).
+- Mutation testing: 47 mutaciones deliberadas sobre los servicios, los modelos, el login, la política, las cuatro páginas, las rutas, el sidebar y los datos de prueba; todas hicieron fallar los tests esperados antes de revertirse (las que no compilaban o no llegaron a aplicarse se repitieron con variantes válidas). Tabla en `.claude/specs/013c-tecnicos-equipos/notes.md`.
+- Bug corregido en el sidebar: `routerLinkActive` sin `ariaCurrentWhenActive` borraba `aria-current` al moverse dentro de una sección; los cuatro links usan ahora `ariaCurrentWhenActive="page"`.
+- Contrato con JSON Server (`pnpm api`): login de técnico (`/users` + `/tecnicos/:legajo`), `404` para legajos y equipos inexistentes, `/equipos`, `/users?role=tecnico` y `work-orders` comprobados con `curl`.
+- Verificación manual de la interfaz: no registrada en esta revisión (pasos en `.claude/specs/013c-tecnicos-equipos/notes.md`).
 
 Revisión del **23 de septiembre de 2026**, tras `013b-roles-extendidos`:
 
@@ -424,7 +474,7 @@ Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones
 ### 1. Estabilización de la base actual
 
 - [x] Completar el arranque reproducible de la API y centralizar su URL.
-- [ ] Unificar búsqueda, paginación y recarga del listado.
+- [x] Unificar búsqueda, paginación y recarga del listado.
 - [x] Recuperar la búsqueda después de errores y evitar suscripciones duplicadas.
 - [ ] Mantener una página válida y filtros coherentes después de eliminar.
 - [x] Mejorar los estados de error de detalle y edición.
@@ -440,7 +490,7 @@ Revisión del **22 de septiembre de 2026**, tras `007-cobertura-y-verificaciones
 - [x] Agregar guards y permisos por rol (spec 011: mecanismo de guards y `requireRole`; qué puede hacer cada rol se define en las specs de cada feature).
 - [x] Completar filtros por estado y prioridad y cambio de estado de las órdenes (spec 012: tres estados; la restricción por rol y las transiciones permitidas quedan para specs posteriores).
 - [x] Definir los roles del dominio de mantenimiento y sus permisos sobre las órdenes (spec 013b: cuatro roles, atributos del técnico, tipo de orden, crear/editar/eliminar por rol; la asignación por especialidad y tipo de equipo queda para 013d).
-- [ ] Incorporar gestión de equipos y técnicos de forma incremental.
+- [x] Incorporar gestión de equipos y técnicos de forma incremental (spec 013c: maestro de técnicos y equipos con su alta, edición y baja, y el alta de miembros por legajo; la asignación de órdenes a técnicos y equipos queda para 013d).
 - [ ] Desarrollar los indicadores del dashboard.
 
 ### 3. Cierre y evolución posterior
