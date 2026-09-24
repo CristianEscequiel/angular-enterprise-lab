@@ -21,7 +21,8 @@ describe('AuthService', () => {
     email: 'admin@enterprise-lab.dev',
     role: 'administrador',
   };
-  // El usuario técnico solo lleva el legajo; su perfil vive en el maestro (`/tecnicos/:legajo`).
+  // El usuario técnico solo lleva el legajo; su perfil vive en el maestro (`/tecnicos`), donde se
+  // lo busca por legajo (el `id` del maestro lo asigna el servidor y no es el legajo).
   const tecnico: UserRecord = {
     id: '2',
     username: 'tecnico',
@@ -32,7 +33,13 @@ describe('AuthService', () => {
     legajo: '1001',
   };
   const mecanicoDeGuardia: TechnicianProfile = { specialty: 'mecanico', teamType: 'guardia' };
-  const tecnicoUrl = `${API_BASE_URL}/tecnicos/1001`;
+  const tecnicoUrl = `${API_BASE_URL}/tecnicos`;
+  // Registro del maestro tal como lo devuelve el servidor: `id` opaco, distinto del legajo.
+  const masterEntry = (legajo: string, profile: object = mecanicoDeGuardia) => ({
+    id: `srv-${legajo}`,
+    legajo,
+    ...profile,
+  });
   const isUsersRequest = (req: { url: string }) => req.url === `${API_BASE_URL}/users`;
   const isMasterRequest = (req: { url: string }) => req.url.startsWith(`${API_BASE_URL}/tecnicos`);
 
@@ -65,7 +72,7 @@ describe('AuthService', () => {
     httpMock.expectOne(isUsersRequest).flush([user]);
 
     if (user.role === 'tecnico') {
-      httpMock.expectOne(`${API_BASE_URL}/tecnicos/${user.legajo}`).flush(profile);
+      httpMock.expectOne(tecnicoUrl).flush([masterEntry(user.legajo, profile)]);
     }
 
     if (!result) {
@@ -167,8 +174,8 @@ describe('AuthService', () => {
       expect(service.currentUser()).not.toHaveProperty('teamType');
     });
 
-    it('resolves a technician against the master: users first, then /tecnicos/:legajo', () => {
-      expect.assertions(4);
+    it('resolves a technician against the master: users first, then GET /tecnicos looked up by legajo', () => {
+      expect.assertions(5);
       const service = setup();
 
       service.login({ username: tecnico.username, password: tecnico.password }).subscribe();
@@ -176,10 +183,31 @@ describe('AuthService', () => {
       const masterRequest = httpMock.expectOne(tecnicoUrl);
       expect(masterRequest.request.method).toBe('GET');
       expect(service.isAuthenticated()).toBe(false);
-      masterRequest.flush({ id: '1001', legajo: '1001', ...mecanicoDeGuardia, firstName: 'Ana' });
+      // Sin filtros en la URL: `?legajo=` no encuentra un legajo numérico en json-server.
+      expect(masterRequest.request.urlWithParams).toBe(tecnicoUrl);
+      masterRequest.flush([{ ...masterEntry('1001'), firstName: 'Ana' }]);
 
       expect(service.currentUser()).toMatchObject({ legajo: '1001', ...mecanicoDeGuardia });
       expect(service.currentUser()).not.toHaveProperty('firstName');
+    });
+
+    it('picks the master entry with the same legajo among several, whatever the server id', () => {
+      expect.assertions(3);
+      const service = setup();
+
+      service.login({ username: tecnico.username, password: tecnico.password }).subscribe();
+      httpMock.expectOne(isUsersRequest).flush([tecnico]);
+      httpMock
+        .expectOne(tecnicoUrl)
+        .flush([
+          masterEntry('1002', { specialty: 'electricista', teamType: 'preventivo-correctivo' }),
+          masterEntry('1001'),
+          masterEntry('1003', { specialty: 'general', teamType: 'guardia' }),
+        ]);
+
+      expect(service.currentUser()).toMatchObject({ legajo: '1001', ...mecanicoDeGuardia });
+      expect(service.currentUser()).toHaveProperty('id', '2');
+      expect(service.currentUser()).not.toHaveProperty('srv-1001');
     });
 
     it('takes specialty and team type from the master, not from the users record', () => {
@@ -206,12 +234,27 @@ describe('AuthService', () => {
         .login({ username: tecnico.username, password: tecnico.password })
         .subscribe({ error: (e: unknown) => (error = e) });
       httpMock.expectOne(isUsersRequest).flush([tecnico]);
-      httpMock.expectOne(tecnicoUrl).flush('not found', { status: 404, statusText: 'Not Found' });
+      // El maestro responde bien, pero ninguna entrada tiene ese legajo.
+      httpMock.expectOne(tecnicoUrl).flush([masterEntry('1002'), masterEntry('1003')]);
 
       expect(error).toBeInstanceOf(InvalidUserRecordError);
       expect(error).not.toBeInstanceOf(InvalidCredentialsError);
       expect(service.isAuthenticated()).toBe(false);
       expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+    });
+
+    it('fails with InvalidUserRecordError when the master is empty', () => {
+      const service = setup();
+      let error: unknown;
+
+      service
+        .login({ username: tecnico.username, password: tecnico.password })
+        .subscribe({ error: (e: unknown) => (error = e) });
+      httpMock.expectOne(isUsersRequest).flush([tecnico]);
+      httpMock.expectOne(tecnicoUrl).flush([]);
+
+      expect(error).toBeInstanceOf(InvalidUserRecordError);
+      expect(service.isAuthenticated()).toBe(false);
     });
 
     it('propagates a master server error as a connection error, not as an invalid record', () => {
@@ -247,7 +290,9 @@ describe('AuthService', () => {
           .login({ username: tecnico.username, password: tecnico.password })
           .subscribe({ error: (e: unknown) => (error = e) });
         httpMock.expectOne(isUsersRequest).flush([tecnico]);
-        httpMock.expectOne(tecnicoUrl).flush({ ...mecanicoDeGuardia, ...override });
+        httpMock
+          .expectOne(tecnicoUrl)
+          .flush([masterEntry('1001', { ...mecanicoDeGuardia, ...override })]);
 
         expect(error).toBeInstanceOf(InvalidUserRecordError);
         expect(error).not.toBeInstanceOf(InvalidCredentialsError);

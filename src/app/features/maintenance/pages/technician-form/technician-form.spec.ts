@@ -68,7 +68,7 @@ describe('TechnicianForm', () => {
   function configure(legajo: string | null, extraProviders: unknown[] = []): void {
     technicians.create
       .mockReset()
-      .mockImplementation((draft) => of({ ...draft, id: draft.legajo }));
+      .mockImplementation((draft) => of({ ...draft, id: `srv-${draft.legajo}` }));
     technicians.update.mockReset().mockReturnValue(of(ana));
     technicians.findByLegajo.mockReset().mockReturnValue(of(ana));
     currentUser.set(administrador);
@@ -380,17 +380,17 @@ describe('TechnicianForm', () => {
     afterEach(() => httpMock.verify());
 
     it('creates the technician without creating a login user for it', () => {
-      expect.assertions(2);
+      expect.assertions(3);
       start();
 
       fillForm(validValues);
       submit();
-      httpMock
-        .expectOne(`${API_BASE_URL}/tecnicos/1004`)
-        .flush('not found', { status: 404, statusText: 'Not Found' });
+      // El legajo se busca en el maestro completo; el servidor asigna el `id` (no se manda).
+      httpMock.expectOne(`${API_BASE_URL}/tecnicos`).flush([ana]);
       const post = httpMock.expectOne({ method: 'POST', url: `${API_BASE_URL}/tecnicos` });
-      expect(post.request.body).toMatchObject({ id: '1004', legajo: '1004' });
-      post.flush(post.request.body);
+      expect(post.request.body).toMatchObject({ legajo: '1004' });
+      expect(post.request.body).not.toHaveProperty('id');
+      post.flush({ ...post.request.body, id: 'srv-1004' });
 
       expect(navigate).toHaveBeenCalledWith(['/maintenance/technicians']);
       httpMock.expectNone((req) => req.url.startsWith(`${API_BASE_URL}/users`));
@@ -402,7 +402,9 @@ describe('TechnicianForm', () => {
 
       fillForm(validValues);
       submit();
-      httpMock.expectOne(`${API_BASE_URL}/tecnicos/1004`).flush({ ...ana, legajo: '1004' });
+      httpMock
+        .expectOne(`${API_BASE_URL}/tecnicos`)
+        .flush([ana, { ...ana, id: 'srv-x', legajo: '1004' }]);
       fixture.detectChanges();
 
       expect(text()).toContain('Ya existe un técnico con ese legajo.');

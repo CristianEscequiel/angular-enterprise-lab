@@ -160,11 +160,13 @@ describe('app routes', () => {
     authService.login({ username: record.username, password: record.password }).subscribe();
     httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([record]);
 
-    // El técnico completa su perfil con el maestro (`/tecnicos/:legajo`).
+    // El técnico completa su perfil buscando su legajo en el maestro (`GET /tecnicos`).
     if (record.role === 'tecnico') {
       httpMock
-        .expectOne(`${API_BASE_URL}/tecnicos/${record.legajo}`)
-        .flush({ specialty: 'mecanico', teamType: 'guardia' });
+        .expectOne(`${API_BASE_URL}/tecnicos`)
+        .flush([
+          { id: 'srv-1', legajo: record.legajo, specialty: 'mecanico', teamType: 'guardia' },
+        ]);
     }
   }
 

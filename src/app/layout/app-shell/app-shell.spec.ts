@@ -103,8 +103,10 @@ describe('AppShell', () => {
       httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([user]);
       if (user.role === 'tecnico') {
         httpMock
-          .expectOne(`${API_BASE_URL}/tecnicos/${user.legajo}`)
-          .flush({ specialty: 'mecanico', teamType: 'guardia' });
+          .expectOne(`${API_BASE_URL}/tecnicos`)
+          .flush([
+            { id: 'srv-1', legajo: user.legajo, specialty: 'mecanico', teamType: 'guardia' },
+          ]);
       }
       fixture.detectChanges();
 

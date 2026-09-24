@@ -1,5 +1,11 @@
 # Plan 013c: Gestión de técnicos y equipos
 
+> **Corrección posterior (2026-09-24):** el supuesto `id === legajo` y la consulta por ruta
+> `GET /tecnicos/:legajo` de este plan **no funcionan contra JSON Server**: `POST` descarta el `id`
+> del cliente y asigna uno propio (el hallazgo 1 de abajo, sobre ids duplicados, también es
+> incorrecto por eso). Se corrigió; ver "Corrección posterior" en `notes.md`. El resto del plan se
+> deja como estaba, como registro de lo decidido en su momento.
+
 ## Contexto
 
 013b dejó el técnico como un usuario de login con `specialty` y `teamType` copiados en
