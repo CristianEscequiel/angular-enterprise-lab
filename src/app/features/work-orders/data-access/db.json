@@ -307,8 +307,7 @@
       "displayName": "Técnico Mecánico de Guardia",
       "email": "tecnico@enterprise-lab.dev",
       "role": "tecnico",
-      "specialty": "mecanico",
-      "teamType": "guardia"
+      "legajo": "1001"
     },
     {
       "id": "3",
@@ -333,8 +332,47 @@
       "displayName": "Técnico Electricista Preventivo",
       "email": "electricista@enterprise-lab.dev",
       "role": "tecnico",
+      "legajo": "1002"
+    }
+  ],
+  "tecnicos": [
+    {
+      "id": "1001",
+      "legajo": "1001",
+      "firstName": "Ana",
+      "lastName": "Ruiz",
+      "specialty": "mecanico",
+      "teamType": "guardia"
+    },
+    {
+      "id": "1002",
+      "legajo": "1002",
+      "firstName": "Luis",
+      "lastName": "Paz",
       "specialty": "electricista",
       "teamType": "preventivo-correctivo"
+    },
+    {
+      "id": "1003",
+      "legajo": "1003",
+      "firstName": "Marta",
+      "lastName": "Gómez",
+      "specialty": "general",
+      "teamType": "preventivo-correctivo"
+    }
+  ],
+  "equipos": [
+    {
+      "id": "1",
+      "name": "Guardia mecánica",
+      "type": "guardia",
+      "memberLegajos": ["1001"]
+    },
+    {
+      "id": "2",
+      "name": "Preventivo eléctrico",
+      "type": "preventivo-correctivo",
+      "memberLegajos": ["1002"]
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"

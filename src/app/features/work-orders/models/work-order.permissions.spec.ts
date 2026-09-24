@@ -33,6 +33,7 @@ function technician(specialty: TechnicianSpecialty, teamType: TechnicianTeamType
     displayName: 'Técnico',
     email: 'tecnico@enterprise-lab.dev',
     role: 'tecnico',
+    legajo: '1001',
     specialty,
     teamType,
   };

@@ -200,6 +200,8 @@ describe('WorkOrderCreate', () => {
         {
           ...teamLeader,
           role: 'tecnico',
+
+          legajo: '1001',
           specialty: 'mecanico',
           teamType: 'guardia',
         },

@@ -71,7 +71,7 @@ function sessionFor(
 
   return {
     token: 'mock-token.1.1700000000000',
-    user: role === 'tecnico' ? { ...base, role, ...technician } : { ...base, role },
+    user: role === 'tecnico' ? { ...base, role, legajo: '1001', ...technician } : { ...base, role },
   };
 }
 

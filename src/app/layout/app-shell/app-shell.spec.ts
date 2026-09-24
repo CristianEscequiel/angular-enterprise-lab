@@ -89,8 +89,7 @@ describe('AppShell', () => {
       displayName: 'Técnico de Mantenimiento',
       email: 'tecnico@enterprise-lab.dev',
       role: 'tecnico',
-      specialty: 'mecanico',
-      teamType: 'guardia',
+      legajo: '1001',
     };
 
     function loginAs(user: UserRecord): AuthSession {
@@ -102,6 +101,11 @@ describe('AppShell', () => {
         .login({ username: user.username, password: user.password })
         .subscribe((session) => (result = session));
       httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([user]);
+      if (user.role === 'tecnico') {
+        httpMock
+          .expectOne(`${API_BASE_URL}/tecnicos/${user.legajo}`)
+          .flush({ specialty: 'mecanico', teamType: 'guardia' });
+      }
       fixture.detectChanges();
 
       if (!result) throw new Error('login did not emit a session');

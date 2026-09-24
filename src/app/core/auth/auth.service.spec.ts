@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 
 import { API_BASE_URL } from '../config/api.config';
-import { AuthSession, StaffUser, TechnicianUser, UserRecord } from './auth.model';
+import { AuthSession, StaffUser, TechnicianProfile, UserRecord } from './auth.model';
 import {
   AUTH_STORAGE_KEY,
   AuthService,
@@ -21,16 +21,20 @@ describe('AuthService', () => {
     email: 'admin@enterprise-lab.dev',
     role: 'administrador',
   };
-  const tecnico: TechnicianUser & { password: string } = {
+  // El usuario técnico solo lleva el legajo; su perfil vive en el maestro (`/tecnicos/:legajo`).
+  const tecnico: UserRecord = {
     id: '2',
     username: 'tecnico',
     password: 'tecnico123',
     displayName: 'Técnico de Mantenimiento',
     email: 'tecnico@enterprise-lab.dev',
     role: 'tecnico',
-    specialty: 'mecanico',
-    teamType: 'guardia',
+    legajo: '1001',
   };
+  const mecanicoDeGuardia: TechnicianProfile = { specialty: 'mecanico', teamType: 'guardia' };
+  const tecnicoUrl = `${API_BASE_URL}/tecnicos/1001`;
+  const isUsersRequest = (req: { url: string }) => req.url === `${API_BASE_URL}/users`;
+  const isMasterRequest = (req: { url: string }) => req.url.startsWith(`${API_BASE_URL}/tecnicos`);
 
   let httpMock: HttpTestingController;
 
@@ -47,13 +51,22 @@ describe('AuthService', () => {
     return raw === null ? null : JSON.parse(raw);
   }
 
-  function loginAs(service: AuthService, user: UserRecord): AuthSession {
+  // Un técnico dispara además la consulta a su maestro: se responde con `profile`.
+  function loginAs(
+    service: AuthService,
+    user: UserRecord,
+    profile: object = mecanicoDeGuardia,
+  ): AuthSession {
     let result: AuthSession | undefined;
 
     service
       .login({ username: user.username, password: user.password })
       .subscribe((session) => (result = session));
-    httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([user]);
+    httpMock.expectOne(isUsersRequest).flush([user]);
+
+    if (user.role === 'tecnico') {
+      httpMock.expectOne(`${API_BASE_URL}/tecnicos/${user.legajo}`).flush(profile);
+    }
 
     if (!result) {
       throw new Error('login did not emit a session');
@@ -120,11 +133,7 @@ describe('AuthService', () => {
       expect.assertions(1);
       const service = setup();
 
-      loginAs(service, {
-        ...tecnico,
-        specialty: 'electricista',
-        teamType: 'preventivo-correctivo',
-      });
+      loginAs(service, tecnico, { specialty: 'electricista', teamType: 'preventivo-correctivo' });
 
       expect(service.currentUser()).toMatchObject({
         specialty: 'electricista',
@@ -158,13 +167,77 @@ describe('AuthService', () => {
       expect(service.currentUser()).not.toHaveProperty('teamType');
     });
 
+    it('resolves a technician against the master: users first, then /tecnicos/:legajo', () => {
+      expect.assertions(4);
+      const service = setup();
+
+      service.login({ username: tecnico.username, password: tecnico.password }).subscribe();
+      httpMock.expectOne(isUsersRequest).flush([tecnico]);
+      const masterRequest = httpMock.expectOne(tecnicoUrl);
+      expect(masterRequest.request.method).toBe('GET');
+      expect(service.isAuthenticated()).toBe(false);
+      masterRequest.flush({ id: '1001', legajo: '1001', ...mecanicoDeGuardia, firstName: 'Ana' });
+
+      expect(service.currentUser()).toMatchObject({ legajo: '1001', ...mecanicoDeGuardia });
+      expect(service.currentUser()).not.toHaveProperty('firstName');
+    });
+
+    it('takes specialty and team type from the master, not from the users record', () => {
+      expect.assertions(2);
+      const service = setup();
+      const staleRecord = {
+        ...tecnico,
+        specialty: 'electricista',
+        teamType: 'preventivo-correctivo',
+      } as UserRecord;
+
+      loginAs(service, staleRecord, mecanicoDeGuardia);
+
+      expect(service.currentUser()).toMatchObject(mecanicoDeGuardia);
+      expect(storedSession()).toMatchObject({ user: { legajo: '1001', ...mecanicoDeGuardia } });
+    });
+
+    it('fails with InvalidUserRecordError, without a session, when the master has no such legajo', () => {
+      expect.assertions(4);
+      const service = setup();
+      let error: unknown;
+
+      service
+        .login({ username: tecnico.username, password: tecnico.password })
+        .subscribe({ error: (e: unknown) => (error = e) });
+      httpMock.expectOne(isUsersRequest).flush([tecnico]);
+      httpMock.expectOne(tecnicoUrl).flush('not found', { status: 404, statusText: 'Not Found' });
+
+      expect(error).toBeInstanceOf(InvalidUserRecordError);
+      expect(error).not.toBeInstanceOf(InvalidCredentialsError);
+      expect(service.isAuthenticated()).toBe(false);
+      expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+    });
+
+    it('propagates a master server error as a connection error, not as an invalid record', () => {
+      expect.assertions(4);
+      const service = setup();
+      let error: unknown;
+
+      service
+        .login({ username: tecnico.username, password: tecnico.password })
+        .subscribe({ error: (e: unknown) => (error = e) });
+      httpMock.expectOne(isUsersRequest).flush([tecnico]);
+      httpMock.expectOne(tecnicoUrl).flush('boom', { status: 500, statusText: 'Server Error' });
+
+      expect(error).toBeInstanceOf(HttpErrorResponse);
+      expect(error).not.toBeInstanceOf(InvalidUserRecordError);
+      expect(service.isAuthenticated()).toBe(false);
+      expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+    });
+
     it.each([
       ['no specialty', { specialty: undefined }],
       ['no team type', { teamType: undefined }],
       ['an unknown specialty', { specialty: 'plomero' }],
       ['an unknown team type', { teamType: 'nocturno' }],
     ])(
-      'fails with InvalidUserRecordError, without a session, for a technician record with %s',
+      'fails with InvalidUserRecordError, without a session, for a master profile with %s',
       (_label, override) => {
         expect.assertions(4);
         const service = setup();
@@ -173,14 +246,47 @@ describe('AuthService', () => {
         service
           .login({ username: tecnico.username, password: tecnico.password })
           .subscribe({ error: (e: unknown) => (error = e) });
-        httpMock
-          .expectOne((req) => req.url === `${API_BASE_URL}/users`)
-          .flush([{ ...tecnico, ...override }]);
+        httpMock.expectOne(isUsersRequest).flush([tecnico]);
+        httpMock.expectOne(tecnicoUrl).flush({ ...mecanicoDeGuardia, ...override });
 
         expect(error).toBeInstanceOf(InvalidUserRecordError);
         expect(error).not.toBeInstanceOf(InvalidCredentialsError);
         expect(service.isAuthenticated()).toBe(false);
         expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+      },
+    );
+
+    it.each([
+      ['no legajo', { legajo: undefined }],
+      ['an empty legajo', { legajo: '' }],
+      ['a legajo that is not a number', { legajo: '../users' }],
+    ])(
+      'fails with InvalidUserRecordError and never queries the master for a technician with %s',
+      (_label, override) => {
+        expect.assertions(2);
+        const service = setup();
+        let error: unknown;
+
+        service
+          .login({ username: tecnico.username, password: tecnico.password })
+          .subscribe({ error: (e: unknown) => (error = e) });
+        httpMock.expectOne(isUsersRequest).flush([{ ...tecnico, ...override }]);
+
+        expect(error).toBeInstanceOf(InvalidUserRecordError);
+        expect(service.isAuthenticated()).toBe(false);
+        httpMock.expectNone(isMasterRequest);
+      },
+    );
+
+    it.each(['administrador', 'team-leader-mantenimiento', 'personal-produccion'] as const)(
+      'does not query the master when a %s logs in',
+      (role) => {
+        const service = setup();
+
+        loginAs(service, { ...admin, role });
+
+        httpMock.expectNone(isMasterRequest);
+        expect(service.isAuthenticated()).toBe(true);
       },
     );
 
@@ -283,6 +389,7 @@ describe('AuthService', () => {
           displayName: 'Técnico de Mantenimiento',
           email: 'tecnico@enterprise-lab.dev',
           role: 'tecnico',
+          legajo: '1001',
           specialty: 'mecanico',
           teamType: 'guardia',
         },

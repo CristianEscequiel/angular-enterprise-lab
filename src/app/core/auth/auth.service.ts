@@ -1,11 +1,20 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router, UrlTree } from '@angular/router';
-import { map, Observable, tap } from 'rxjs';
+import { catchError, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 
 import { API_BASE_URL } from '../config/api.config';
 import { LocalStorageService } from '../services/localStorage.service';
-import { AuthSession, isAuthSession, LoginCredentials, toAuthUser, UserRecord } from './auth.model';
+import {
+  AuthSession,
+  AuthUser,
+  isAuthSession,
+  isLegajo,
+  LoginCredentials,
+  TechnicianProfile,
+  toAuthUser,
+  UserRecord,
+} from './auth.model';
 
 export const AUTH_STORAGE_KEY = 'auth.session';
 
@@ -17,8 +26,8 @@ export class InvalidCredentialsError extends Error {
 }
 
 // El registro existe y las credenciales coinciden, pero su perfil no es válido (p. ej. un técnico
-// sin especialidad). No es un error de credenciales ni de conexión: se distingue para no
-// mostrarlo como "usuario o contraseña incorrectos".
+// sin legajo o cuyo legajo ya no existe en el maestro de técnicos). No es un error de credenciales
+// ni de conexión: se distingue para no mostrarlo como "usuario o contraseña incorrectos".
 export class InvalidUserRecordError extends Error {
   constructor() {
     super('El perfil de este usuario está incompleto. Contacte al administrador.');
@@ -43,13 +52,15 @@ export class AuthService {
 
   // Hoy valida contra la colección `users` de JSON Server. En spec 018 solo cambia esta
   // llamada (POST /auth/login devolviendo { token, user }); el resto del contrato se mantiene.
+  // Un usuario técnico solo guarda su `legajo`: el perfil (especialidad y tipo de equipo) se
+  // resuelve contra el maestro de técnicos, que es su única fuente de verdad.
   login(credentials: LoginCredentials): Observable<AuthSession> {
     return this.http
       .get<UserRecord[]>(`${API_BASE_URL}/users`, {
         params: { username: credentials.username, password: credentials.password },
       })
       .pipe(
-        map((users) => {
+        switchMap((users) => {
           const record = users[0];
 
           if (
@@ -57,16 +68,18 @@ export class AuthService {
             record.username !== credentials.username ||
             record.password !== credentials.password
           ) {
-            throw new InvalidCredentialsError();
+            return throwError(() => new InvalidCredentialsError());
           }
 
-          const user = toAuthUser(record);
+          return this.resolveUser(record).pipe(
+            map((user) => {
+              if (!user) {
+                throw new InvalidUserRecordError();
+              }
 
-          if (!user) {
-            throw new InvalidUserRecordError();
-          }
-
-          return { token: `mock-token.${record.id}.${Date.now()}`, user } satisfies AuthSession;
+              return { token: `mock-token.${record.id}.${Date.now()}`, user } satisfies AuthSession;
+            }),
+          );
         }),
         tap((session) => {
           this.sessionState.set(session);
@@ -82,6 +95,30 @@ export class AuthService {
 
   loginUrlFor(returnUrl: string): UrlTree {
     return this.router.createUrlTree(['/login'], { queryParams: { returnUrl } });
+  }
+
+  private resolveUser(record: UserRecord): Observable<AuthUser | null> {
+    if (record.role !== 'tecnico') {
+      return of(toAuthUser(record));
+    }
+
+    // Sin legajo válido no hay maestro que consultar: no se arma ningún request.
+    if (!isLegajo(record.legajo)) {
+      return of(null);
+    }
+
+    return this.http
+      .get<TechnicianProfile>(`${API_BASE_URL}/tecnicos/${encodeURIComponent(record.legajo)}`)
+      .pipe(
+        map((profile) => toAuthUser(record, profile)),
+        // 404: el login existe pero su técnico no. Cualquier otro error (red, 5xx) se propaga
+        // tal cual y no se presenta como un dato inválido.
+        catchError((error: unknown) =>
+          (error as { status?: number } | null)?.status === 404
+            ? of(null)
+            : throwError(() => error),
+        ),
+      );
   }
 
   private restoreSession(): AuthSession | null {

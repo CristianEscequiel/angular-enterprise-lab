@@ -20,6 +20,17 @@ export type TechnicianSpecialty = (typeof TECHNICIAN_SPECIALTIES)[number];
 export const TECHNICIAN_TEAM_TYPES = ['guardia', 'preventivo-correctivo'] as const;
 export type TechnicianTeamType = (typeof TECHNICIAN_TEAM_TYPES)[number];
 
+// Perfil laboral del técnico. Su fuente de verdad es el maestro de técnicos (`/tecnicos`); el
+// usuario de login solo guarda el `legajo` que lo vincula y el login copia el perfil a la sesión.
+export interface TechnicianProfile {
+  specialty: TechnicianSpecialty;
+  teamType: TechnicianTeamType;
+}
+
+// El legajo es el vínculo entre el usuario de login y el maestro de técnicos. Solo dígitos: además
+// de ser el formato del dominio, garantiza que nunca llegue a una URL algo como `../users`.
+export const LEGAJO_PATTERN = /^\d{1,8}$/;
+
 interface AuthUserBase {
   id: string;
   username: string;
@@ -27,12 +38,11 @@ interface AuthUserBase {
   email: string;
 }
 
-// Unión discriminada por `role`: `specialty` y `teamType` solo existen en el técnico, y el
-// compilador exige comprobar `role === 'tecnico'` (o `isTechnician`) antes de leerlos.
-export interface TechnicianUser extends AuthUserBase {
+// Unión discriminada por `role`: `legajo`, `specialty` y `teamType` solo existen en el técnico, y
+// el compilador exige comprobar `role === 'tecnico'` (o `isTechnician`) antes de leerlos.
+export interface TechnicianUser extends AuthUserBase, TechnicianProfile {
   role: 'tecnico';
-  specialty: TechnicianSpecialty;
-  teamType: TechnicianTeamType;
+  legajo: string;
 }
 
 export interface StaffUser extends AuthUserBase {
@@ -46,7 +56,15 @@ export interface AuthSession {
   user: AuthUser;
 }
 
-export type UserRecord = AuthUser & { password: string };
+// Registro de la colección `users`. El técnico solo lleva `legajo`: `specialty`/`teamType` se
+// resuelven contra el maestro de técnicos al iniciar sesión.
+export type StaffUserRecord = StaffUser & { password: string };
+export type TechnicianUserRecord = AuthUserBase & {
+  role: 'tecnico';
+  legajo: string;
+  password: string;
+};
+export type UserRecord = StaffUserRecord | TechnicianUserRecord;
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
@@ -54,6 +72,10 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+export function isLegajo(value: unknown): value is string {
+  return typeof value === 'string' && LEGAJO_PATTERN.test(value);
 }
 
 export function isUserRole(value: unknown): value is UserRole {
@@ -87,16 +109,25 @@ export function isAuthUser(value: unknown): value is AuthUser {
   // Estricto en ambos sentidos: un técnico sin sus atributos o un no-técnico con ellos es un
   // perfil inconsistente y no se restaura, en vez de completarlo con valores por defecto.
   if (value['role'] === 'tecnico') {
-    return isTechnicianSpecialty(value['specialty']) && isTechnicianTeamType(value['teamType']);
+    return (
+      isLegajo(value['legajo']) &&
+      isTechnicianSpecialty(value['specialty']) &&
+      isTechnicianTeamType(value['teamType'])
+    );
   }
 
-  return value['specialty'] === undefined && value['teamType'] === undefined;
+  return (
+    value['legajo'] === undefined &&
+    value['specialty'] === undefined &&
+    value['teamType'] === undefined
+  );
 }
 
 // Arma el usuario de sesión a partir de un registro de la base sin arrastrar `password` ni
-// campos ajenos. `specialty`/`teamType` se copian solo si el rol es técnico. Devuelve null si el
-// registro no produce un perfil válido (p. ej. técnico sin especialidad): no se completa nada.
-export function toAuthUser(record: unknown): AuthUser | null {
+// campos ajenos. Para un técnico toma `legajo` del registro y `specialty`/`teamType` del `profile`
+// (el maestro), ignorando cualquier atributo de perfil que traiga el registro. Devuelve null si el
+// resultado no es un perfil válido (p. ej. técnico sin perfil resuelto): no se completa nada.
+export function toAuthUser(record: unknown, profile?: TechnicianProfile | null): AuthUser | null {
   if (!isRecord(record)) {
     return null;
   }
@@ -110,7 +141,12 @@ export function toAuthUser(record: unknown): AuthUser | null {
   };
   const candidate =
     base.role === 'tecnico'
-      ? { ...base, specialty: record['specialty'], teamType: record['teamType'] }
+      ? {
+          ...base,
+          legajo: record['legajo'],
+          specialty: profile?.specialty,
+          teamType: profile?.teamType,
+        }
       : base;
 
   return isAuthUser(candidate) ? candidate : null;

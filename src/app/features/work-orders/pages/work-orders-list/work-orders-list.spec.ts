@@ -84,6 +84,7 @@ describe('WorkOrdersList search and pagination', () => {
     id: '2',
     username: 'tecnico',
     role: 'tecnico',
+    legajo: '1001',
     specialty: 'mecanico',
     teamType: 'guardia',
   };

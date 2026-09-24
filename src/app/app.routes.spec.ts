@@ -117,8 +117,7 @@ describe('app routes', () => {
       displayName: 'Técnico',
       email: 'tecnico@enterprise-lab.dev',
       role: 'tecnico',
-      specialty: 'mecanico',
-      teamType: 'guardia',
+      legajo: '1001',
     },
   } satisfies Record<string, UserRecord>;
 
@@ -127,6 +126,13 @@ describe('app routes', () => {
     authService.logout();
     authService.login({ username: record.username, password: record.password }).subscribe();
     httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([record]);
+
+    // El técnico completa su perfil con el maestro (`/tecnicos/:legajo`).
+    if (record.role === 'tecnico') {
+      httpMock
+        .expectOne(`${API_BASE_URL}/tecnicos/${record.legajo}`)
+        .flush({ specialty: 'mecanico', teamType: 'guardia' });
+    }
   }
 
   describe('with an active session', () => {
