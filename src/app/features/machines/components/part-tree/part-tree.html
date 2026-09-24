@@ -1,0 +1,76 @@
+@if (nodes().length === 0) {
+  <p class="part-tree__empty u-text-muted" role="status">{{ emptyMessage() }}</p>
+} @else {
+  <ul class="part-tree" role="tree" [attr.aria-label]="label()">
+    <ng-container *ngTemplateOutlet="level; context: { $implicit: nodes(), depth: 1 }" />
+  </ul>
+}
+
+<!-- Un nivel del árbol. Se invoca a sí mismo para los hijos: no hay tope de profundidad. -->
+<ng-template #level let-items let-depth="depth">
+  @for (node of items; track node.part.id) {
+    <li
+      class="part-tree__item"
+      role="treeitem"
+      [attr.aria-level]="depth"
+      [attr.aria-expanded]="node.children.length > 0 ? !isCollapsed(node) : null"
+      [attr.aria-selected]="selectedId() === node.part.id"
+    >
+      <div class="part-tree__row" [class.part-tree__row--selected]="selectedId() === node.part.id">
+        @if (node.children.length > 0) {
+          <button
+            type="button"
+            class="part-tree__toggle"
+            [attr.aria-label]="(isCollapsed(node) ? 'Expandir ' : 'Contraer ') + node.part.name"
+            (click)="toggle(node)"
+          >
+            <span aria-hidden="true">{{ isCollapsed(node) ? '▸' : '▾' }}</span>
+          </button>
+        } @else {
+          <span class="part-tree__toggle-space" aria-hidden="true"></span>
+        }
+
+        <button type="button" class="part-tree__name" (click)="select(node)">
+          {{ node.part.name }}
+        </button>
+
+        @if (showActions()) {
+          <span class="part-tree__actions d-flex gap-sm">
+            <app-button
+              size="sm"
+              variant="outline"
+              [ariaLabel]="'Agregar sub-parte a ' + node.part.name"
+              (clicked)="addChild.emit(node)"
+            >
+              Agregar
+            </app-button>
+            <app-button
+              size="sm"
+              variant="secondary"
+              [ariaLabel]="'Editar ' + node.part.name"
+              (clicked)="editPart.emit(node)"
+            >
+              Editar
+            </app-button>
+            <app-button
+              size="sm"
+              variant="danger"
+              [ariaLabel]="'Eliminar ' + node.part.name"
+              (clicked)="deletePart.emit(node)"
+            >
+              Eliminar
+            </app-button>
+          </span>
+        }
+      </div>
+
+      @if (node.children.length > 0 && !isCollapsed(node)) {
+        <ul class="part-tree__group" role="group">
+          <ng-container
+            *ngTemplateOutlet="level; context: { $implicit: node.children, depth: depth + 1 }"
+          />
+        </ul>
+      }
+    </li>
+  }
+</ng-template>

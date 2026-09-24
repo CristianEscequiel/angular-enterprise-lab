@@ -1,0 +1,66 @@
+<section>
+  <div class="d-flex flex-wrap justify-between gap-md py-lg">
+    <h1>{{ isEdit ? 'Editar máquina' : 'Nueva máquina' }}</h1>
+    <app-button variant="primary" (clicked)="navigateToList()"> Volver a Lista </app-button>
+  </div>
+
+  @if (loadError() === 'not-found') {
+    <app-alert
+      title="Máquina no encontrada"
+      message="La máquina solicitada no existe o fue eliminada."
+      variant="error"
+    />
+    <app-button variant="primary" (clicked)="loadMachine()"> Reintentar </app-button>
+  } @else if (loadError() === 'connection') {
+    <app-alert
+      title="Error de conexión"
+      message="No pudimos conectar con el servidor. Intentá nuevamente."
+      variant="error"
+    />
+    <app-button variant="primary" (clicked)="loadMachine()"> Reintentar </app-button>
+  } @else if (showForm()) {
+    <form class="form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <label class="form-label" for="code">Código:</label>
+      <input
+        class="form-control"
+        id="code"
+        formControlName="code"
+        autocomplete="off"
+        required
+        [class.form-control--invalid]="isInvalid('code')"
+        [attr.aria-invalid]="isInvalid('code')"
+        [attr.aria-describedby]="isInvalid('code') ? 'code-help code-error' : 'code-help'"
+      />
+      <div class="form-help" id="code-help">
+        Identificador único de la máquina (por ejemplo ENV-01). Se guarda en mayúsculas.
+      </div>
+      @if (isInvalid('code')) {
+        <div class="form-error" id="code-error">
+          @if (form.controls.code.hasError('duplicate')) {
+            Ya existe una máquina con ese código.
+          } @else {
+            El código es obligatorio: hasta 20 letras, números o guiones, sin empezar con guion.
+          }
+        </div>
+      }
+
+      <label class="form-label" for="name">Nombre:</label>
+      <input
+        class="form-control"
+        id="name"
+        formControlName="name"
+        required
+        [class.form-control--invalid]="isInvalid('name')"
+        [attr.aria-invalid]="isInvalid('name')"
+        [attr.aria-describedby]="isInvalid('name') ? 'name-error' : null"
+      />
+      @if (isInvalid('name')) {
+        <div class="form-error" id="name-error">El nombre es obligatorio.</div>
+      }
+
+      <app-button type="submit" size="full" variant="primary" [disabled]="isSubmitting()">{{
+        isSubmitting() ? 'Guardando...' : 'Guardar máquina'
+      }}</app-button>
+    </form>
+  }
+</section>
