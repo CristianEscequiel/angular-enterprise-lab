@@ -375,5 +375,84 @@
       "memberLegajos": ["1002"]
     }
   ],
+  "maquinas": [
+    {
+      "id": "1",
+      "code": "ENV-01",
+      "name": "Envasadora línea 1"
+    },
+    {
+      "id": "2",
+      "code": "SEL-02",
+      "name": "Selladora"
+    },
+    {
+      "id": "3",
+      "code": "ROT-03",
+      "name": "Rotuladora"
+    }
+  ],
+  "partes": [
+    {
+      "id": "1",
+      "machineId": "1",
+      "parentId": null,
+      "name": "Mesa de transporte"
+    },
+    {
+      "id": "2",
+      "machineId": "1",
+      "parentId": "1",
+      "name": "Cinta 1"
+    },
+    {
+      "id": "3",
+      "machineId": "1",
+      "parentId": "2",
+      "name": "Motor de cinta"
+    },
+    {
+      "id": "4",
+      "machineId": "1",
+      "parentId": "3",
+      "name": "Rodamiento delantero"
+    },
+    {
+      "id": "5",
+      "machineId": "1",
+      "parentId": "1",
+      "name": "Cinta 2"
+    },
+    {
+      "id": "6",
+      "machineId": "1",
+      "parentId": null,
+      "name": "Cabezal de sellado"
+    },
+    {
+      "id": "7",
+      "machineId": "1",
+      "parentId": "6",
+      "name": "Resistencia"
+    },
+    {
+      "id": "8",
+      "machineId": "2",
+      "parentId": null,
+      "name": "Cabezal térmico"
+    },
+    {
+      "id": "9",
+      "machineId": "2",
+      "parentId": "8",
+      "name": "Resistencia"
+    },
+    {
+      "id": "10",
+      "machineId": "2",
+      "parentId": null,
+      "name": "Mordaza"
+    }
+  ],
   "$schema": "./node_modules/json-server/schema.json"
 }
