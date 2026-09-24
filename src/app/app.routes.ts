@@ -27,6 +27,11 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/work-orders/work-orders.routes').then((m) => m.WORK_ORDERS_ROUTES),
       },
+      {
+        path: 'maintenance',
+        loadChildren: () =>
+          import('./features/maintenance/maintenance.routes').then((m) => m.MAINTENANCE_ROUTES),
+      },
     ],
   },
   {

@@ -12,6 +12,10 @@ import { API_BASE_URL } from './core/config/api.config';
 import { MessageService } from './core/services/message.service';
 import { WorkOrdersService } from './features/work-orders/data-access/work-order.service';
 import { WorkOrder } from './features/work-orders/models/work-order.model';
+import { TeamsService } from './features/maintenance/data-access/teams.service';
+import { TechniciansService } from './features/maintenance/data-access/technicians.service';
+import { Team } from './features/maintenance/models/team.model';
+import { Technician } from './features/maintenance/models/technician.model';
 
 describe('app routes', () => {
   const order: WorkOrder = {
@@ -45,6 +49,29 @@ describe('app routes', () => {
       ),
   };
 
+  const technician: Technician = {
+    id: '1001',
+    legajo: '1001',
+    firstName: 'Ana',
+    lastName: 'Ruiz',
+    specialty: 'mecanico',
+    teamType: 'guardia',
+  };
+  const team: Team = {
+    id: '1',
+    name: 'Guardia mecánica',
+    type: 'guardia',
+    memberLegajos: ['1001'],
+  };
+  const techniciansServiceMock = {
+    getAll: vi.fn(),
+    findByLegajo: vi.fn(),
+  };
+  const teamsServiceMock = {
+    getAll: vi.fn(),
+    getById: vi.fn(),
+  };
+
   let harness: RouterTestingHarness;
   let router: Router;
   let httpMock: HttpTestingController;
@@ -54,6 +81,10 @@ describe('app routes', () => {
   beforeEach(async () => {
     workOrdersServiceMock.getById.mockClear();
     workOrdersServiceMock.search.mockClear();
+    techniciansServiceMock.getAll.mockReset().mockReturnValue(of([technician]));
+    techniciansServiceMock.findByLegajo.mockReset().mockReturnValue(of(technician));
+    teamsServiceMock.getAll.mockReset().mockReturnValue(of([team]));
+    teamsServiceMock.getById.mockReset().mockReturnValue(of(team));
     localStorage.clear();
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
 
@@ -63,6 +94,8 @@ describe('app routes', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: WorkOrdersService, useValue: workOrdersServiceMock },
+        { provide: TechniciansService, useValue: techniciansServiceMock },
+        { provide: TeamsService, useValue: teamsServiceMock },
       ],
     });
 
@@ -467,6 +500,227 @@ describe('app routes', () => {
       await harness.navigateByUrl('/work-orders/new');
 
       expect(router.url).toBe('/dashboard');
+    });
+  });
+
+  describe('maintenance routes (technicians and teams)', () => {
+    const warning = () => TestBed.inject(MessageService).message();
+    const page = () => harness.routeNativeElement?.textContent ?? '';
+
+    const technicianPages = [
+      ['the list', '/maintenance/technicians', 'Técnicos'],
+      ['the create form', '/maintenance/technicians/new', 'Crear técnico'],
+      ['the edit form', '/maintenance/technicians/1001/edit', 'Editar técnico'],
+    ] as const;
+    const teamPages = [
+      ['the list', '/maintenance/teams', 'Equipos'],
+      ['the create form', '/maintenance/teams/new', 'Crear equipo'],
+      ['the edit form', '/maintenance/teams/1/edit', 'Editar equipo'],
+    ] as const;
+
+    it('redirects /maintenance to the technicians list', async () => {
+      expect.assertions(2);
+      loginAs(users.admin);
+
+      await harness.navigateByUrl('/maintenance');
+
+      expect(router.url).toBe('/maintenance/technicians');
+      expect(page()).toContain('Técnicos');
+    });
+
+    describe.each([
+      ['administrador', users.admin],
+      ['team leader', users.teamLeader],
+    ])('%s on the technician pages', (_role, record) => {
+      it.each(technicianPages)('can open %s', async (_label, url, heading) => {
+        expect.assertions(4);
+        loginAs(record);
+
+        await harness.navigateByUrl(url);
+
+        expect(router.url).toBe(url);
+        expect(page()).toContain(heading);
+        expect(page()).not.toContain('Página no encontrada');
+        expect(warning()).toBeNull();
+      });
+    });
+
+    describe.each([
+      ['tecnico', users.tecnico],
+      ['personal-produccion', users.produccion],
+    ])('%s on the technician pages', (_role, record) => {
+      it.each(technicianPages)(
+        'is sent away from %s to /dashboard with a warning and nothing is loaded',
+        async (_label, url) => {
+          expect.assertions(5);
+          loginAs(record);
+
+          await harness.navigateByUrl(url);
+
+          expect(router.url).toBe('/dashboard');
+          expect(warning()?.variant).toBe('warning');
+          expect(warning()?.title).toBe('Acceso denegado');
+          expect(techniciansServiceMock.getAll).not.toHaveBeenCalled();
+          expect(techniciansServiceMock.findByLegajo).not.toHaveBeenCalled();
+        },
+      );
+    });
+
+    describe('teams are managed only by the team leader', () => {
+      it.each(teamPages)('team leader can open %s', async (_label, url, heading) => {
+        expect.assertions(4);
+        loginAs(users.teamLeader);
+
+        await harness.navigateByUrl(url);
+
+        expect(router.url).toBe(url);
+        expect(page()).toContain(heading);
+        expect(page()).not.toContain('Página no encontrada');
+        expect(warning()).toBeNull();
+      });
+
+      describe.each([
+        ['administrador', users.admin],
+        ['tecnico', users.tecnico],
+        ['personal-produccion', users.produccion],
+      ])('%s', (_role, record) => {
+        it.each(teamPages)(
+          'is sent away from %s to /dashboard with a warning and nothing is loaded',
+          async (_label, url) => {
+            expect.assertions(5);
+            loginAs(record);
+
+            await harness.navigateByUrl(url);
+
+            expect(router.url).toBe('/dashboard');
+            expect(warning()?.title).toBe('Acceso denegado');
+            expect(warning()?.variant).toBe('warning');
+            expect(teamsServiceMock.getAll).not.toHaveBeenCalled();
+            expect(teamsServiceMock.getById).not.toHaveBeenCalled();
+          },
+        );
+      });
+    });
+
+    it('opens the technician edit form with the legajo taken from the URL', async () => {
+      expect.assertions(1);
+      loginAs(users.admin);
+
+      await harness.navigateByUrl('/maintenance/technicians/1001/edit');
+
+      expect(techniciansServiceMock.findByLegajo).toHaveBeenCalledExactlyOnceWith('1001');
+    });
+
+    it('opens the team edit form with the id taken from the URL', async () => {
+      expect.assertions(1);
+      loginAs(users.teamLeader);
+
+      await harness.navigateByUrl('/maintenance/teams/1/edit');
+
+      expect(teamsServiceMock.getById).toHaveBeenCalledExactlyOnceWith('1');
+    });
+
+    it.each(['abc', '12a', '123456789', '-1'])(
+      'renders NotFound for an invalid legajo (%s) without loading the form',
+      async (legajo) => {
+        expect.assertions(3);
+        loginAs(users.admin);
+
+        await harness.navigateByUrl(`/maintenance/technicians/${legajo}/edit`);
+
+        expect(page()).toContain('Página no encontrada');
+        expect(techniciansServiceMock.findByLegajo).not.toHaveBeenCalled();
+        expect(warning()).toBeNull();
+      },
+    );
+
+    it('sets a distinct document title per route', async () => {
+      expect.assertions(6);
+      loginAs(users.teamLeader);
+
+      await harness.navigateByUrl('/maintenance/technicians');
+      expect(document.title).toContain('Técnicos');
+      await harness.navigateByUrl('/maintenance/technicians/new');
+      expect(document.title).toContain('Crear técnico');
+      await harness.navigateByUrl('/maintenance/technicians/1001/edit');
+      expect(document.title).toContain('Editar técnico');
+      await harness.navigateByUrl('/maintenance/teams');
+      expect(document.title).toContain('Equipos');
+      await harness.navigateByUrl('/maintenance/teams/new');
+      expect(document.title).toContain('Crear equipo');
+      await harness.navigateByUrl('/maintenance/teams/1/edit');
+      expect(document.title).toContain('Editar equipo');
+    });
+
+    describe('without a session', () => {
+      it.each([
+        '/maintenance/technicians',
+        '/maintenance/technicians/new',
+        '/maintenance/technicians/1001/edit',
+        '/maintenance/teams',
+        '/maintenance/teams/new',
+        '/maintenance/teams/1/edit',
+      ])('sends an anonymous user from %s to login keeping the requested URL', async (url) => {
+        expect.assertions(4);
+        authService.logout();
+
+        await harness.navigateByUrl(url);
+
+        expect(pathname()).toBe('/login');
+        expect(returnUrl()).toBe(url);
+        expect(techniciansServiceMock.getAll).not.toHaveBeenCalled();
+        expect(teamsServiceMock.getAll).not.toHaveBeenCalled();
+      });
+
+      it('sends an anonymous user from /maintenance to login returning to the page it redirects to', async () => {
+        expect.assertions(2);
+        authService.logout();
+
+        await harness.navigateByUrl('/maintenance');
+
+        expect(pathname()).toBe('/login');
+        expect(returnUrl()).toBe('/maintenance/technicians');
+      });
+
+      it('returns to /maintenance/teams after logging in as team leader', async () => {
+        expect.assertions(4);
+        authService.logout();
+
+        await harness.navigateByUrl('/maintenance/teams');
+        expect(returnUrl()).toBe('/maintenance/teams');
+
+        const login = harness.routeNativeElement;
+        const username = login?.querySelector<HTMLInputElement>('#username');
+        const password = login?.querySelector<HTMLInputElement>('#password');
+        if (!login || !username || !password) {
+          throw new Error('login form not rendered');
+        }
+        username.value = users.teamLeader.username;
+        username.dispatchEvent(new Event('input'));
+        password.value = users.teamLeader.password;
+        password.dispatchEvent(new Event('input'));
+        login.querySelector('form')?.dispatchEvent(new Event('submit'));
+
+        httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([users.teamLeader]);
+        await harness.fixture.whenStable();
+
+        expect(router.url).toBe('/maintenance/teams');
+        expect(page()).toContain('Equipos');
+        expect(warning()).toBeNull();
+      });
+
+      it('sends a user without permission to /dashboard, not to login, even after coming from login', async () => {
+        expect.assertions(2);
+        authService.logout();
+
+        await harness.navigateByUrl('/maintenance/teams');
+        expect(pathname()).toBe('/login');
+
+        loginAs(users.admin);
+        await harness.navigateByUrl('/maintenance/teams');
+
+        expect(router.url).toBe('/dashboard');
+      });
     });
   });
 });

@@ -15,17 +15,33 @@
       class="sidebar__link"
       routerLink="/dashboard"
       routerLinkActive="sidebar__link--active"
-      #inicioLink="routerLinkActive"
-      [attr.aria-current]="inicioLink.isActive ? 'page' : null"
+      ariaCurrentWhenActive="page"
       >Inicio</a
     >
     <a
       class="sidebar__link"
       routerLink="/work-orders"
       routerLinkActive="sidebar__link--active"
-      #ordenesLink="routerLinkActive"
-      [attr.aria-current]="ordenesLink.isActive ? 'page' : null"
+      ariaCurrentWhenActive="page"
       >Órdenes</a
     >
+    @if (showTechnicians()) {
+      <a
+        class="sidebar__link"
+        routerLink="/maintenance/technicians"
+        routerLinkActive="sidebar__link--active"
+        ariaCurrentWhenActive="page"
+        >Técnicos</a
+      >
+    }
+    @if (showTeams()) {
+      <a
+        class="sidebar__link"
+        routerLink="/maintenance/teams"
+        routerLinkActive="sidebar__link--active"
+        ariaCurrentWhenActive="page"
+        >Equipos</a
+      >
+    }
   </nav>
 </aside>
