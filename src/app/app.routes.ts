@@ -32,6 +32,11 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/maintenance/maintenance.routes').then((m) => m.MAINTENANCE_ROUTES),
       },
+      {
+        path: 'machines',
+        loadChildren: () =>
+          import('./features/machines/machines.routes').then((m) => m.MACHINES_ROUTES),
+      },
     ],
   },
   {

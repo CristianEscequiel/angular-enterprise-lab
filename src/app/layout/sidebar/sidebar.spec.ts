@@ -2,7 +2,7 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 
-import { AuthUser } from '@core/auth/auth.model';
+import { AuthUser, USER_ROLES } from '@core/auth/auth.model';
 import { AuthService } from '@core/auth/auth.service';
 import { Sidebar } from './sidebar';
 
@@ -42,6 +42,9 @@ describe('Sidebar', () => {
           { path: 'maintenance/technicians', component: PageStub },
           { path: 'maintenance/technicians/new', component: PageStub },
           { path: 'maintenance/teams', component: PageStub },
+          { path: 'machines', component: PageStub },
+          { path: 'machines/new', component: PageStub },
+          { path: 'machines/:id/parts', component: PageStub },
           { path: 'work-orders', component: PageStub },
           { path: 'work-orders/1', component: PageStub },
           { path: 'dashboard', component: PageStub },
@@ -75,21 +78,21 @@ describe('Sidebar', () => {
   });
 
   describe('maintenance links follow the permission policy', () => {
-    it('team leader sees Técnicos and Equipos', () => {
-      expect(links()).toEqual(['Inicio', 'Órdenes', 'Técnicos', 'Equipos']);
+    it('team leader sees Técnicos, Equipos and Máquinas', () => {
+      expect(links()).toEqual(['Inicio', 'Órdenes', 'Técnicos', 'Equipos', 'Máquinas']);
     });
 
-    it('administrador sees Técnicos but not Equipos', () => {
+    it('administrador sees Técnicos and Máquinas but not Equipos', () => {
       showFor(administrador);
 
-      expect(links()).toEqual(['Inicio', 'Órdenes', 'Técnicos']);
+      expect(links()).toEqual(['Inicio', 'Órdenes', 'Técnicos', 'Máquinas']);
     });
 
     it.each([
       ['personal-produccion', produccion],
       ['tecnico', tecnico],
       ['no session', null],
-    ])('%s sees neither Técnicos nor Equipos', (_label, user) => {
+    ])('%s sees none of Técnicos, Equipos and Máquinas', (_label, user) => {
       showFor(user);
 
       expect(links()).toEqual(['Inicio', 'Órdenes']);
@@ -111,6 +114,64 @@ describe('Sidebar', () => {
 
       expect(link('Técnicos')?.getAttribute('href')).toBe('/maintenance/technicians');
       expect(link('Equipos')?.getAttribute('href')).toBe('/maintenance/teams');
+    });
+  });
+
+  // Criterio 3 de 013a: solo `administrador` y `team-leader-mantenimiento` gestionan máquinas.
+  describe('the machines link follows the permission policy', () => {
+    it.each([
+      ['administrador', administrador],
+      ['team-leader-mantenimiento', teamLeader],
+    ])('%s sees Máquinas (the same level of permission)', (_label, user) => {
+      showFor(user);
+
+      expect(link('Máquinas')).toBeDefined();
+    });
+
+    it.each([
+      ['personal-produccion', produccion],
+      ['tecnico', tecnico],
+      ['no session', null],
+    ])('%s does not see Máquinas', (_label, user) => {
+      showFor(user);
+
+      expect(link('Máquinas')).toBeUndefined();
+    });
+
+    it('points to the machines list', () => {
+      expect(link('Máquinas')?.getAttribute('href')).toBe('/machines');
+    });
+
+    it('shows and hides it as the session changes', () => {
+      expect.assertions(3);
+      showFor(produccion);
+      expect(link('Máquinas')).toBeUndefined();
+
+      showFor(administrador);
+      expect(link('Máquinas')).toBeDefined();
+
+      showFor(null);
+      expect(link('Máquinas')).toBeUndefined();
+    });
+
+    it('does not change the other links', () => {
+      showFor(administrador);
+
+      expect(links().filter((label) => label !== 'Máquinas')).toEqual([
+        'Inicio',
+        'Órdenes',
+        'Técnicos',
+      ]);
+    });
+
+    // Un rol nuevo obliga a decidir acá si ve el link.
+    it.each(USER_ROLES)('has a decision for role %s', (role) => {
+      const user: AuthUser = role === 'tecnico' ? tecnico : { ...teamLeader, id: role, role: role };
+      showFor(user);
+
+      expect(link('Máquinas') !== undefined).toBe(
+        role === 'administrador' || role === 'team-leader-mantenimiento',
+      );
     });
   });
 
@@ -162,6 +223,33 @@ describe('Sidebar', () => {
       expect(link('Inicio')?.getAttribute('aria-current')).toBeNull();
       expect(link('Equipos')?.getAttribute('aria-current')).toBe('page');
       expect(fixture.nativeElement.querySelectorAll('nav a[aria-current="page"]')).toHaveLength(1);
+    });
+
+    it('marks Máquinas with aria-current on its list and on its nested pages', async () => {
+      expect.assertions(6);
+
+      await goTo('/machines');
+      expect(link('Máquinas')?.getAttribute('aria-current')).toBe('page');
+
+      await goTo('/machines/new');
+      expect(link('Máquinas')?.getAttribute('aria-current')).toBe('page');
+
+      await goTo('/machines/srv-1/parts');
+      expect(link('Máquinas')?.getAttribute('aria-current')).toBe('page');
+      expect(link('Máquinas')?.classList).toContain('sidebar__link--active');
+      expect(link('Técnicos')?.getAttribute('aria-current')).toBeNull();
+      expect(fixture.nativeElement.querySelectorAll('nav a[aria-current="page"]')).toHaveLength(1);
+    });
+
+    it('moves aria-current away from Máquinas when leaving the section', async () => {
+      expect.assertions(3);
+
+      await goTo('/machines/srv-1/parts');
+      expect(link('Máquinas')?.getAttribute('aria-current')).toBe('page');
+
+      await goTo('/maintenance/teams');
+      expect(link('Máquinas')?.getAttribute('aria-current')).toBeNull();
+      expect(link('Equipos')?.getAttribute('aria-current')).toBe('page');
     });
 
     it('marks Equipos with aria-current on its page only', async () => {
