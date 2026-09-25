@@ -225,6 +225,28 @@ describe('AuthService', () => {
       expect(storedSession()).toMatchObject({ user: { legajo: '1001', ...mecanicoDeGuardia } });
     });
 
+    it('reflects a specialty edited in the master on the next login, without touching users', () => {
+      expect.assertions(4);
+      const service = setup();
+
+      loginAs(service, tecnico, mecanicoDeGuardia);
+      expect(service.currentUser()).toMatchObject(mecanicoDeGuardia);
+      service.logout();
+
+      // Mismo registro de `users`; solo cambió el maestro.
+      loginAs(service, tecnico, { specialty: 'electricista', teamType: 'guardia' });
+
+      expect(service.currentUser()).toMatchObject({
+        legajo: '1001',
+        specialty: 'electricista',
+        teamType: 'guardia',
+      });
+      expect(storedSession()).toMatchObject({
+        user: { specialty: 'electricista', teamType: 'guardia' },
+      });
+      expect(tecnico).not.toHaveProperty('specialty');
+    });
+
     it('fails with InvalidUserRecordError, without a session, when the master has no such legajo', () => {
       expect.assertions(4);
       const service = setup();
