@@ -5,6 +5,8 @@ import { WorkOrder } from '../models/work-order.model';
 import { WorkOrderLoader } from './work-order-loader';
 import { WorkOrderLoadError, WorkOrdersService } from './work-order.service';
 
+import { MACHINE_REF_FIXTURE } from '../testing/work-order.fixtures';
+
 describe('WorkOrderLoader', () => {
   let loader: WorkOrderLoader;
 
@@ -12,7 +14,7 @@ describe('WorkOrderLoader', () => {
     id: '1',
     title: 'Revisar motor',
     description: 'Revisar temperatura del motor',
-    asset: 'Motor 1',
+    machineRef: MACHINE_REF_FIXTURE,
     type: 'correctivo',
     priority: 'medium',
     status: 'pending',

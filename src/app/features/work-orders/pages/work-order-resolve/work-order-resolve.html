@@ -1,0 +1,117 @@
+<section>
+  <div class="d-flex flex-wrap justify-between gap-md py-lg">
+    <h1>Cerrar orden de trabajo</h1>
+    <app-button variant="primary" (clicked)="navigateToWorkOrdersList()">
+      Volver a Lista
+    </app-button>
+  </div>
+
+  @if (loadError() === 'not-found') {
+    <app-alert
+      title="Orden no encontrada"
+      message="La orden de trabajo solicitada no existe o fue eliminada."
+      variant="error"
+    />
+    <app-button variant="primary" (clicked)="retry()"> Reintentar </app-button>
+  } @else if (loadError() === 'connection') {
+    <app-alert
+      title="Error de conexión"
+      message="No pudimos conectar con el servidor. Intentá nuevamente."
+      variant="error"
+    />
+    <app-button variant="primary" (clicked)="retry()"> Reintentar </app-button>
+  } @else if (workOrder(); as order) {
+    <div class="card">
+      <h2 class="card__header">{{ order.title }}</h2>
+      <div class="card__content">
+        <p class="card__description">
+          <strong>Máquina / parte:</strong> {{ order.machineRef.breadcrumb }}
+        </p>
+        @if (order.machineRef.comment) {
+          <p class="card__description" id="machine-comment">
+            <strong>Comentario de la falla:</strong> {{ order.machineRef.comment }}
+          </p>
+        }
+        <p class="card__description"><strong>Tipo:</strong> {{ typeLabels[order.type] }}</p>
+        <p class="card__description">
+          <strong>Prioridad:</strong> {{ priorityLabels[order.priority] }}
+        </p>
+        <p class="card__description">{{ order.description }}</p>
+      </div>
+    </div>
+
+    @switch (access()) {
+      @case ('denied') {
+        <app-alert
+          title="Acceso denegado"
+          message="No tiene permiso para cerrar esta orden."
+          variant="error"
+        />
+      }
+      @case ('closed') {
+        <app-alert title="Orden cerrada" message="La orden ya fue cerrada." variant="info" />
+      }
+      @case ('pending') {
+        <app-alert
+          title="Orden sin tomar"
+          message="Tomá la orden desde el listado para poder cerrarla."
+          variant="warning"
+        />
+      }
+      @case ('other') {
+        <app-alert title="Orden en ejecución" [message]="otherMessage()" variant="warning" />
+      }
+      @case ('ok') {
+        <form class="form" [formGroup]="form" (ngSubmit)="submit()">
+          <label class="form-label" for="outcome">Resultado:</label>
+          <select
+            class="form-control"
+            id="outcome"
+            formControlName="outcome"
+            required
+            [class.form-control--invalid]="isInvalid('outcome')"
+            [attr.aria-invalid]="isInvalid('outcome')"
+            [attr.aria-describedby]="isInvalid('outcome') ? 'outcome-error' : null"
+          >
+            <option value="">Seleccioná un resultado</option>
+            @for (outcome of outcomes; track outcome) {
+              <option [value]="outcome">{{ statusLabels[outcome] }}</option>
+            }
+          </select>
+          @if (isInvalid('outcome')) {
+            <div class="form-error" id="outcome-error">
+              Elegí si la orden se completó o se canceló.
+            </div>
+          }
+
+          <label class="form-label" for="comment">Comentario del técnico:</label>
+          <textarea
+            class="form-control"
+            id="comment"
+            formControlName="comment"
+            required
+            [attr.maxlength]="maxLength"
+            [class.form-control--invalid]="isInvalid('comment')"
+            [attr.aria-invalid]="isInvalid('comment')"
+            [attr.aria-describedby]="
+              isInvalid('comment') ? 'comment-error comment-counter' : 'comment-counter'
+            "
+          ></textarea>
+          <div class="u-text-muted" id="comment-counter">
+            {{ commentLength() }} / {{ minLength }} mínimo
+          </div>
+          @if (isInvalid('comment')) {
+            <div class="form-error" id="comment-error">
+              El comentario es obligatorio y debe tener entre {{ minLength }} y
+              {{ maxLength }} caracteres.
+            </div>
+          }
+
+          <app-button type="submit" size="full" variant="primary" [disabled]="isSubmitting()">{{
+            isSubmitting() ? 'Guardando...' : 'Cerrar orden'
+          }}</app-button>
+        </form>
+      }
+    }
+  }
+</section>

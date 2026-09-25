@@ -1,6 +1,10 @@
 import { UrlSegment } from '@angular/router';
 
-import { matchWorkOrderId, matchWorkOrderIdEdit } from './work-orders.routes';
+import {
+  matchWorkOrderId,
+  matchWorkOrderIdEdit,
+  matchWorkOrderIdResolve,
+} from './work-orders.routes';
 
 function segment(path: string): UrlSegment {
   return new UrlSegment(path, {});
@@ -63,5 +67,30 @@ describe('matchWorkOrderIdEdit', () => {
     expect(
       matchWorkOrderIdEdit([segment('42')], undefined as never, undefined as never),
     ).toBeNull();
+  });
+});
+
+describe('matchWorkOrderIdResolve', () => {
+  const match = (...paths: string[]) =>
+    matchWorkOrderIdResolve(paths.map(segment), undefined as never, undefined as never);
+
+  it('matches <numeric id>/resolve', () => {
+    const segments = [segment('42'), segment('resolve')];
+
+    expect(matchWorkOrderIdResolve(segments, undefined as never, undefined as never)).toEqual({
+      consumed: segments,
+      posParams: { id: segments[0] },
+    });
+  });
+
+  it.each([
+    ['a non-numeric id', ['abc', 'resolve']],
+    ['a path-like id', ['..', 'resolve']],
+    ['another suffix', ['42', 'edit']],
+    ['a single segment', ['42']],
+    ['extra segments', ['42', 'resolve', 'x']],
+    ['no segments', []],
+  ])('rejects %s', (_label, paths) => {
+    expect(match(...paths)).toBeNull();
   });
 });

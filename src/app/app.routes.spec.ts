@@ -21,12 +21,14 @@ import { TechniciansService } from './features/maintenance/data-access/technicia
 import { Team } from './features/maintenance/models/team.model';
 import { Technician } from './features/maintenance/models/technician.model';
 
+import { MACHINE_REF_FIXTURE } from '@features/work-orders/testing/work-order.fixtures';
+
 describe('app routes', () => {
   const order: WorkOrder = {
     id: '1',
     title: 'Revisar motor',
     description: 'Revisar temperatura del motor',
-    asset: 'Motor 1',
+    machineRef: MACHINE_REF_FIXTURE,
     type: 'correctivo',
     priority: 'medium',
     status: 'pending',
@@ -318,18 +320,21 @@ describe('app routes', () => {
       expect(workOrdersServiceMock.search).not.toHaveBeenCalled();
     });
 
-    it.each(['/dashboard', '/work-orders/new', '/work-orders/5', '/work-orders/5/edit'])(
-      'redirects %s to login with that url as returnUrl',
-      async (url) => {
-        expect.assertions(3);
+    it.each([
+      '/dashboard',
+      '/work-orders/new',
+      '/work-orders/5',
+      '/work-orders/5/edit',
+      '/work-orders/5/resolve',
+    ])('redirects %s to login with that url as returnUrl', async (url) => {
+      expect.assertions(3);
 
-        await harness.navigateByUrl(url);
+      await harness.navigateByUrl(url);
 
-        expect(pathname()).toBe('/login');
-        expect(returnUrl()).toBe(url);
-        expect(workOrdersServiceMock.getById).not.toHaveBeenCalled();
-      },
-    );
+      expect(pathname()).toBe('/login');
+      expect(returnUrl()).toBe(url);
+      expect(workOrdersServiceMock.getById).not.toHaveBeenCalled();
+    });
 
     it('returns to /work-orders/5 after logging in from the redirect made by the guard', async () => {
       expect.assertions(4);
@@ -458,6 +463,50 @@ describe('app routes', () => {
         expect(deniedWarning()?.title).toBe('Acceso denegado');
       },
     );
+
+    // Página de cierre de la orden (spec 013d): solo los técnicos.
+    it('lets a technician open the closing page of an order', async () => {
+      expect.assertions(4);
+      loginAs(users.tecnico);
+
+      await harness.navigateByUrl('/work-orders/1/resolve');
+
+      expect(router.url).toBe('/work-orders/1/resolve');
+      expect(workOrdersServiceMock.getById).toHaveBeenCalledWith('1');
+      expect(harness.routeNativeElement?.textContent).toContain('Cerrar orden de trabajo');
+      expect(deniedWarning()).toBeNull();
+    });
+
+    it.each([
+      ['administrador', users.admin],
+      ['team leader', users.teamLeader],
+      ['personal-produccion', users.produccion],
+    ])(
+      'sends %s away from /work-orders/1/resolve to /dashboard with a warning',
+      async (_label, record) => {
+        expect.assertions(4);
+        loginAs(record);
+
+        await harness.navigateByUrl('/work-orders/1/resolve');
+
+        expect(router.url).toBe('/dashboard');
+        expect(workOrdersServiceMock.getById).not.toHaveBeenCalled();
+        expect(deniedWarning()?.title).toBe('Acceso denegado');
+        expect(harness.routeNativeElement?.textContent).not.toContain('Cerrar orden de trabajo');
+      },
+    );
+
+    it.each([
+      '/work-orders/abc/resolve',
+      '/work-orders/1/resolve/extra',
+      '/work-orders/../resolve',
+    ])('renders NotFound for %s', async (url) => {
+      loginAs(users.tecnico);
+
+      await harness.navigateByUrl(url);
+
+      expect(harness.routeNativeElement?.textContent).toContain('Página no encontrada');
+    });
 
     // Lo que no se restringe: ver el listado y el detalle sigue abierto a cualquier rol con sesión.
     it.each(Object.entries(users))(

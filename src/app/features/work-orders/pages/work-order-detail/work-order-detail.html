@@ -24,11 +24,33 @@
     <div class="card">
       <h2 class="card__header">{{ workOrderDetail.title }}</h2>
       <div class="card__content">
-        <p class="card__description"><strong>Activo:</strong> {{ workOrderDetail.asset }}</p>
+        <p class="card__description">
+          <strong>Máquina / parte:</strong> {{ workOrderDetail.machineRef.breadcrumb }}
+        </p>
+        @if (workOrderDetail.machineRef.comment) {
+          <p class="card__description" id="machine-comment">
+            <strong>Comentario de la falla:</strong> {{ workOrderDetail.machineRef.comment }}
+          </p>
+        }
         <p class="card__description">
           <strong>Tipo:</strong> {{ typeLabels[workOrderDetail.type] }}
         </p>
         <p class="card__description">{{ workOrderDetail.description }}</p>
+        @if (workOrderDetail.takenBy; as taker) {
+          <p class="card__description" id="taken-by">
+            <strong>Tomada por:</strong> {{ taker.name }} el
+            {{ taker.at | date: 'dd/MM/yyyy HH:mm' }}
+          </p>
+        }
+        @if (workOrderDetail.closingNote; as note) {
+          <div class="card__description" id="closing-note">
+            <p><strong>Comentario del técnico:</strong> {{ note.comment }}</p>
+            <p>
+              <strong>Cerrada por:</strong> {{ note.authorName }} el
+              {{ note.at | date: 'dd/MM/yyyy HH:mm' }}
+            </p>
+          </div>
+        }
       </div>
       <p class="card__footer"><strong>Estado:</strong> {{ workOrderDetail.status }}</p>
     </div>

@@ -31,18 +31,45 @@
     </div>
   }
 
-  <label class="form-label" for="asset">Activo:</label>
-  <input
-    class="form-control"
-    id="asset"
-    formControlName="asset"
-    required
-    [class.form-control--invalid]="isInvalid('asset')"
-    [attr.aria-invalid]="isInvalid('asset')"
-    [attr.aria-describedby]="isInvalid('asset') ? 'asset-error' : null"
-  />
-  @if (isInvalid('asset')) {
-    <div class="form-error" id="asset-error">El activo es obligatorio.</div>
+  @if (lockMachine()) {
+    <div class="form-group">
+      <p class="form-label">Máquina / parte:</p>
+      <p id="machine-locked">{{ lockedBreadcrumb() }}</p>
+      @if (workOrderForm.controls.comment.value) {
+        <p class="form-label">Comentario de la falla:</p>
+        <p id="comment-locked">{{ workOrderForm.controls.comment.value }}</p>
+      }
+    </div>
+  } @else {
+    <app-machine-part-picker
+      [machines]="machines()"
+      [nodes]="partNodes()"
+      [machineId]="workOrderForm.controls.machineId.value || null"
+      [partId]="workOrderForm.controls.partId.value"
+      [invalid]="isInvalid('machineId')"
+      errorId="machine-error"
+      (machineChange)="onMachineChange($event)"
+      (partChange)="onPartChange($event)"
+    />
+    @if (isInvalid('machineId')) {
+      <div class="form-error" id="machine-error">Seleccioná una máquina.</div>
+    }
+
+    <label class="form-label" for="comment">Comentario de la falla (opcional):</label>
+    <textarea
+      class="form-control"
+      id="comment"
+      formControlName="comment"
+      [attr.maxlength]="commentMaxLength"
+      [class.form-control--invalid]="isInvalid('comment')"
+      [attr.aria-invalid]="isInvalid('comment')"
+      [attr.aria-describedby]="isInvalid('comment') ? 'comment-error' : null"
+    ></textarea>
+    @if (isInvalid('comment')) {
+      <div class="form-error" id="comment-error">
+        El comentario no puede superar los {{ commentMaxLength }} caracteres.
+      </div>
+    }
   }
 
   <label class="form-label" for="type">Tipo de orden:</label>

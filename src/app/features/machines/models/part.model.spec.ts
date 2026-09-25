@@ -1,4 +1,7 @@
+import { Machine } from './machine.model';
 import {
+  BREADCRUMB_SEPARATOR,
+  buildBreadcrumb,
   buildPartTree,
   flattenPartTree,
   hasChildren,
@@ -354,5 +357,90 @@ describe('part model', () => {
     it('is true even when the child belongs to another machine (better to block than orphan it)', () => {
       expect(hasChildren([part('1', null), part('2', '1', 'Cruzada', 'm2')], '1')).toBe(true);
     });
+  });
+});
+
+describe('buildBreadcrumb', () => {
+  const machine: Machine = { id: 'm1', code: 'ENV-01', name: 'Envasadora línea 1' };
+
+  it('is just the machine name when no part is selected', () => {
+    expect(buildBreadcrumb(machine, null, ordered)).toBe('Envasadora línea 1');
+    expect(buildBreadcrumb(machine, null, [])).toBe('Envasadora línea 1');
+  });
+
+  it('lists every ancestor from the machine down to a level-3 part, in order', () => {
+    expect(buildBreadcrumb(machine, '3', ordered)).toBe(
+      ['Envasadora línea 1', 'Mesa de transporte', 'Cinta 1', 'Motor de cinta'].join(
+        BREADCRUMB_SEPARATOR,
+      ),
+    );
+  });
+
+  it('does not depend on the order of the input: children before their parents', () => {
+    const shuffled = [...ordered].reverse();
+
+    expect(buildBreadcrumb(machine, '5', shuffled)).toBe(
+      'Envasadora línea 1 > Mesa de transporte > Cinta 1 > Motor de cinta > Rodamiento > Sello',
+    );
+  });
+
+  it('is machine + first-level part for a first-level part', () => {
+    expect(buildBreadcrumb(machine, '7', ordered)).toBe('Envasadora línea 1 > Cabezal de sellado');
+  });
+
+  it('gives each same-named part in a different branch its own chain', () => {
+    const parts = [
+      part('1', null, 'Cabezal'),
+      part('2', null, 'Mordaza'),
+      part('3', '1', 'Resistencia'),
+      part('4', '2', 'Resistencia'),
+    ];
+
+    expect(buildBreadcrumb(machine, '3', parts)).toBe('Envasadora línea 1 > Cabezal > Resistencia');
+    expect(buildBreadcrumb(machine, '4', parts)).toBe('Envasadora línea 1 > Mordaza > Resistencia');
+  });
+
+  it('uses the first occurrence when an id is repeated', () => {
+    const parts = [part('1', null, 'Original'), part('1', null, 'Repetida')];
+
+    expect(buildBreadcrumb(machine, '1', parts)).toBe('Envasadora línea 1 > Original');
+  });
+
+  it('is null when the part does not exist', () => {
+    expect(buildBreadcrumb(machine, '999', ordered)).toBeNull();
+    expect(buildBreadcrumb(machine, '1', [])).toBeNull();
+  });
+
+  it('is null when the part belongs to another machine', () => {
+    const parts = [part('1', null, 'Cabezal', 'otra')];
+
+    expect(buildBreadcrumb(machine, '1', parts)).toBeNull();
+  });
+
+  it('is null when an ancestor is missing, instead of a partial path', () => {
+    const parts = [part('3', '2', 'Motor de cinta')];
+
+    expect(buildBreadcrumb(machine, '3', parts)).toBeNull();
+  });
+
+  it('is null when an ancestor belongs to another machine', () => {
+    const parts = [part('1', null, 'Mesa', 'otra'), part('2', '1', 'Cinta 1')];
+
+    expect(buildBreadcrumb(machine, '2', parts)).toBeNull();
+  });
+
+  it('ends (with null) on a cycle A → B → A', () => {
+    const parts = [part('a', 'b', 'A'), part('b', 'a', 'B')];
+
+    expect(buildBreadcrumb(machine, 'a', parts)).toBeNull();
+  });
+
+  it('does not mutate the input', () => {
+    const input = [...ordered];
+    const snapshot = JSON.stringify(input);
+
+    buildBreadcrumb(machine, '5', input);
+
+    expect(JSON.stringify(input)).toBe(snapshot);
   });
 });

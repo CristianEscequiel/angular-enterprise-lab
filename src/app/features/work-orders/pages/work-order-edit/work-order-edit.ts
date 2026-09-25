@@ -3,8 +3,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { WorkOrderLoader } from '../../data-access/work-order-loader';
 import { WorkOrdersService } from '../../data-access/work-order.service';
-import { WorkOrder, WorkOrderCreateRequest } from '../../models/work-order.model';
-import { Form } from '../../components/form/form';
+import { WorkOrder } from '../../models/work-order.model';
+import { Form, WorkOrderFormValue } from '../../components/form/form';
 import { MessageService } from '@core/services/message.service';
 import { Alert } from '@shared/components/alert/alert';
 import { Button } from '@shared/components/button/button';
@@ -39,7 +39,7 @@ export class WorkOrderEdit implements OnInit {
   retry(): void {
     this.loader.retry();
   }
-  onSubmitEdit(workOrderData: WorkOrderCreateRequest): void {
+  onSubmitEdit(workOrderData: WorkOrderFormValue): void {
     if (this.isSubmitting()) return;
 
     const current = this.workOrder();
@@ -49,7 +49,6 @@ export class WorkOrderEdit implements OnInit {
     const hasChanges =
       current.title !== workOrderData.title ||
       current.description !== workOrderData.description ||
-      current.asset !== workOrderData.asset ||
       current.priority !== workOrderData.priority;
 
     if (!hasChanges) {
@@ -57,12 +56,17 @@ export class WorkOrderEdit implements OnInit {
       return;
     }
 
-    // El tipo se fija al crear: el PUT siempre conserva el de la orden cargada, sin importar
-    // lo que emita el formulario.
+    // El tipo y la máquina/parte se fijan al crear (spec 013d): el PUT siempre conserva los de la
+    // orden cargada, sin importar lo que emita el formulario. Se copian los campos editables uno por
+    // uno: el valor del formulario trae también `machineId`/`partId`/`comment`, que no son campos de
+    // la orden.
     const updatedWorkOrder: WorkOrder = {
       ...current,
-      ...workOrderData,
+      title: workOrderData.title,
+      description: workOrderData.description,
+      priority: workOrderData.priority,
       type: current.type,
+      machineRef: current.machineRef,
     };
 
     this.isSubmitting.set(true);

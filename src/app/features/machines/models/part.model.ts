@@ -1,3 +1,5 @@
+import { Machine } from './machine.model';
+
 // Partes de una máquina (`/partes`): lista de adyacencia plana. Cada parte apunta a su máquina
 // (`machineId`) y a su padre (`parentId`, `null` en las de primer nivel). Una parte sin hijos es
 // una hoja; ese dato no se guarda, se deduce de que nadie la tiene como `parentId`.
@@ -140,4 +142,52 @@ export function flattenPartTree(roots: readonly PartNode[]): FlatPart[] {
 // duda (una referencia cruzada) se prefiere bloquear la eliminación a dejar un huérfano.
 export function hasChildren(parts: readonly Part[], id: string): boolean {
   return parts.some((part) => part.parentId === id);
+}
+
+// Separador de la ruta que se guarda en la orden (spec 013d). Es solo presentación: la referencia
+// real es el `partId`, así que un nombre que contenga el separador no rompe nada.
+export const BREADCRUMB_SEPARATOR = ' > ';
+
+// Ruta legible de una parte, del nombre de la máquina hacia la parte: `Máquina > nivel 1 > … > parte`.
+// Sin parte (`partId` en `null`) es solo el nombre de la máquina.
+//
+// Sube por `parentId` sobre la lista plana (la que devuelve `PartsService.getByMachine`) en vez de
+// bajar por el árbol: `flattenPartTree` da la profundidad pero no el vínculo con el padre. Devuelve
+// `null` —nunca una ruta parcial— si la cadena no se puede resolver: la parte no existe, es de otra
+// máquina, un ancestro falta o hay un ciclo (un `Set` de visitados hace que termine siempre). Quien
+// llama decide qué hacer (la página de creación no crea la orden).
+export function buildBreadcrumb(
+  machine: Machine,
+  partId: string | null,
+  parts: readonly Part[],
+): string | null {
+  if (partId === null) {
+    return machine.name;
+  }
+
+  // JSON Server acepta ids repetidos: como en `buildPartTree`, gana la primera aparición.
+  const byId = new Map<string, Part>();
+
+  for (const part of parts) {
+    if (!byId.has(part.id)) {
+      byId.set(part.id, part);
+    }
+  }
+
+  const names: string[] = [];
+  const visited = new Set<string>();
+
+  for (let currentId: string | null = partId; currentId !== null;) {
+    const part = byId.get(currentId);
+
+    if (!part || part.machineId !== machine.id || visited.has(part.id)) {
+      return null;
+    }
+
+    visited.add(part.id);
+    names.push(part.name);
+    currentId = part.parentId;
+  }
+
+  return [machine.name, ...names.reverse()].join(BREADCRUMB_SEPARATOR);
 }

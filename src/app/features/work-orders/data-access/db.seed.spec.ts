@@ -1,6 +1,17 @@
 import { toAuthUser, USER_ROLES } from '@core/auth/auth.model';
 import { isMachineRecord, normalizeMachineCode } from '../../machines/models/machine.model';
+import { WORK_ORDERS_MOCK } from './work-order.mock';
+import { canTakeWorkOrder } from '../models/work-order.permissions';
 import {
+  isClosedStatus,
+  isWorkOrderClosingNote,
+  isWorkOrderMachineRef,
+  isWorkOrderTaker,
+  WorkOrder,
+  WorkOrderMachineRef,
+} from '../models/work-order.model';
+import {
+  buildBreadcrumb,
   buildPartTree,
   flattenPartTree,
   hasChildren,
@@ -15,6 +26,7 @@ import db from './db.json';
 // referencial: si estas referencias se rompen a mano (un legajo borrado, un miembro que no existe),
 // la app falla recién en el navegador. Acá se comprueba con los mismos validadores del código.
 const { users, tecnicos, equipos, maquinas, partes } = db as unknown as {
+  'work-orders': Record<string, unknown>[];
   users: Record<string, unknown>[];
   tecnicos: unknown[];
   equipos: unknown[];
@@ -248,6 +260,141 @@ describe('db.json seed data', () => {
         expect(record).not.toHaveProperty('maquinaId');
         expect(record).not.toHaveProperty('parteId');
       }
+    });
+  });
+
+  // Invariantes de spec 013d: pending → sin dueño; in-progress → con dueño; cerrada → con dueño y
+  // comentario de cierre escrito por ese mismo dueño.
+  describe.each<[string, () => WorkOrder[]]>([
+    ['db.json', () => (db as unknown as { 'work-orders': WorkOrder[] })['work-orders']],
+    ['work-order.mock.ts', () => WORK_ORDERS_MOCK],
+  ])('order owner and closing note (%s)', (_source, load) => {
+    const orders = load();
+    const ids = (list: WorkOrder[]) => list.map((order) => order.id);
+
+    it('a pending order has no owner (or a released one, null) and no closing note', () => {
+      const broken = orders.filter(
+        (order) => order.status === 'pending' && (order.takenBy || order.closingNote),
+      );
+
+      expect(ids(broken)).toEqual([]);
+    });
+
+    it('an in-progress order has a valid owner and no closing note', () => {
+      const broken = orders.filter(
+        (order) =>
+          order.status === 'in-progress' && (!isWorkOrderTaker(order.takenBy) || order.closingNote),
+      );
+
+      expect(ids(broken)).toEqual([]);
+    });
+
+    it('a closed order has an owner and a valid closing note written by that owner', () => {
+      const closed = orders.filter((order) => isClosedStatus(order.status));
+      const broken = closed.filter(
+        (order) =>
+          !isWorkOrderTaker(order.takenBy) ||
+          !isWorkOrderClosingNote(order.closingNote) ||
+          order.closingNote.authorId !== order.takenBy.id,
+      );
+
+      expect(closed.length).toBeGreaterThan(0);
+      expect(ids(broken)).toEqual([]);
+    });
+
+    it('the owner is a technician with a login whose team attends the order type', () => {
+      const owned = orders.filter((order) => isWorkOrderTaker(order.takenBy));
+      const broken = owned.filter((order) => {
+        const user = users.find((candidate) => candidate['id'] === order.takenBy?.id);
+        const authUser = toAuthUser(user, profileOf(user?.['legajo']));
+
+        return user?.['role'] !== 'tecnico' || !authUser || !canTakeWorkOrder(authUser, order);
+      });
+
+      expect(owned.length).toBeGreaterThan(0);
+      expect(ids(broken)).toEqual([]);
+    });
+
+    it('never mixes the closing comment into the machine path or the failure comment', () => {
+      const mixed = orders.filter(
+        (order) =>
+          order.closingNote &&
+          (order.machineRef.breadcrumb.includes(order.closingNote.comment) ||
+            order.machineRef.comment === order.closingNote.comment),
+      );
+
+      expect(ids(mixed)).toEqual([]);
+    });
+  });
+
+  describe('work orders (work-orders)', () => {
+    const orders = (db as unknown as { 'work-orders': Record<string, unknown>[] })['work-orders'];
+    const machines = maquinas.filter(isMachineRecord);
+    const refOf = (order: Record<string, unknown>): WorkOrderMachineRef =>
+      order['machineRef'] as WorkOrderMachineRef;
+
+    // El mock es solo de tres órdenes: el caso cancelado lo aporta db.json.
+    it('has at least one cancelled order, to exercise the filter and the detail', () => {
+      expect(orders.some((order) => order['status'] === 'cancelled')).toBe(true);
+    });
+
+    it('every order carries a valid machineRef and no free-text asset', () => {
+      const invalid = orders.filter((order) => !isWorkOrderMachineRef(order['machineRef']));
+
+      expect(invalid.map((order) => order['id'])).toEqual([]);
+      expect(orders.filter((order) => 'asset' in order)).toEqual([]);
+    });
+
+    it('points at machines that exist', () => {
+      const unknown = orders.filter(
+        (order) => !machines.some((machine) => machine.id === refOf(order).machineId),
+      );
+
+      expect(unknown.map((order) => order['id'])).toEqual([]);
+    });
+
+    it('points at parts that exist and belong to that machine', () => {
+      const all = partRecords();
+      const broken = orders.filter((order) => {
+        const { partId, machineId } = refOf(order);
+
+        return (
+          partId !== null && !all.some((part) => part.id === partId && part.machineId === machineId)
+        );
+      });
+
+      expect(broken.map((order) => order['id'])).toEqual([]);
+    });
+
+    it('stores a breadcrumb equal to the chain of names of the seeded master', () => {
+      const all = partRecords();
+      const stale = orders.filter((order) => {
+        const ref = refOf(order);
+        const machine = machines.find((candidate) => candidate.id === ref.machineId);
+
+        return !machine || buildBreadcrumb(machine, ref.partId, all) !== ref.breadcrumb;
+      });
+
+      expect(stale.map((order) => order['id'])).toEqual([]);
+    });
+
+    it('keeps the comment apart: it is never inside the breadcrumb', () => {
+      const mixed = orders.filter((order) => {
+        const { comment, breadcrumb } = refOf(order);
+
+        return comment !== '' && breadcrumb.includes(comment);
+      });
+
+      expect(mixed.map((order) => order['id'])).toEqual([]);
+    });
+
+    it('has a machine-level order and one that goes down to level 3 or deeper', () => {
+      const separator = ' > ';
+
+      expect(orders.some((order) => refOf(order).partId === null)).toBe(true);
+      expect(orders.some((order) => refOf(order).breadcrumb.split(separator).length >= 4)).toBe(
+        true,
+      );
     });
   });
 });

@@ -5,12 +5,16 @@ import {
   TechnicianTeamType,
   TechnicianUser,
   UserRole,
+  USER_ROLES,
 } from '@core/auth/auth.model';
-import { WORK_ORDER_TYPES, WorkOrderType } from './work-order.model';
+import { WORK_ORDER_TYPES, WorkOrder, WorkOrderStatus, WorkOrderType } from './work-order.model';
 import {
   canCreateWorkOrder,
   canDeleteWorkOrder,
   canEditWorkOrder,
+  canReleaseWorkOrder,
+  canResolveWorkOrder,
+  canTakeWorkOrder,
   canTechnicianHandle,
   creatableTypes,
   OrderSpecialty,
@@ -231,6 +235,133 @@ describe('work order permissions', () => {
           expect(canTechnicianHandle(user, { type, specialty })).toBe(false);
         }
       }
+    });
+  });
+
+  describe('canTakeWorkOrder (spec 013d)', () => {
+    it.each(SPECIALTIES)(
+      'a guardia technician (%s) takes only pronto-intervencion',
+      (specialty) => {
+        const user = technician(specialty, 'guardia');
+
+        expect(WORK_ORDER_TYPES.filter((type) => canTakeWorkOrder(user, { type }))).toEqual([
+          'pronto-intervencion',
+        ]);
+      },
+    );
+
+    it.each(SPECIALTIES)(
+      'a preventivo-correctivo technician (%s) takes preventivo and correctivo, not pronto',
+      (specialty) => {
+        const user = technician(specialty, 'preventivo-correctivo');
+
+        expect(WORK_ORDER_TYPES.filter((type) => canTakeWorkOrder(user, { type }))).toEqual([
+          'preventivo',
+          'correctivo',
+        ]);
+      },
+    );
+
+    it('does not depend on the specialty: the general technician follows the team type too', () => {
+      expect(
+        canTakeWorkOrder(technician('general', 'guardia'), { type: 'pronto-intervencion' }),
+      ).toBe(true);
+      expect(canTakeWorkOrder(technician('general', 'guardia'), { type: 'preventivo' })).toBe(
+        false,
+      );
+    });
+
+    it.each(STAFF_ROLES)('does not let %s take any order', (role) => {
+      for (const type of WORK_ORDER_TYPES) {
+        expect(canTakeWorkOrder(staff(role), { type })).toBe(false);
+      }
+    });
+
+    it('does not let a missing session take any order', () => {
+      for (const type of WORK_ORDER_TYPES) {
+        expect(canTakeWorkOrder(null, { type })).toBe(false);
+      }
+    });
+
+    // Un rol nuevo obliga a decidir su permiso: si aparece en USER_ROLES, este test falla hasta que
+    // se lo clasifique acá.
+    it('classifies every user role', () => {
+      expect([...USER_ROLES].sort()).toEqual([...STAFF_ROLES, 'tecnico'].sort());
+    });
+  });
+
+  describe('canResolveWorkOrder (spec 013d)', () => {
+    const mine = technician('mecanico', 'guardia');
+    const taker = { id: mine.id, name: mine.displayName, at: '2026-09-25T10:00:00Z' };
+    const order = (over: Partial<Pick<WorkOrder, 'type' | 'status' | 'takenBy'>> = {}) => ({
+      type: 'pronto-intervencion' as WorkOrderType,
+      status: 'in-progress' as WorkOrderStatus,
+      takenBy: taker,
+      ...over,
+    });
+
+    it('lets the technician who took an in-progress order continue it', () => {
+      expect(canResolveWorkOrder(mine, order())).toBe(true);
+    });
+
+    it('does not let another technician resolve an order taken by someone else', () => {
+      const other = { ...technician('mecanico', 'guardia'), id: 'otro' };
+
+      expect(canResolveWorkOrder(other, order())).toBe(false);
+    });
+
+    it.each<[string, Partial<Pick<WorkOrder, 'status' | 'takenBy'>>]>([
+      ['a pending order', { status: 'pending', takenBy: null }],
+      ['a completed order', { status: 'completed' }],
+      ['a cancelled order', { status: 'cancelled' }],
+      ['an order without an owner', { takenBy: null }],
+    ])('does not let the technician resolve %s', (_label, over) => {
+      expect(canResolveWorkOrder(mine, order(over))).toBe(false);
+    });
+
+    it('does not let the technician resolve an order with no takenBy field', () => {
+      expect(
+        canResolveWorkOrder(mine, { type: 'pronto-intervencion', status: 'in-progress' }),
+      ).toBe(false);
+    });
+
+    it('does not let a technician resolve an order of a type their team does not attend', () => {
+      expect(canResolveWorkOrder(mine, order({ type: 'preventivo' }))).toBe(false);
+    });
+
+    it.each<[string, AuthUser | null]>([
+      ['administrador', administrador],
+      ['team leader', teamLeader],
+      ['personal-produccion', produccion],
+      ['no session', null],
+    ])('does not let %s resolve', (_label, user) => {
+      expect(canResolveWorkOrder(user, order({ takenBy: { ...taker, id: user?.id ?? 'x' } }))).toBe(
+        false,
+      );
+    });
+  });
+
+  describe('canReleaseWorkOrder (spec 013d)', () => {
+    it.each<[string, AuthUser]>([
+      ['administrador', administrador],
+      ['team leader', teamLeader],
+    ])('lets %s release an in-progress order', (_label, user) => {
+      expect(canReleaseWorkOrder(user, { status: 'in-progress' })).toBe(true);
+    });
+
+    it.each<WorkOrderStatus>(['pending', 'completed', 'cancelled'])(
+      'does not let administrador release a %s order',
+      (status) => {
+        expect(canReleaseWorkOrder(administrador, { status })).toBe(false);
+      },
+    );
+
+    it.each<[string, AuthUser | null]>([
+      ['the technician who owns it', technician('mecanico', 'guardia')],
+      ['personal-produccion', produccion],
+      ['no session', null],
+    ])('does not let %s release', (_label, user) => {
+      expect(canReleaseWorkOrder(user, { status: 'in-progress' })).toBe(false);
     });
   });
 });

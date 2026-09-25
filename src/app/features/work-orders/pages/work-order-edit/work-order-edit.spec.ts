@@ -5,6 +5,8 @@ import { of, Subject, throwError } from 'rxjs';
 import { WorkOrderEdit } from './work-order-edit';
 import { MessageService } from '@core/services/message.service';
 import { WorkOrderLoadError, WorkOrdersService } from '../../data-access/work-order.service';
+import { WorkOrderFormValue } from '../../components/form/form';
+import { MACHINE_REF_FIXTURE } from '../../testing/work-order.fixtures';
 
 describe('WorkOrderEdit', () => {
   let component: WorkOrderEdit;
@@ -14,18 +16,21 @@ describe('WorkOrderEdit', () => {
     id: '1',
     title: 'Orden de prueba',
     description: 'Descripción de prueba',
-    asset: 'Máquina 1',
+    machineRef: MACHINE_REF_FIXTURE,
     type: 'correctivo',
     priority: 'medium',
     status: 'pending',
   };
 
-  const changedPayload = {
+  // Lo que emite el formulario: la máquina/parte viaja como campos sueltos (sin breadcrumb).
+  const changedPayload: WorkOrderFormValue = {
     title: 'Orden de prueba actualizada',
     description: 'Descripción de prueba',
-    asset: 'Máquina 1',
-    type: 'correctivo' as const,
-    priority: 'medium' as const,
+    machineId: MACHINE_REF_FIXTURE.machineId,
+    partId: MACHINE_REF_FIXTURE.partId,
+    comment: MACHINE_REF_FIXTURE.comment,
+    type: 'correctivo',
+    priority: 'medium',
   };
 
   const workOrdersServiceMock = {
@@ -158,6 +163,110 @@ describe('WorkOrderEdit', () => {
     expect(workOrdersServiceMock.update).toHaveBeenCalledTimes(2);
   });
 
+  describe('machine reference', () => {
+    it('shows the stored path and comment read-only, without a machine selector', async () => {
+      expect.assertions(3);
+      await createComponent();
+
+      expect(fixture.nativeElement.querySelector('#machine-select')).toBeNull();
+      expect(fixture.nativeElement.querySelector('#machine-locked')?.textContent).toContain(
+        MACHINE_REF_FIXTURE.breadcrumb,
+      );
+      expect(fixture.nativeElement.querySelector('#comment-locked')?.textContent).toContain(
+        MACHINE_REF_FIXTURE.comment,
+      );
+    });
+
+    it('keeps the original machineRef in the PUT when the rest of the order changes', async () => {
+      expect.assertions(1);
+      await createComponent();
+
+      component.onSubmitEdit(changedPayload);
+
+      expect(workOrdersServiceMock.update).toHaveBeenCalledWith(
+        '1',
+        expect.objectContaining({ machineRef: MACHINE_REF_FIXTURE }),
+      );
+    });
+
+    // Aunque el formulario emitiera otra máquina/parte (p. ej. manipulando el DOM), la página no la envía.
+    it('never sends a machine, part or comment different from the stored ones', async () => {
+      expect.assertions(2);
+      await createComponent();
+
+      component.onSubmitEdit({
+        ...changedPayload,
+        machineId: '2',
+        partId: '9',
+        comment: 'Otro comentario',
+      });
+
+      const sent = workOrdersServiceMock.update.mock.calls[0]?.[1] as Record<string, unknown>;
+      expect(sent['machineRef']).toEqual(MACHINE_REF_FIXTURE);
+      // Los campos sueltos del formulario no son campos de la orden.
+      expect(Object.keys(sent)).not.toEqual(expect.arrayContaining(['machineId', 'partId']));
+    });
+
+    it('does not treat a machine-only difference as a change', async () => {
+      expect.assertions(2);
+      await createComponent();
+
+      component.onSubmitEdit({
+        title: mockWorkOrder.title,
+        description: mockWorkOrder.description,
+        machineId: '2',
+        partId: null,
+        comment: 'Otro comentario',
+        type: 'correctivo',
+        priority: 'medium',
+      });
+
+      expect(workOrdersServiceMock.update).not.toHaveBeenCalled();
+      expect(TestBed.inject(MessageService).message()?.message).toBe('No hubo cambios en la orden');
+    });
+  });
+
+  describe('owner and closing note (spec 013d)', () => {
+    const takenBy = {
+      id: '2',
+      name: 'Técnico Mecánico de Guardia',
+      at: '2026-09-25T13:00:00.000Z',
+    };
+    const closingNote = {
+      comment: 'Se reemplazó el rodamiento delantero y se verificó el giro sin vibración.',
+      authorId: '2',
+      authorName: 'Técnico Mecánico de Guardia',
+      at: '2026-09-25T15:00:00.000Z',
+    };
+
+    it.each([
+      ['in-progress', { takenBy }],
+      ['completed', { takenBy, closingNote }],
+      ['cancelled', { takenBy, closingNote }],
+    ])('keeps takenBy and closingNote in the PUT of a %s order', async (status, extra) => {
+      workOrdersServiceMock.getById.mockReturnValue(of({ ...mockWorkOrder, status, ...extra }));
+      await createComponent();
+
+      component.onSubmitEdit(changedPayload);
+
+      expect(workOrdersServiceMock.update).toHaveBeenCalledWith(
+        '1',
+        expect.objectContaining({ status, ...extra }),
+      );
+    });
+
+    it('does not touch the status while editing', async () => {
+      await createComponent();
+
+      component.onSubmitEdit(changedPayload);
+
+      expect(workOrdersServiceMock.update).toHaveBeenCalledWith(
+        '1',
+        expect.objectContaining({ status: 'pending' }),
+      );
+    });
+  });
+
   describe('order type', () => {
     function typeSelect(): HTMLSelectElement {
       const select = fixture.nativeElement.querySelector('#type') as HTMLSelectElement | null;
@@ -210,7 +319,9 @@ describe('WorkOrderEdit', () => {
       component.onSubmitEdit({
         title: mockWorkOrder.title,
         description: mockWorkOrder.description,
-        asset: mockWorkOrder.asset,
+        machineId: MACHINE_REF_FIXTURE.machineId,
+        partId: MACHINE_REF_FIXTURE.partId,
+        comment: MACHINE_REF_FIXTURE.comment,
         type: 'pronto-intervencion',
         priority: 'medium',
       });
