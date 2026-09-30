@@ -16,6 +16,13 @@
   --color-accent-subtle: #{a.$color-accent-subtle};
 
   // ==============================
+  // CHROME Y SEÑAL
+  // ==============================
+
+  --color-chrome: #{a.$color-chrome};
+  --color-signal: #{a.$color-signal};
+
+  // ==============================
   // BACKGROUNDS
   // ==============================
 
@@ -104,4 +111,29 @@
 
   --color-priority-critical: #{a.$color-priority-critical};
   --color-priority-critical-subtle: #{a.$color-priority-critical-subtle};
+
+  // ==============================
+  // TIPOGRAFÍA, ESPACIADO Y RADIOS (spec 014)
+  // ==============================
+
+  --font-family-base: #{a.$font-family-base};
+
+  --font-size-sm: #{a.$font-size-sm};
+  --font-size-base: #{a.$font-size-base};
+  --font-size-md: #{a.$font-size-md};
+  --font-size-lg: #{a.$font-size-lg};
+  --font-size-xl: #{a.$font-size-xl};
+
+  --spacing-xs: #{a.$spacing-xs};
+  --spacing-sm: #{a.$spacing-sm};
+  --spacing-md: #{a.$spacing-md};
+  --spacing-lg: #{a.$spacing-lg};
+  --spacing-xl: #{a.$spacing-xl};
+  --spacing-2xl: #{a.$spacing-2xl};
+
+  --radius-sm: #{a.$radius-sm};
+  --radius-md: #{a.$radius-md};
+  --radius-lg: #{a.$radius-lg};
+
+  --bottom-nav-h: #{a.$bottom-nav-height};
 }

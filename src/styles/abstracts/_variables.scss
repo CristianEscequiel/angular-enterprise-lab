@@ -16,10 +16,20 @@ $color-accent-active: #8f310d;
 $color-accent-subtle: #ffeadf;
 
 // ==============================
+// CHROME Y SEÑAL (spec 014)
+// ==============================
+
+// Header, sidebar y barra inferior. Texto blanco encima: 12.32:1.
+$color-chrome: #0b3b3c;
+// Relleno de atención (prioridad alta). Como texto sobre blanco da 1.82:1: SOLO relleno y
+// siempre con $color-text encima (7.36:1). Sobre el chrome sirve de foco e indicador (6.77:1).
+$color-signal: #f2b705;
+
+// ==============================
 // BACKGROUNDS
 // ==============================
 
-$color-background: #f6f8f8;
+$color-background: #f4f7f7;
 $color-surface: #ffffff;
 $color-surface-light: #edf2f2;
 $color-surface-hover: #dfe8e8;
@@ -29,8 +39,8 @@ $color-surface-selected: #d9eeee;
 // TEXT
 // ==============================
 
-$color-text: #17212b;
-$color-text-muted: #5f6b76;
+$color-text: #22313a;
+$color-text-muted: #55666b;
 // #98a2aa daba 2.60:1 contra blanco (bajo el 4.5:1 de WCAG AA para texto).
 // #626e78 mantiene la intención "más claro que muted" y pasa 5.22:1/4.62:1
 // contra blanco y contra --color-surface-light respectivamente (spec 008b).
@@ -45,7 +55,9 @@ $color-text-inverse: #ffffff;
 // contorno de un control). #7a8c8c pasa 3.53:1/3.31:1 contra blanco y
 // contra --color-background respectivamente (spec 008b).
 $color-border: #7a8c8c;
-$color-border-subtle: #dfe7e7;
+// Decorativo (tarjetas, separadores): 1.53:1 contra blanco. NUNCA identifica un control; para
+// eso está $color-border (spec 014).
+$color-border-subtle: #c9d3d4;
 $color-border-strong: #8fa0a0;
 $color-border-focus: #0f5f61;
 
@@ -110,13 +122,15 @@ $color-priority-critical-subtle: #fee4e2;
 // TYPOGRAPHY
 // ==============================
 
-$font-family-base: Arial, Helvetica, sans-serif;
+$font-family-base: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
 
+// Escala 1.25 sobre 1rem (spec 014). `sm` se queda en 0.875rem: 0.8rem (12.8px) es chico para
+// leer de pie y con una mano.
 $font-size-sm: 0.875rem;
 $font-size-base: 1rem;
-$font-size-md: 1.125rem;
-$font-size-lg: 1.5rem;
-$font-size-xl: 2rem;
+$font-size-md: 1.25rem;
+$font-size-lg: 1.563rem;
+$font-size-xl: 1.953rem;
 
 $font-weight-normal: 400;
 $font-weight-medium: 500;
@@ -162,6 +176,9 @@ $breakpoint-sm: 576px;
 $breakpoint-md: 768px;
 $breakpoint-lg: 1024px;
 $breakpoint-xl: 1280px;
+
+// Alto de la barra de navegación inferior (mobile). Lo reserva `main` y lo usa la barra sticky.
+$bottom-nav-height: 4rem;
 
 // ==============================
 // TRANSITIONS
