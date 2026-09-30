@@ -6,7 +6,7 @@
   justify-content: center;
   gap: a.$spacing-sm;
 
-  // 44px: objetivo táctil mínimo en mobile (spec 014, REQ-3.4). Desde md el `sm` vuelve a ser compacto.
+  // 44px: objetivo táctil mínimo (spec 014, REQ-3.4). Desde lg el `sm` vuelve a ser compacto.
   min-height: 2.75rem;
   padding: a.$spacing-sm a.$spacing-md;
 
@@ -129,7 +129,9 @@
   padding: a.$spacing-xs a.$spacing-sm;
   font-size: a.$font-size-sm;
 
-  @include a.respond-above(a.$breakpoint-md) {
+  // Compacto solo donde las acciones viven en una fila de tabla (desde lg): mientras la fila sea una
+  // tarjeta táctil, mantiene los 44px.
+  @include a.respond-above(a.$breakpoint-lg) {
     min-height: 2rem;
   }
 }

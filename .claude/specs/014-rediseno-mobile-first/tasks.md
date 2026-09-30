@@ -112,7 +112,7 @@ Paralelizables: T2 ∥ T3, T5 ∥ T6 ∥ T7, y T8 en cualquier momento (no depen
   - Hacer: reemplazar los `respond-below` restantes por `respond-above`; eliminar el mixin `respond-below` si quedó sin usos; revisar `layout/` y `components/`.
   - Verifica: `grep` de `max-width` dentro de `@media` y de `respond-below` en `src/styles` sin resultados (las `prefers-*` quedan); `pnpm test` y `pnpm ng build` verdes.
 
-- [ ] **T12. Verificación manual transversal**
+- [x] **T12. Verificación manual transversal**
   - Cubre: REQ-2.5, 2.6, 3.6, 6.1, 6.3.
   - Depende de: T11.
   - Hacer: recorrer cada pantalla a 320, 375, 768 y 1280px; teclado completo por el shell; skip link con la barra inferior; `prefers-reduced-motion` emulado; dashboard con datos, sin datos y con JSON Server apagado.

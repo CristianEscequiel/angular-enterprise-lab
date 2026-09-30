@@ -1,6 +1,6 @@
 @use '../abstracts' as a;
 
-// Listados (spec 014). Mobile primero: cada fila es una tarjeta apilada. Desde md vuelve a ser una
+// Listados (spec 014). Mobile primero: cada fila es una tarjeta apilada. Desde lg vuelve a ser una
 // tabla. Se conserva el <table> (no se duplica el markup) y el reflow es solo CSS:
 //  - el `thead` se oculta de forma visual, no con `display: none`;
 //  - cada `td` lleva `data-label`, que el `::before` muestra como etiqueta del valor;
@@ -10,7 +10,7 @@
 .table-wrapper {
   width: 100%;
 
-  @include a.respond-above(a.$breakpoint-md) {
+  @include a.respond-above(a.$breakpoint-lg) {
     overflow-x: auto;
 
     border: a.$border-width solid var(--color-border-subtle);
@@ -97,7 +97,7 @@
     font-weight: a.$font-weight-bold;
   }
 
-  @include a.respond-above(a.$breakpoint-md) {
+  @include a.respond-above(a.$breakpoint-lg) {
     display: table;
     border-collapse: collapse;
     background-color: var(--color-surface);
@@ -173,7 +173,7 @@
   flex-wrap: wrap;
   gap: a.$spacing-sm;
 
-  @include a.respond-above(a.$breakpoint-md) {
+  @include a.respond-above(a.$breakpoint-lg) {
     justify-content: center;
   }
 }
@@ -197,7 +197,7 @@
     border-left-color: var(--color-error);
   }
 
-  @include a.respond-above(a.$breakpoint-md) {
+  @include a.respond-above(a.$breakpoint-lg) {
     // En tabla, la franja se dibuja dentro de la primera celda para no romper border-collapse.
     &.row--pending > td:first-child {
       box-shadow: inset 4px 0 0 var(--color-warning);
@@ -218,7 +218,7 @@
 }
 
 .table--compact {
-  @include a.respond-above(a.$breakpoint-md) {
+  @include a.respond-above(a.$breakpoint-lg) {
     th,
     td {
       padding: a.$spacing-sm a.$spacing-md;

@@ -123,7 +123,7 @@ sequenceDiagram
 
 ### D1. Tablas → tarjetas solo con CSS (REQ-3.1, 3.2)
 
-Se conserva el `<table>`. Bajo `md`, `tr` pasa a `display: grid` y `td` a
+Se conserva el `<table>`. Bajo `lg` (1024px), `tr` pasa a `display: grid` y `td` a
 `display: block`, con `td::before { content: attr(data-label) }`. El `thead` se
 oculta de forma visual (`visually-hidden`), no con `display: none`, para no
 perderlo en lectores de pantalla.

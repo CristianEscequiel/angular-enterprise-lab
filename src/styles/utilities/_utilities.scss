@@ -34,6 +34,10 @@
 
   &:focus-visible {
     top: a.$spacing-sm;
+    // Contorno propio, como el resto de los elementos interactivos (spec 014, REQ-6.1): el anillo por
+    // defecto del navegador cambia de un motor a otro.
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 }
 

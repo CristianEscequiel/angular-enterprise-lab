@@ -76,11 +76,14 @@ requisitos. Los usuarios principales son técnicos de planta que toman y cierran
 
 ## REQ-3 Listados (órdenes, máquinas, técnicos, equipos)
 
-1. CUANDO el viewport es menor a 768px, EL SISTEMA DEBERÁ mostrar cada fila como
-   una tarjeta apilada: primero el campo principal, luego pares etiqueta/valor,
-   luego las acciones.
-2. CUANDO el viewport es de 768px o más, EL SISTEMA DEBERÁ mostrar el listado
-   como tabla.
+1. CUANDO el viewport es menor a 1024px, EL SISTEMA DEBERÁ mostrar cada fila
+   como una tarjeta apilada: primero el campo principal, luego pares
+   etiqueta/valor, luego las acciones.
+2. CUANDO el viewport es de 1024px o más, EL SISTEMA DEBERÁ mostrar el listado
+   como tabla. _(Enmendado en T12: el borrador decía 768px. Con el sidebar de
+   16rem visible desde 768px el contenido mide ~512px y la tabla de órdenes, de 6
+   columnas, quedaba cortada con las columnas Estado y Acciones fuera de vista. A
+   1024px el contenido mide ~720px y entra.)_
 3. EL SISTEMA DEBERÁ mostrar el estado de cada orden como franja de color en la
    tarjeta o fila, además del badge con texto.
 4. EL SISTEMA DEBERÁ colocar las acciones de fila en un contenedor que haga wrap,
@@ -152,6 +155,8 @@ requisitos. Los usuarios principales son técnicos de planta que toman y cierran
 - Enmienda durante el diseño: agregado REQ-5.10 (top 3 por columna en desktop).
   Agregado también REQ-2.8 (sin sesión no hay navegación), hallazgo al leer
   `app-shell.html`: hoy el hamburguesa aparece incluso en `/login`.
+- Enmienda durante T12 (verificación en navegador): REQ-3.1 y 3.2 pasan el corte
+  tarjeta ↔ tabla de 768px a 1024px.
 - Enmienda durante T7: REQ-4.4 ajustado al modelo real (sin creador ni acciones en
   el detalle). El pie del detalle mostraba el estado crudo en inglés
   (`in-progress`); ahora usa el mismo texto y badge que el listado.

@@ -107,6 +107,11 @@
 
     margin-top: a.$spacing-md;
     border-top: a.$border-width solid var(--color-border-subtle);
+
+    // Una columna sin órdenes no deja una línea divisoria colgando.
+    &:empty {
+      display: none;
+    }
   }
 
   li + li {
