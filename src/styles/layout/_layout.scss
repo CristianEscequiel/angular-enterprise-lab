@@ -29,33 +29,31 @@
   gap: a.$spacing-lg;
 }
 
-.grid--2 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.grid--3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
+// Una columna en mobile; las columnas pedidas, desde md. Antes era al revés (desktop primero, con un
+// override en max-width): el mixin respond-below y el respond-above del contenedor se pisaban a los
+// 768px exactos (spec 008b), un problema que mobile-first evita de raíz (spec 014).
+.grid--2,
+.grid--3,
 .grid--4 {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@include a.respond-above(a.$breakpoint-md) {
+  .grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .grid--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 // El grid del shell vive en _shell.scss; `main` conserva esta clase y su min-width para que el
 // contenido ancho (tablas) no estire la columna.
 .sidebar-layout__content {
   min-width: 0;
-}
-
-// Antes usaba `@media (max-width: a.$breakpoint-md)` directo: a los 768px
-// exactos coincidía con el `min-width: 768px` de `respond-above` en
-// _container.scss, aplicando reglas de mobile y desktop al mismo tiempo.
-// El mixin `respond-below` ya resta 1px para evitar ese solapamiento
-// (spec 008b).
-@include a.respond-below(a.$breakpoint-md) {
-  .grid--2,
-  .grid--3,
-  .grid--4 {
-    grid-template-columns: 1fr;
-  }
 }

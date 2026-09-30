@@ -8,12 +8,6 @@
   }
 }
 
-@mixin respond-below($breakpoint) {
-  @media (max-width: calc($breakpoint - 1px)) {
-    @content;
-  }
-}
-
 // Centrado con flexbox
 
 @mixin flex-center {

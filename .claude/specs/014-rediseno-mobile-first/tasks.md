@@ -106,7 +106,7 @@ Paralelizables: T2 ∥ T3, T5 ∥ T6 ∥ T7, y T8 en cualquier momento (no depen
   - Hacer: bajo `md`, fila de 3 celdas con cantidades y "Mis órdenes en curso" debajo; desde `md`, tres columnas con hasta 3 órdenes cada una, ordenadas por `createdAt` (Pendientes y En curso) o `closingNote.at` (Cerradas hoy) de más reciente a más antigua, como enlaces al detalle. Estilos globales (presupuesto).
   - Verifica: test: con 5 pendientes se renderizan 3, las más recientes primero; "Cerradas hoy" ordena por `closingNote.at`. Manual: captura a 375px y a 1280px; `pnpm ng build` sin warnings de presupuesto.
 
-- [ ] **T11. Auditoría mobile-first final**
+- [x] **T11. Auditoría mobile-first final**
   - Cubre: REQ-1.3.
   - Depende de: T5, T6, T7, T10.
   - Hacer: reemplazar los `respond-below` restantes por `respond-above`; eliminar el mixin `respond-below` si quedó sin usos; revisar `layout/` y `components/`.

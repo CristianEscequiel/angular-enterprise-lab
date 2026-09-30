@@ -1,18 +1,27 @@
 @use '../abstracts' as a;
 
+// Mobile primero: el toast ocupa el ancho de la pantalla, con un margen a cada lado. Desde sm es
+// una tarjeta de 24rem pegada a la derecha.
 .toast-container {
   position: fixed;
-  top: a.$spacing-lg;
-  right: a.$spacing-lg;
+  top: a.$spacing-md;
+  right: a.$spacing-md;
+  left: a.$spacing-md;
 
   display: flex;
   flex-direction: column;
   gap: a.$spacing-md;
 
-  width: min(24rem, calc(100vw - 2rem));
-
   z-index: a.$z-index-toast;
   pointer-events: none;
+
+  @include a.respond-above(a.$breakpoint-sm) {
+    top: a.$spacing-lg;
+    right: a.$spacing-lg;
+    left: auto;
+
+    width: min(24rem, calc(100vw - 2rem));
+  }
 }
 
 .toast {
@@ -116,14 +125,5 @@
   to {
     opacity: 1;
     transform: translateX(0);
-  }
-}
-
-@include a.respond-below(a.$breakpoint-sm) {
-  .toast-container {
-    left: a.$spacing-md;
-    right: a.$spacing-md;
-
-    width: auto;
   }
 }
