@@ -4,7 +4,7 @@
   <p class="u-sr-only" aria-live="polite" role="status">{{ resultsAnnouncement() }}</p>
 
   @if (canManage()) {
-    <div class="d-flex flex-wrap justify-end gap-md py-lg">
+    <div class="list-toolbar list-toolbar--end">
       <app-button variant="primary" (clicked)="navigateToCreate()"> Nueva máquina </app-button>
     </div>
   }
@@ -33,35 +33,37 @@
         <tbody>
           @for (machine of machines(); track machine.id) {
             <tr>
-              <td>{{ machine.code }}</td>
-              <td>{{ machine.name }}</td>
-              <td>{{ partsLabel(machine) }}</td>
+              <td data-label="Código">{{ machine.code }}</td>
+              <td data-label="Nombre">{{ machine.name }}</td>
+              <td data-label="Partes">{{ partsLabel(machine) }}</td>
               @if (canManage()) {
-                <td class="d-flex justify-center gap-sm">
-                  <app-button
-                    size="sm"
-                    variant="outline"
-                    [ariaLabel]="'Ver partes de ' + machine.name"
-                    (clicked)="openParts(machine.id)"
-                  >
-                    Partes
-                  </app-button>
-                  <app-button
-                    size="sm"
-                    variant="secondary"
-                    [ariaLabel]="'Editar ' + machine.name"
-                    (clicked)="editMachine(machine.id)"
-                  >
-                    Editar
-                  </app-button>
-                  <app-button
-                    size="sm"
-                    variant="danger"
-                    [ariaLabel]="'Eliminar ' + machine.name"
-                    (clicked)="openDeleteModal(machine)"
-                  >
-                    Eliminar
-                  </app-button>
+                <td class="row-actions-cell" data-label="Acciones">
+                  <div class="row-actions">
+                    <app-button
+                      size="sm"
+                      variant="outline"
+                      [ariaLabel]="'Ver partes de ' + machine.name"
+                      (clicked)="openParts(machine.id)"
+                    >
+                      Partes
+                    </app-button>
+                    <app-button
+                      size="sm"
+                      variant="secondary"
+                      [ariaLabel]="'Editar ' + machine.name"
+                      (clicked)="editMachine(machine.id)"
+                    >
+                      Editar
+                    </app-button>
+                    <app-button
+                      size="sm"
+                      variant="danger"
+                      [ariaLabel]="'Eliminar ' + machine.name"
+                      (clicked)="openDeleteModal(machine)"
+                    >
+                      Eliminar
+                    </app-button>
+                  </div>
                 </td>
               }
             </tr>

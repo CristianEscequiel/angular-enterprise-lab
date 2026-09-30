@@ -66,7 +66,7 @@ Paralelizables: T2 ∥ T3, T5 ∥ T6 ∥ T7, y T8 en cualquier momento (no depen
     - No agregar clases a `main` (`app.spec.ts:43`).
   - Verifica: actualizar `app-shell.spec.ts` y `header.spec.ts`; tests nuevos: sin sesión no hay `nav`; con sesión hay barra inferior y sidebar en el DOM con los ítems del rol; el ítem activo tiene `aria-current="page"`; el header no contiene `h2`. Manual: a 375px barra inferior y contenido no tapado; a 1024px sidebar fija sin toggle; `/login` sin navegación.
 
-- [ ] **T5. Listados como tarjetas**
+- [x] **T5. Listados como tarjetas**
   - Cubre: REQ-3.1 a 3.6.
   - Depende de: T2, T4. Paralelizable con T6 y T7.
   - Hacer:

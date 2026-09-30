@@ -4,7 +4,7 @@
   <p class="u-sr-only" aria-live="polite" role="status">{{ resultsAnnouncement() }}</p>
 
   @if (canManage()) {
-    <div class="d-flex flex-wrap justify-end gap-md py-lg">
+    <div class="list-toolbar list-toolbar--end">
       <app-button variant="primary" (clicked)="navigateToCreate()"> Crear equipo </app-button>
     </div>
   }
@@ -33,27 +33,29 @@
         <tbody>
           @for (team of teams(); track team.id) {
             <tr>
-              <td>{{ team.name }}</td>
-              <td>{{ typeLabels[team.type] }}</td>
-              <td>{{ membersLabel(team) }}</td>
+              <td data-label="Equipo">{{ team.name }}</td>
+              <td data-label="Tipo">{{ typeLabels[team.type] }}</td>
+              <td data-label="Miembros">{{ membersLabel(team) }}</td>
               @if (canManage()) {
-                <td class="d-flex justify-center gap-sm">
-                  <app-button
-                    size="sm"
-                    variant="secondary"
-                    [ariaLabel]="'Editar ' + team.name"
-                    (clicked)="editTeam(team.id)"
-                  >
-                    Editar
-                  </app-button>
-                  <app-button
-                    size="sm"
-                    variant="danger"
-                    [ariaLabel]="'Eliminar ' + team.name"
-                    (clicked)="openDeleteModal(team)"
-                  >
-                    Eliminar
-                  </app-button>
+                <td class="row-actions-cell" data-label="Acciones">
+                  <div class="row-actions">
+                    <app-button
+                      size="sm"
+                      variant="secondary"
+                      [ariaLabel]="'Editar ' + team.name"
+                      (clicked)="editTeam(team.id)"
+                    >
+                      Editar
+                    </app-button>
+                    <app-button
+                      size="sm"
+                      variant="danger"
+                      [ariaLabel]="'Eliminar ' + team.name"
+                      (clicked)="openDeleteModal(team)"
+                    >
+                      Eliminar
+                    </app-button>
+                  </div>
                 </td>
               }
             </tr>

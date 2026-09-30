@@ -1,25 +1,92 @@
 @use '../abstracts' as a;
 
+// Listados (spec 014). Mobile primero: cada fila es una tarjeta apilada. Desde md vuelve a ser una
+// tabla. Se conserva el <table> (no se duplica el markup) y el reflow es solo CSS:
+//  - el `thead` se oculta de forma visual, no con `display: none`;
+//  - cada `td` lleva `data-label`, que el `::before` muestra como etiqueta del valor;
+//  - la primera celda es el campo principal y va sin etiqueta;
+//  - las acciones van en `td.row-actions-cell > .row-actions`, que hace wrap.
+
 .table-wrapper {
   width: 100%;
-  overflow-x: auto;
 
-  border: a.$border-width solid var(--color-border-subtle);
-  border-radius: a.$radius-lg;
+  @include a.respond-above(a.$breakpoint-md) {
+    overflow-x: auto;
+
+    border: a.$border-width solid var(--color-border-subtle);
+    border-radius: a.$radius-lg;
+  }
 }
 
 .table {
+  display: block;
   width: 100%;
-  border-collapse: collapse;
 
   color: var(--color-text);
-  background-color: var(--color-surface);
 
-  th,
-  td {
+  thead {
+    @include a.visually-hidden;
+  }
+
+  tbody {
+    display: block;
+  }
+
+  tbody tr {
+    display: grid;
+    gap: a.$spacing-sm;
+
+    margin-bottom: a.$spacing-sm;
     padding: a.$spacing-md;
+
+    background-color: var(--color-surface);
+    border: a.$border-width solid var(--color-border-subtle);
+    // Franja de estado (REQ-3.3). Sin modificador de estado es solo un borde.
+    border-left: 4px solid var(--color-border-subtle);
+    border-radius: a.$radius-lg;
+  }
+
+  td {
+    display: grid;
+    grid-template-columns: minmax(6rem, 8rem) minmax(0, 1fr);
+    gap: a.$spacing-sm;
+    align-items: baseline;
+
+    padding: 0;
     text-align: left;
-    border-bottom: a.$border-width solid var(--color-border-subtle);
+    overflow-wrap: anywhere;
+
+    &::before {
+      content: attr(data-label);
+      color: var(--color-text-muted);
+      font-size: a.$font-size-sm;
+    }
+  }
+
+  // Campo principal: título de la tarjeta, sin etiqueta.
+  td:first-child {
+    display: block;
+
+    font-size: a.$font-size-md;
+    font-weight: a.$font-weight-bold;
+    line-height: 1.2;
+
+    &::before {
+      content: none;
+    }
+  }
+
+  td.row-actions-cell {
+    display: block;
+
+    margin-top: a.$spacing-xs;
+    padding-top: a.$spacing-md;
+
+    border-top: a.$border-width solid var(--color-border-subtle);
+
+    &::before {
+      content: none;
+    }
   }
 
   th {
@@ -30,23 +97,132 @@
     font-weight: a.$font-weight-bold;
   }
 
-  tbody tr {
-    transition: background-color a.$transition-fast;
+  @include a.respond-above(a.$breakpoint-md) {
+    display: table;
+    border-collapse: collapse;
+    background-color: var(--color-surface);
 
-    &:hover {
-      background-color: var(--color-surface-hover);
+    thead {
+      display: table-header-group;
+      @include a.visually-hidden-reset;
     }
 
-    &:last-child td {
-      border-bottom: 0;
+    tbody {
+      display: table-row-group;
+    }
+
+    tbody tr {
+      display: table-row;
+
+      margin: 0;
+      padding: 0;
+
+      background-color: transparent;
+      border: 0;
+      border-radius: 0;
+      transition: background-color a.$transition-fast;
+
+      &:hover {
+        background-color: var(--color-surface-hover);
+      }
+
+      &:last-child td {
+        border-bottom: 0;
+      }
+    }
+
+    th,
+    td {
+      padding: a.$spacing-md;
+      border-bottom: a.$border-width solid var(--color-border-subtle);
+    }
+
+    td {
+      display: table-cell;
+      grid-template-columns: none;
+      overflow-wrap: normal;
+
+      &::before {
+        content: none;
+      }
+    }
+
+    // `td:first-child` (mobile) tiene más especificidad que `td`: hay que devolverle acá su display.
+    td:first-child {
+      display: table-cell;
+
+      font-size: inherit;
+      font-weight: inherit;
+      line-height: inherit;
+    }
+
+    td.row-actions-cell {
+      display: table-cell;
+
+      margin: 0;
+      padding: a.$spacing-md;
+
+      border-top: 0;
+    }
+  }
+}
+
+// Acciones de una fila: hacen wrap en mobile y se centran en la celda de la tabla.
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: a.$spacing-sm;
+
+  @include a.respond-above(a.$breakpoint-md) {
+    justify-content: center;
+  }
+}
+
+// Franja de estado de una orden. Refleja los colores que el componente Badge da a cada variante
+// (badge.ts): pending → warning, in-progress → info, completed → success, cancelled → error.
+.table tbody tr {
+  &.row--pending {
+    border-left-color: var(--color-warning);
+  }
+
+  &.row--in-progress {
+    border-left-color: var(--color-info);
+  }
+
+  &.row--completed {
+    border-left-color: var(--color-success);
+  }
+
+  &.row--cancelled {
+    border-left-color: var(--color-error);
+  }
+
+  @include a.respond-above(a.$breakpoint-md) {
+    // En tabla, la franja se dibuja dentro de la primera celda para no romper border-collapse.
+    &.row--pending > td:first-child {
+      box-shadow: inset 4px 0 0 var(--color-warning);
+    }
+
+    &.row--in-progress > td:first-child {
+      box-shadow: inset 4px 0 0 var(--color-info);
+    }
+
+    &.row--completed > td:first-child {
+      box-shadow: inset 4px 0 0 var(--color-success);
+    }
+
+    &.row--cancelled > td:first-child {
+      box-shadow: inset 4px 0 0 var(--color-error);
     }
   }
 }
 
 .table--compact {
-  th,
-  td {
-    padding: a.$spacing-sm a.$spacing-md;
+  @include a.respond-above(a.$breakpoint-md) {
+    th,
+    td {
+      padding: a.$spacing-sm a.$spacing-md;
+    }
   }
 }
 
@@ -54,4 +230,24 @@
   display: flex;
   justify-content: flex-end;
   gap: a.$spacing-sm;
+}
+
+// Barra de búsqueda y acción principal de un listado. El campo de búsqueda se estira y deja la
+// acción a su derecha cuando hay lugar; en mobile cada uno ocupa su propia línea.
+.list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: a.$spacing-md;
+  justify-content: space-between;
+
+  padding-block: a.$spacing-md;
+}
+
+.list-toolbar__search {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.list-toolbar--end {
+  justify-content: flex-end;
 }
