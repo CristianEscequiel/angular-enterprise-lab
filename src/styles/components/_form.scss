@@ -139,34 +139,66 @@ select.form-control {
   gap: a.$spacing-lg;
 }
 
+// Campos emparejados (por ejemplo tipo y prioridad): una columna en mobile, dos desde md.
 .form-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: a.$spacing-md;
+  grid-template-columns: minmax(0, 1fr);
+  gap: a.$spacing-lg;
+
+  @include a.respond-above(a.$breakpoint-md) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .form-row--3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  @include a.respond-above(a.$breakpoint-md) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
+// Acciones del formulario. En mobile quedan fijas al pie, justo sobre la barra de navegación inferior
+// (spec 014, REQ-4.2): el botón principal siempre está al alcance del pulgar sin tener que bajar
+// hasta el final del formulario. Desde md la barra de navegación es el sidebar y las acciones vuelven
+// al flujo normal, alineadas a la derecha.
 .form-actions {
+  position: sticky;
+  bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px));
+  z-index: 1;
+
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
   gap: a.$spacing-sm;
-}
 
-@include a.respond-below(a.$breakpoint-md) {
-  .form-row,
-  .form-row--3 {
-    grid-template-columns: 1fr;
+  padding-block: a.$spacing-md;
+
+  // Opaca: el contenido que se desplaza por debajo no tiene que verse a través de la barra.
+  background-color: var(--color-background);
+  border-top: a.$border-width solid var(--color-border-subtle);
+
+  // El wrapper de <app-button> es el ítem flex: tiene que crecer para que el botón ocupe el ancho.
+  app-button {
+    flex: 1 1 auto;
   }
 
-  .form-actions {
-    flex-direction: column-reverse;
+  .btn {
+    width: 100%;
+  }
+
+  @include a.respond-above(a.$breakpoint-md) {
+    position: static;
+    justify-content: flex-end;
+
+    padding-block: 0;
+
+    background-color: transparent;
+    border-top: 0;
+
+    app-button {
+      flex: 0 0 auto;
+    }
 
     .btn {
-      width: 100%;
+      width: auto;
     }
   }
 }

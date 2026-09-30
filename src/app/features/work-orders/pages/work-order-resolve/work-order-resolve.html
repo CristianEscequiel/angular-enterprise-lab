@@ -63,53 +63,59 @@
       }
       @case ('ok') {
         <form class="form" [formGroup]="form" (ngSubmit)="submit()">
-          <label class="form-label" for="outcome">Resultado:</label>
-          <select
-            class="form-control"
-            id="outcome"
-            formControlName="outcome"
-            required
-            [class.form-control--invalid]="isInvalid('outcome')"
-            [attr.aria-invalid]="isInvalid('outcome')"
-            [attr.aria-describedby]="isInvalid('outcome') ? 'outcome-error' : null"
-          >
-            <option value="">Seleccioná un resultado</option>
-            @for (outcome of outcomes; track outcome) {
-              <option [value]="outcome">{{ statusLabels[outcome] }}</option>
+          <div class="form-group">
+            <label class="form-label" for="outcome">Resultado:</label>
+            <select
+              class="form-control"
+              id="outcome"
+              formControlName="outcome"
+              required
+              [class.form-control--invalid]="isInvalid('outcome')"
+              [attr.aria-invalid]="isInvalid('outcome')"
+              [attr.aria-describedby]="isInvalid('outcome') ? 'outcome-error' : null"
+            >
+              <option value="">Seleccioná un resultado</option>
+              @for (outcome of outcomes; track outcome) {
+                <option [value]="outcome">{{ statusLabels[outcome] }}</option>
+              }
+            </select>
+            @if (isInvalid('outcome')) {
+              <div class="form-error" id="outcome-error">
+                Elegí si la orden se completó o se canceló.
+              </div>
             }
-          </select>
-          @if (isInvalid('outcome')) {
-            <div class="form-error" id="outcome-error">
-              Elegí si la orden se completó o se canceló.
-            </div>
-          }
-
-          <label class="form-label" for="comment">Comentario del técnico:</label>
-          <textarea
-            class="form-control"
-            id="comment"
-            formControlName="comment"
-            required
-            [attr.maxlength]="maxLength"
-            [class.form-control--invalid]="isInvalid('comment')"
-            [attr.aria-invalid]="isInvalid('comment')"
-            [attr.aria-describedby]="
-              isInvalid('comment') ? 'comment-error comment-counter' : 'comment-counter'
-            "
-          ></textarea>
-          <div class="u-text-muted" id="comment-counter">
-            {{ commentLength() }} / {{ minLength }} mínimo
           </div>
-          @if (isInvalid('comment')) {
-            <div class="form-error" id="comment-error">
-              El comentario es obligatorio y debe tener entre {{ minLength }} y
-              {{ maxLength }} caracteres.
-            </div>
-          }
 
-          <app-button type="submit" size="full" variant="primary" [disabled]="isSubmitting()">{{
-            isSubmitting() ? 'Guardando...' : 'Cerrar orden'
-          }}</app-button>
+          <div class="form-group">
+            <label class="form-label" for="comment">Comentario del técnico:</label>
+            <textarea
+              class="form-control"
+              id="comment"
+              formControlName="comment"
+              required
+              [attr.maxlength]="maxLength"
+              [class.form-control--invalid]="isInvalid('comment')"
+              [attr.aria-invalid]="isInvalid('comment')"
+              [attr.aria-describedby]="
+                isInvalid('comment') ? 'comment-error comment-counter' : 'comment-counter'
+              "
+            ></textarea>
+            <div class="u-text-muted" id="comment-counter">
+              {{ commentLength() }} / {{ minLength }} mínimo
+            </div>
+            @if (isInvalid('comment')) {
+              <div class="form-error" id="comment-error">
+                El comentario es obligatorio y debe tener entre {{ minLength }} y
+                {{ maxLength }} caracteres.
+              </div>
+            }
+          </div>
+
+          <div class="form-actions">
+            <app-button type="submit" variant="primary" [disabled]="isSubmitting()">{{
+              isSubmitting() ? 'Guardando...' : 'Cerrar orden'
+            }}</app-button>
+          </div>
         </form>
       }
     }

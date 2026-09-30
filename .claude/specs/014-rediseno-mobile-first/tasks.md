@@ -76,7 +76,7 @@ Paralelizables: T2 ∥ T3, T5 ∥ T6 ∥ T7, y T8 en cualquier momento (no depen
     - Buscador, filtros y "Nueva orden" con `flex-wrap`.
   - Verifica: los 4 specs de listas pasan (`tbody tr`, `thead th`, `.btn--danger`); tests nuevos: todo `td` tiene `data-label` no vacío; una orden `in-progress` lleva `row--in-progress` y mantiene su badge con texto; el estado vacío y el de error no cambian. Manual: a 320px ninguna lista produce scroll horizontal y los botones de acción miden 44px o más.
 
-- [ ] **T6. Formularios**
+- [x] **T6. Formularios**
   - Cubre: REQ-4.1, 4.2, 4.3.
   - Depende de: T2, T4. Paralelizable con T5 y T7.
   - Hacer: `.form-row` mobile-first (1 columna, 2 desde `md`) y usarlo en los campos emparejados (tipo/prioridad en órdenes; legajo/nombre u otros pares en técnicos y máquinas); barra de acciones `sticky` sobre la barra inferior bajo `md`, estática desde `md`. No tocar el markup de errores.

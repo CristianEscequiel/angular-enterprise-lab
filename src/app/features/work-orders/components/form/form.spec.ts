@@ -55,6 +55,48 @@ describe('Form', () => {
     expect(component).toBeTruthy();
   });
 
+  // Spec 014 (REQ-4.1, 4.2, 4.3): campos emparejados, acciones en su barra y errores vinculados.
+  describe('layout', () => {
+    it('puts type and priority side by side in the same row', () => {
+      const row = fixture.nativeElement.querySelector('.form-row');
+
+      expect(row?.querySelector('#type')).not.toBeNull();
+      expect(row?.querySelector('#priority')).not.toBeNull();
+    });
+
+    it('wraps every field in its own group so the label stays next to its control', () => {
+      const groups = fixture.nativeElement.querySelectorAll('.form-group');
+
+      for (const id of ['title', 'description', 'type', 'priority']) {
+        const control = fixture.nativeElement.querySelector(`#${id}`);
+        expect(control?.closest('.form-group')).not.toBeNull();
+      }
+      expect(groups.length).toBeGreaterThanOrEqual(4);
+    });
+
+    it('keeps the submit button in the actions bar', () => {
+      expect(submitButton().closest('.form-actions')).not.toBeNull();
+    });
+
+    it('links every invalid field to an error message that exists', () => {
+      component.onSubmit();
+      fixture.detectChanges();
+
+      const invalid: HTMLElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll('[aria-invalid="true"]'),
+      );
+
+      expect(invalid.length).toBeGreaterThan(0);
+      for (const field of invalid) {
+        const ids = (field.getAttribute('aria-describedby') ?? '').split(' ').filter(Boolean);
+        expect(ids.length).toBeGreaterThan(0);
+        for (const id of ids) {
+          expect(fixture.nativeElement.querySelector(`#${id}`)).not.toBeNull();
+        }
+      }
+    });
+  });
+
   it('blocks emission when required fields are empty, with the submit button enabled', () => {
     expect.assertions(2);
     const emit = vi.spyOn(component.sendData, 'emit');
