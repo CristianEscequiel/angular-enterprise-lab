@@ -11,7 +11,7 @@ import { Alert } from '@shared/components/alert/alert';
 import { Badge } from '@shared/components/badge/badge';
 import { Button } from '@shared/components/button/button';
 import { Modal } from '@shared/components/modal/modal';
-import { WorkOrdersService } from '../../data-access/work-order.service';
+import { WorkOrdersService, WorkOrderStateError } from '../../data-access/work-order.service';
 import {
   PRIORITY_BADGE,
   PRIORITY_LABELS,
@@ -20,6 +20,7 @@ import {
   TYPE_LABELS,
 } from '../../models/work-order.display';
 import {
+  isClosedStatus,
   isWorkOrderPriority,
   isWorkOrderStatus,
   WORK_ORDER_PRIORITIES,
@@ -27,10 +28,14 @@ import {
   WorkOrder,
   WorkOrderPriority,
   WorkOrderStatus,
+  WorkOrderTaker,
 } from '../../models/work-order.model';
 import {
   canDeleteWorkOrder,
   canEditWorkOrder,
+  canReleaseWorkOrder,
+  canResolveWorkOrder,
+  canTakeWorkOrder,
   creatableTypes,
 } from '../../models/work-order.permissions';
 
@@ -64,7 +69,8 @@ export class WorkOrdersList implements OnInit {
     page: 1,
   });
   private readonly requests = new Subject<WorkOrdersSearch>();
-  private readonly updatingIds = signal<ReadonlySet<string>>(new Set());
+  // Órdenes con una operación en curso (tomar, liberar): evita el doble clic.
+  private readonly busyIds = signal<ReadonlySet<string>>(new Set());
 
   readonly statusOptions = WORK_ORDER_STATUSES;
   readonly priorityOptions = WORK_ORDER_PRIORITIES;
@@ -84,6 +90,14 @@ export class WorkOrdersList implements OnInit {
   readonly workOrderDeleted = signal<string>('');
   readonly error = signal<string | null>(null);
   readonly deleteModalOpen = signal(false);
+  readonly releaseModalOpen = signal(false);
+  readonly workOrderToRelease = signal<WorkOrder | null>(null);
+  readonly releaseMessage = computed(() => {
+    const order = this.workOrderToRelease();
+    const owner = order?.takenBy ? ` y ${order.takenBy.name} deja de ser quien la ejecuta` : '';
+
+    return `La orden${order ? ` "${order.title}"` : ''} vuelve a pendiente${owner}. Cualquier técnico habilitado podrá tomarla.`;
+  });
   readonly currentPage = computed(() => this.query().page);
   readonly totalPages = signal(1);
   readonly pages = computed(() =>
@@ -182,48 +196,153 @@ export class WorkOrdersList implements OnInit {
     this.requestWorkOrders({ ...criteria, page: targetPage });
   }
 
-  changeStatus(order: WorkOrder, select: HTMLSelectElement): void {
-    const status = select.value;
-    if (!isWorkOrderStatus(status)) {
-      select.value = order.status;
+  // El estado ya no se cambia a mano desde el listado (spec 013d): pasa a `in-progress` al tomar la
+  // orden, se cierra desde su página y vuelve a `pending` al liberarla. Estas tres funciones son la
+  // política de la pantalla; la plantilla oculta los botones y cada método vuelve a comprobarla.
+  canContinue(order: WorkOrder): boolean {
+    return canResolveWorkOrder(this.authService.currentUser(), order);
+  }
+
+  // "Tomar orden" se ofrece al técnico que la atiende también sobre una orden que ejecuta OTRO: al
+  // pulsarlo se le advierte quién la tiene (no se le quita).
+  canTake(order: WorkOrder): boolean {
+    return (
+      canTakeWorkOrder(this.authService.currentUser(), order) &&
+      !isClosedStatus(order.status) &&
+      !this.canContinue(order)
+    );
+  }
+
+  canRelease(order: WorkOrder): boolean {
+    return canReleaseWorkOrder(this.authService.currentUser(), order);
+  }
+
+  isBusy(id: string): boolean {
+    return this.busyIds().has(id);
+  }
+
+  // Tomar una orden pendiente o continuar la propia. Navega a la página de cierre SOLO si tomarla
+  // salió bien: nunca se abre esa página para una orden que no es del técnico.
+  takeWorkOrder(order: WorkOrder): void {
+    const user = this.authService.currentUser();
+
+    if (user === null || !canTakeWorkOrder(user, order)) {
+      this.messageService.showWarning(
+        'No tiene permiso para tomar órdenes de ese tipo.',
+        'Acceso denegado',
+      );
       return;
     }
-    if (status === order.status || this.isUpdating(order.id)) return;
 
-    this.setUpdating(order.id, true);
+    if (this.isBusy(order.id)) return;
+
+    if (canResolveWorkOrder(user, order)) {
+      this.navigateToResolve(order.id);
+      return;
+    }
+
+    // La orden que se ve ya no está pendiente: se advierte sin tocar el servidor.
+    if (order.status !== 'pending') {
+      this.messageService.showWarning(
+        new WorkOrderStateError('not-pending', order.takenBy ?? null, order.status).message,
+        'Orden en ejecución',
+      );
+      return;
+    }
+
+    const taker: WorkOrderTaker = {
+      id: user.id,
+      name: user.displayName,
+      at: new Date().toISOString(),
+    };
+
+    this.setBusy(order.id, true);
     this.workOrdersService
-      .updateStatus(order.id, status)
+      .take(order.id, taker)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.setUpdating(order.id, false)),
+        finalize(() => this.setBusy(order.id, false)),
       )
       .subscribe({
-        next: (updated) => {
-          this.workOrders.update((list) =>
-            list.map((item) => (item.id === updated.id ? updated : item)),
-          );
-          this.messageService.showSuccess('Estado actualizado.');
+        next: () => this.navigateToResolve(order.id),
+        error: (error: unknown) => this.handleTakeError(error, user.id, order.id),
+      });
+  }
 
-          const statusFilter = this.query().status;
-          if (statusFilter !== '' && updated.status !== statusFilter) {
-            this.loadWorkOrders();
-          }
+  openReleaseModal(order: WorkOrder): void {
+    if (!this.canRelease(order)) {
+      this.warnReleaseDenied();
+      return;
+    }
+    this.workOrderToRelease.set(order);
+    this.releaseModalOpen.set(true);
+  }
+
+  confirmRelease(): void {
+    const order = this.workOrderToRelease();
+
+    if (!order) return;
+
+    if (!this.canRelease(order)) {
+      this.warnReleaseDenied();
+      return;
+    }
+
+    if (this.isBusy(order.id)) return;
+
+    this.setBusy(order.id, true);
+    this.workOrdersService
+      .release(order.id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.setBusy(order.id, false)),
+      )
+      .subscribe({
+        next: () => {
+          this.messageService.showSuccess('Orden liberada: vuelve a estar pendiente.');
+          this.loadWorkOrders();
         },
-        error: () => {
-          select.value = order.status;
-          this.messageService.showError('No se pudo actualizar el estado.');
+        error: (error: unknown) => {
+          if (error instanceof WorkOrderStateError) {
+            // La lista estaba desactualizada (ya la cerraron o la liberaron): se recarga.
+            this.messageService.showWarning(error.message, 'No se puede liberar');
+            this.loadWorkOrders();
+            return;
+          }
+
+          this.messageService.showError('No se pudo liberar la orden.');
         },
       });
   }
 
-  isUpdating(id: string): boolean {
-    return this.updatingIds().has(id);
+  private handleTakeError(error: unknown, userId: string, orderId: string): void {
+    if (error instanceof WorkOrderStateError) {
+      // La lista estaba vieja pero la orden ya era de este técnico: se sigue con ella.
+      if (error.status === 'in-progress' && error.takenBy?.id === userId) {
+        this.navigateToResolve(orderId);
+        return;
+      }
+
+      this.messageService.showWarning(error.message, 'Orden en ejecución');
+      this.loadWorkOrders();
+      return;
+    }
+
+    this.messageService.showError('No se pudo tomar la orden.');
   }
 
-  private setUpdating(id: string, updating: boolean): void {
-    this.updatingIds.update((ids) => {
+  private navigateToResolve(id: string): void {
+    this.router.navigate(['/work-orders', id, 'resolve']);
+  }
+
+  private warnReleaseDenied(): void {
+    this.messageService.showWarning('No tiene permiso para liberar órdenes.', 'Acceso denegado');
+  }
+
+  private setBusy(id: string, busy: boolean): void {
+    this.busyIds.update((ids) => {
       const next = new Set(ids);
-      if (updating) next.add(id);
+      if (busy) next.add(id);
       else next.delete(id);
       return next;
     });

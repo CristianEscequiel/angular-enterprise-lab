@@ -48,7 +48,7 @@ export type LegajoLookup =
 type LoadError = 'not-found' | 'connection';
 
 // Tiempo sin tipear antes de consultar el legajo.
-const LOOKUP_DEBOUNCE_MS = 300;
+export const LOOKUP_DEBOUNCE_MS = 400;
 
 // Un nombre de solo espacios no es un nombre: `required` lo deja pasar, esto no.
 const HAS_TEXT = /\S/;

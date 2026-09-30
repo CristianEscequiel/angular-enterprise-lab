@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router, UrlTree } from '@angular/router';
-import { catchError, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
+import { map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 
 import { API_BASE_URL } from '../config/api.config';
 import { LocalStorageService } from '../services/localStorage.service';
@@ -11,10 +11,10 @@ import {
   isAuthSession,
   isLegajo,
   LoginCredentials,
-  TechnicianProfile,
   toAuthUser,
   UserRecord,
 } from './auth.model';
+import { TechnicianDirectory } from './technician-directory';
 
 export const AUTH_STORAGE_KEY = 'auth.session';
 
@@ -42,6 +42,7 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly storage = inject(LocalStorageService);
+  private readonly technicianDirectory = inject(TechnicianDirectory);
 
   private readonly sessionState = signal<AuthSession | null>(this.restoreSession());
 
@@ -107,18 +108,11 @@ export class AuthService {
       return of(null);
     }
 
-    return this.http
-      .get<TechnicianProfile>(`${API_BASE_URL}/tecnicos/${encodeURIComponent(record.legajo)}`)
-      .pipe(
-        map((profile) => toAuthUser(record, profile)),
-        // 404: el login existe pero su técnico no. Cualquier otro error (red, 5xx) se propaga
-        // tal cual y no se presenta como un dato inválido.
-        catchError((error: unknown) =>
-          (error as { status?: number } | null)?.status === 404
-            ? of(null)
-            : throwError(() => error),
-        ),
-      );
+    // Sin técnico en el maestro (el login existe pero su técnico no) no hay sesión. Un error de red
+    // o 5xx se propaga tal cual y no se presenta como un dato inválido.
+    return this.technicianDirectory
+      .find(record.legajo)
+      .pipe(map((profile) => (profile ? toAuthUser(record, profile) : null)));
   }
 
   private restoreSession(): AuthSession | null {

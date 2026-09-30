@@ -1,0 +1,73 @@
+.part-tree,
+.part-tree__group {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// Cada nivel se sangra respecto de su padre: la profundidad se lee sin depender del color.
+.part-tree__group {
+  margin-left: 1.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+.part-tree__row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.part-tree__row:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.part-tree__row--selected,
+.part-tree__row--selected:hover {
+  background-color: var(--color-surface-selected);
+  font-weight: 600;
+}
+
+.part-tree__toggle,
+.part-tree__toggle-space {
+  flex: 0 0 1.75rem;
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.part-tree__toggle,
+.part-tree__name {
+  color: var(--color-text);
+  font: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.part-tree__toggle {
+  border-radius: 0.25rem;
+}
+
+.part-tree__name {
+  flex: 1 1 auto;
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+  border-radius: 0.25rem;
+}
+
+.part-tree__toggle:focus-visible,
+.part-tree__name:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.part-tree__actions {
+  flex: 0 0 auto;
+}
+
+.part-tree__empty {
+  margin: 0;
+  padding: 1rem 0;
+}

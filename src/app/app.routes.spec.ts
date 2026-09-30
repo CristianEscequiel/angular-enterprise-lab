@@ -12,17 +12,23 @@ import { API_BASE_URL } from './core/config/api.config';
 import { MessageService } from './core/services/message.service';
 import { WorkOrdersService } from './features/work-orders/data-access/work-order.service';
 import { WorkOrder } from './features/work-orders/models/work-order.model';
+import { MachinesService } from './features/machines/data-access/machines.service';
+import { PartsService } from './features/machines/data-access/parts.service';
+import { Machine } from './features/machines/models/machine.model';
+import { Part } from './features/machines/models/part.model';
 import { TeamsService } from './features/maintenance/data-access/teams.service';
 import { TechniciansService } from './features/maintenance/data-access/technicians.service';
 import { Team } from './features/maintenance/models/team.model';
 import { Technician } from './features/maintenance/models/technician.model';
+
+import { MACHINE_REF_FIXTURE } from '@features/work-orders/testing/work-order.fixtures';
 
 describe('app routes', () => {
   const order: WorkOrder = {
     id: '1',
     title: 'Revisar motor',
     description: 'Revisar temperatura del motor',
-    asset: 'Motor 1',
+    machineRef: MACHINE_REF_FIXTURE,
     type: 'correctivo',
     priority: 'medium',
     status: 'pending',
@@ -72,6 +78,17 @@ describe('app routes', () => {
     getById: vi.fn(),
   };
 
+  const machine: Machine = { id: 'srv-1', code: 'ENV-01', name: 'Envasadora' };
+  const machinePart: Part = { id: 'p1', machineId: 'srv-1', parentId: null, name: 'Mesa' };
+  const machinesServiceMock = {
+    getAll: vi.fn(),
+    getById: vi.fn(),
+  };
+  const partsServiceMock = {
+    getAll: vi.fn(),
+    getByMachine: vi.fn(),
+  };
+
   let harness: RouterTestingHarness;
   let router: Router;
   let httpMock: HttpTestingController;
@@ -85,6 +102,10 @@ describe('app routes', () => {
     techniciansServiceMock.findByLegajo.mockReset().mockReturnValue(of(technician));
     teamsServiceMock.getAll.mockReset().mockReturnValue(of([team]));
     teamsServiceMock.getById.mockReset().mockReturnValue(of(team));
+    machinesServiceMock.getAll.mockReset().mockReturnValue(of([machine]));
+    machinesServiceMock.getById.mockReset().mockReturnValue(of(machine));
+    partsServiceMock.getAll.mockReset().mockReturnValue(of([machinePart]));
+    partsServiceMock.getByMachine.mockReset().mockReturnValue(of([machinePart]));
     localStorage.clear();
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
 
@@ -96,6 +117,8 @@ describe('app routes', () => {
         { provide: WorkOrdersService, useValue: workOrdersServiceMock },
         { provide: TechniciansService, useValue: techniciansServiceMock },
         { provide: TeamsService, useValue: teamsServiceMock },
+        { provide: MachinesService, useValue: machinesServiceMock },
+        { provide: PartsService, useValue: partsServiceMock },
       ],
     });
 
@@ -160,11 +183,13 @@ describe('app routes', () => {
     authService.login({ username: record.username, password: record.password }).subscribe();
     httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([record]);
 
-    // El técnico completa su perfil con el maestro (`/tecnicos/:legajo`).
+    // El técnico completa su perfil buscando su legajo en el maestro (`GET /tecnicos`).
     if (record.role === 'tecnico') {
       httpMock
-        .expectOne(`${API_BASE_URL}/tecnicos/${record.legajo}`)
-        .flush({ specialty: 'mecanico', teamType: 'guardia' });
+        .expectOne(`${API_BASE_URL}/tecnicos`)
+        .flush([
+          { id: 'srv-1', legajo: record.legajo, specialty: 'mecanico', teamType: 'guardia' },
+        ]);
     }
   }
 
@@ -295,18 +320,21 @@ describe('app routes', () => {
       expect(workOrdersServiceMock.search).not.toHaveBeenCalled();
     });
 
-    it.each(['/dashboard', '/work-orders/new', '/work-orders/5', '/work-orders/5/edit'])(
-      'redirects %s to login with that url as returnUrl',
-      async (url) => {
-        expect.assertions(3);
+    it.each([
+      '/dashboard',
+      '/work-orders/new',
+      '/work-orders/5',
+      '/work-orders/5/edit',
+      '/work-orders/5/resolve',
+    ])('redirects %s to login with that url as returnUrl', async (url) => {
+      expect.assertions(3);
 
-        await harness.navigateByUrl(url);
+      await harness.navigateByUrl(url);
 
-        expect(pathname()).toBe('/login');
-        expect(returnUrl()).toBe(url);
-        expect(workOrdersServiceMock.getById).not.toHaveBeenCalled();
-      },
-    );
+      expect(pathname()).toBe('/login');
+      expect(returnUrl()).toBe(url);
+      expect(workOrdersServiceMock.getById).not.toHaveBeenCalled();
+    });
 
     it('returns to /work-orders/5 after logging in from the redirect made by the guard', async () => {
       expect.assertions(4);
@@ -435,6 +463,50 @@ describe('app routes', () => {
         expect(deniedWarning()?.title).toBe('Acceso denegado');
       },
     );
+
+    // Página de cierre de la orden (spec 013d): solo los técnicos.
+    it('lets a technician open the closing page of an order', async () => {
+      expect.assertions(4);
+      loginAs(users.tecnico);
+
+      await harness.navigateByUrl('/work-orders/1/resolve');
+
+      expect(router.url).toBe('/work-orders/1/resolve');
+      expect(workOrdersServiceMock.getById).toHaveBeenCalledWith('1');
+      expect(harness.routeNativeElement?.textContent).toContain('Cerrar orden de trabajo');
+      expect(deniedWarning()).toBeNull();
+    });
+
+    it.each([
+      ['administrador', users.admin],
+      ['team leader', users.teamLeader],
+      ['personal-produccion', users.produccion],
+    ])(
+      'sends %s away from /work-orders/1/resolve to /dashboard with a warning',
+      async (_label, record) => {
+        expect.assertions(4);
+        loginAs(record);
+
+        await harness.navigateByUrl('/work-orders/1/resolve');
+
+        expect(router.url).toBe('/dashboard');
+        expect(workOrdersServiceMock.getById).not.toHaveBeenCalled();
+        expect(deniedWarning()?.title).toBe('Acceso denegado');
+        expect(harness.routeNativeElement?.textContent).not.toContain('Cerrar orden de trabajo');
+      },
+    );
+
+    it.each([
+      '/work-orders/abc/resolve',
+      '/work-orders/1/resolve/extra',
+      '/work-orders/../resolve',
+    ])('renders NotFound for %s', async (url) => {
+      loginAs(users.tecnico);
+
+      await harness.navigateByUrl(url);
+
+      expect(harness.routeNativeElement?.textContent).toContain('Página no encontrada');
+    });
 
     // Lo que no se restringe: ver el listado y el detalle sigue abierto a cualquier rol con sesión.
     it.each(Object.entries(users))(
@@ -718,6 +790,214 @@ describe('app routes', () => {
 
         loginAs(users.admin);
         await harness.navigateByUrl('/maintenance/teams');
+
+        expect(router.url).toBe('/dashboard');
+      });
+    });
+  });
+
+  // Criterio 3 de 013a: solo `administrador` y `team-leader-mantenimiento` gestionan máquinas y partes.
+  describe('machines routes (machines and parts tree)', () => {
+    const warning = () => TestBed.inject(MessageService).message();
+    const page = () => harness.routeNativeElement?.textContent ?? '';
+    const nothingLoaded = () => {
+      expect(machinesServiceMock.getAll).not.toHaveBeenCalled();
+      expect(machinesServiceMock.getById).not.toHaveBeenCalled();
+      expect(partsServiceMock.getAll).not.toHaveBeenCalled();
+      expect(partsServiceMock.getByMachine).not.toHaveBeenCalled();
+    };
+
+    const machinePages = [
+      ['the list', '/machines', 'Máquinas'],
+      ['the create form', '/machines/new', 'Nueva máquina'],
+      ['the edit form', '/machines/srv-1/edit', 'Editar máquina'],
+      ['the parts tree', '/machines/srv-1/parts', 'Partes de Envasadora (ENV-01)'],
+    ] as const;
+
+    describe.each([
+      ['administrador', users.admin],
+      ['team leader', users.teamLeader],
+    ])('%s (the same level of permission)', (_role, record) => {
+      it.each(machinePages)('can open %s', async (_label, url, heading) => {
+        expect.assertions(4);
+        loginAs(record);
+
+        await harness.navigateByUrl(url);
+
+        expect(router.url).toBe(url);
+        expect(page()).toContain(heading);
+        expect(page()).not.toContain('Página no encontrada');
+        expect(warning()).toBeNull();
+      });
+    });
+
+    describe.each([
+      ['tecnico', users.tecnico],
+      ['personal-produccion', users.produccion],
+    ])('%s (no access to the management)', (_role, record) => {
+      it.each(machinePages)(
+        'is sent away from %s to /dashboard with a warning and nothing is loaded',
+        async (_label, url) => {
+          expect.assertions(7);
+          loginAs(record);
+
+          await harness.navigateByUrl(url);
+
+          expect(router.url).toBe('/dashboard');
+          expect(warning()?.variant).toBe('warning');
+          expect(warning()?.title).toBe('Acceso denegado');
+          nothingLoaded();
+        },
+      );
+    });
+
+    it('opens the edit form with the id taken from the URL', async () => {
+      expect.assertions(1);
+      loginAs(users.admin);
+
+      await harness.navigateByUrl('/machines/srv-1/edit');
+
+      expect(machinesServiceMock.getById).toHaveBeenCalledExactlyOnceWith('srv-1');
+    });
+
+    it('opens the parts tree with the id taken from the URL', async () => {
+      expect.assertions(2);
+      loginAs(users.teamLeader);
+
+      await harness.navigateByUrl('/machines/srv-1/parts');
+
+      expect(machinesServiceMock.getById).toHaveBeenCalledExactlyOnceWith('srv-1');
+      expect(partsServiceMock.getByMachine).toHaveBeenCalledExactlyOnceWith('srv-1');
+    });
+
+    it('opens the parts tree for a seeded numeric id too', async () => {
+      expect.assertions(2);
+      loginAs(users.admin);
+
+      await harness.navigateByUrl('/machines/1/parts');
+
+      expect(machinesServiceMock.getById).toHaveBeenCalledExactlyOnceWith('1');
+      expect(page()).toContain('Partes de');
+    });
+
+    it.each(['a.b', 'a b', 'a@b', 'x'.repeat(65), 'máquina'])(
+      'renders NotFound for an invalid id (%s) without loading anything',
+      async (id) => {
+        expect.assertions(6);
+        loginAs(users.admin);
+
+        await harness.navigateByUrl(`/machines/${encodeURIComponent(id)}/parts`);
+
+        expect(page()).toContain('Página no encontrada');
+        expect(warning()).toBeNull();
+        nothingLoaded();
+      },
+    );
+
+    it.each(['a.b', 'x'.repeat(65)])(
+      'renders NotFound for an invalid id (%s) in the edit URL too',
+      async (id) => {
+        expect.assertions(2);
+        loginAs(users.admin);
+
+        await harness.navigateByUrl(`/machines/${id}/edit`);
+
+        expect(page()).toContain('Página no encontrada');
+        expect(machinesServiceMock.getById).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['/machines/srv-1', '/machines/srv-1/other', '/machines/srv-1/parts/extra'])(
+      'renders NotFound for %s',
+      async (url) => {
+        expect.assertions(2);
+        loginAs(users.admin);
+
+        await harness.navigateByUrl(url);
+
+        expect(page()).toContain('Página no encontrada');
+        expect(warning()).toBeNull();
+      },
+    );
+
+    it('renders a different page for the list and for the parts of a machine', async () => {
+      expect.assertions(3);
+      loginAs(users.admin);
+
+      await harness.navigateByUrl('/machines');
+      const list = page();
+      await harness.navigateByUrl('/machines/srv-1/parts');
+
+      expect(list).toContain('Código');
+      expect(page()).not.toContain('Código');
+      expect(page()).toContain('Mesa');
+    });
+
+    it('sets a distinct document title per route', async () => {
+      expect.assertions(4);
+      loginAs(users.teamLeader);
+
+      await harness.navigateByUrl('/machines');
+      expect(document.title).toBe('Máquinas | Angular Enterprise Lab');
+      await harness.navigateByUrl('/machines/new');
+      expect(document.title).toContain('Nueva máquina');
+      await harness.navigateByUrl('/machines/srv-1/edit');
+      expect(document.title).toContain('Editar máquina');
+      await harness.navigateByUrl('/machines/srv-1/parts');
+      expect(document.title).toContain('Partes de la máquina');
+    });
+
+    describe('without a session', () => {
+      it.each(['/machines', '/machines/new', '/machines/srv-1/edit', '/machines/srv-1/parts'])(
+        'sends an anonymous user from %s to login keeping the requested URL',
+        async (url) => {
+          expect.assertions(6);
+          authService.logout();
+
+          await harness.navigateByUrl(url);
+
+          expect(pathname()).toBe('/login');
+          expect(returnUrl()).toBe(url);
+          nothingLoaded();
+        },
+      );
+
+      it('returns to the parts tree after logging in as team leader', async () => {
+        expect.assertions(4);
+        authService.logout();
+
+        await harness.navigateByUrl('/machines/srv-1/parts');
+        expect(returnUrl()).toBe('/machines/srv-1/parts');
+
+        const login = harness.routeNativeElement;
+        const username = login?.querySelector<HTMLInputElement>('#username');
+        const password = login?.querySelector<HTMLInputElement>('#password');
+        if (!login || !username || !password) {
+          throw new Error('login form not rendered');
+        }
+        username.value = users.teamLeader.username;
+        username.dispatchEvent(new Event('input'));
+        password.value = users.teamLeader.password;
+        password.dispatchEvent(new Event('input'));
+        login.querySelector('form')?.dispatchEvent(new Event('submit'));
+
+        httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([users.teamLeader]);
+        await harness.fixture.whenStable();
+
+        expect(router.url).toBe('/machines/srv-1/parts');
+        expect(page()).toContain('Partes de Envasadora');
+        expect(warning()).toBeNull();
+      });
+
+      it('sends a user without permission to /dashboard, not to login, even after coming from login', async () => {
+        expect.assertions(2);
+        authService.logout();
+
+        await harness.navigateByUrl('/machines');
+        expect(pathname()).toBe('/login');
+
+        loginAs(users.produccion);
+        await harness.navigateByUrl('/machines');
 
         expect(router.url).toBe('/dashboard');
       });

@@ -5,6 +5,7 @@ export const STATUS_LABELS: Record<WorkOrderStatus, string> = {
   pending: 'Pendiente',
   'in-progress': 'En progreso',
   completed: 'Completada',
+  cancelled: 'Cancelada',
 };
 
 export const PRIORITY_LABELS: Record<WorkOrderPriority, string> = {
@@ -23,6 +24,7 @@ export const STATUS_BADGE: Record<WorkOrderStatus, BadgeVariant> = {
   pending: 'pending',
   'in-progress': 'in-progress',
   completed: 'completed',
+  cancelled: 'cancelled',
 };
 
 export const PRIORITY_BADGE: Record<WorkOrderPriority, BadgeVariant> = {

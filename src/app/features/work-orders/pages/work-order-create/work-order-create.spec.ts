@@ -6,31 +6,70 @@ import { Observable, of, Subject, throwError } from 'rxjs';
 import { AuthUser } from '@core/auth/auth.model';
 import { AuthService } from '@core/auth/auth.service';
 import { MessageService } from '@core/services/message.service';
+import { MachinesService } from '@features/machines/data-access/machines.service';
+import { PartsService } from '@features/machines/data-access/parts.service';
+import { Machine } from '@features/machines/models/machine.model';
+import { Part } from '@features/machines/models/part.model';
 import { WorkOrderCreate } from './work-order-create';
 import { WorkOrdersService } from '../../data-access/work-order.service';
-import { WorkOrder, WorkOrderCreateRequest } from '../../models/work-order.model';
+import { WorkOrderFormValue } from '../../components/form/form';
+import {
+  WORK_ORDER_TYPES,
+  WorkOrder,
+  WorkOrderCreateRequest,
+  WorkOrderType,
+} from '../../models/work-order.model';
+
+const MACHINES: Machine[] = [
+  { id: '1', code: 'ENV-01', name: 'Envasadora línea 1' },
+  { id: '2', code: 'SEL-02', name: 'Selladora' },
+];
+
+const PARTS_OF_MACHINE_1: Part[] = [
+  { id: '1', machineId: '1', parentId: null, name: 'Mesa de transporte' },
+  { id: '2', machineId: '1', parentId: '1', name: 'Cinta 1' },
+  { id: '3', machineId: '1', parentId: '2', name: 'Motor de cinta' },
+];
 
 describe('WorkOrderCreate', () => {
   let component: WorkOrderCreate;
   let fixture: ComponentFixture<WorkOrderCreate>;
 
-  const payload: WorkOrderCreateRequest = {
+  // Lo que emite el formulario: la máquina/parte viaja como campos sueltos, sin breadcrumb.
+  const payload: WorkOrderFormValue = {
     title: 'Revisar motor',
     description: 'Revisar temperatura del motor',
-    asset: 'Motor 1',
+    machineId: '1',
+    partId: null,
+    comment: '',
+    type: 'correctivo',
+    priority: 'medium',
+  };
+
+  // Lo que la página le pide al servicio para ese envío.
+  const expectedRequest: WorkOrderCreateRequest = {
+    title: 'Revisar motor',
+    description: 'Revisar temperatura del motor',
+    machineRef: { machineId: '1', partId: null, breadcrumb: 'Envasadora línea 1', comment: '' },
     type: 'correctivo',
     priority: 'medium',
   };
 
   const created: WorkOrder = {
     id: '1',
-    ...payload,
+    ...expectedRequest,
     status: 'pending',
     createdAt: '2026-09-08T10:00:00Z',
   };
 
   const workOrdersServiceMock = {
     create: vi.fn<(...args: unknown[]) => Observable<WorkOrder>>(),
+  };
+  const machinesServiceMock = {
+    getAll: vi.fn<() => Observable<Machine[]>>(),
+  };
+  const partsServiceMock = {
+    getByMachine: vi.fn<(machineId: string) => Observable<Part[]>>(),
   };
   const routerMock = {
     navigate: vi.fn(),
@@ -52,8 +91,14 @@ describe('WorkOrderCreate', () => {
   };
   const currentUser = signal<AuthUser | null>(teamLeader);
 
+  const message = () => TestBed.inject(MessageService).message();
+
   beforeEach(async () => {
     workOrdersServiceMock.create.mockReset().mockReturnValue(of(created));
+    machinesServiceMock.getAll.mockReset().mockReturnValue(of(MACHINES));
+    partsServiceMock.getByMachine
+      .mockReset()
+      .mockImplementation((machineId) => of(machineId === '1' ? PARTS_OF_MACHINE_1 : []));
     routerMock.navigate.mockReset();
     currentUser.set(teamLeader);
 
@@ -61,6 +106,8 @@ describe('WorkOrderCreate', () => {
       imports: [WorkOrderCreate],
       providers: [
         { provide: WorkOrdersService, useValue: workOrdersServiceMock },
+        { provide: MachinesService, useValue: machinesServiceMock },
+        { provide: PartsService, useValue: partsServiceMock },
         { provide: Router, useValue: routerMock },
         { provide: AuthService, useValue: { currentUser: currentUser.asReadonly() } },
       ],
@@ -75,10 +122,17 @@ describe('WorkOrderCreate', () => {
     expect(component).toBeTruthy();
   });
 
+  it('loads the machines and offers them in the selector', () => {
+    const select = fixture.nativeElement.querySelector('#machine-select') as HTMLSelectElement;
+
+    expect(machinesServiceMock.getAll).toHaveBeenCalledTimes(1);
+    expect(Array.from(select.options).map((option) => option.value)).toEqual(['', '1', '2']);
+  });
+
   it('creates the work order and navigates to the list on success', () => {
     component.onSubmit(payload);
 
-    expect(workOrdersServiceMock.create).toHaveBeenCalledExactlyOnceWith(payload);
+    expect(workOrdersServiceMock.create).toHaveBeenCalledExactlyOnceWith(expectedRequest);
     expect(routerMock.navigate).toHaveBeenCalledExactlyOnceWith(['/work-orders']);
   });
 
@@ -120,9 +174,184 @@ describe('WorkOrderCreate', () => {
     expect(submitButton?.disabled).toBe(true);
   });
 
+  describe('machine and part reference (spec 013d)', () => {
+    const lastRequest = (): WorkOrderCreateRequest =>
+      workOrdersServiceMock.create.mock.calls[0]?.[0] as WorkOrderCreateRequest;
+
+    it('blocks the submit without a machine: no request, warning shown', () => {
+      expect.assertions(3);
+
+      component.onSubmit({ ...payload, machineId: '' });
+
+      expect(workOrdersServiceMock.create).not.toHaveBeenCalled();
+      expect(routerMock.navigate).not.toHaveBeenCalled();
+      expect(message()?.variant).toBe('warning');
+    });
+
+    it('blocks the submit for a machine that is not in the loaded list', () => {
+      component.onSubmit({ ...payload, machineId: '999' });
+
+      expect(workOrdersServiceMock.create).not.toHaveBeenCalled();
+    });
+
+    // Sin excepción por tipo de orden. El mapa es exhaustivo: un tipo nuevo obliga a decidir qué rol
+    // lo crea y a cubrirlo acá.
+    const creatorOf: Record<WorkOrderType, AuthUser> = {
+      preventivo: teamLeader,
+      correctivo: teamLeader,
+      'pronto-intervencion': produccion,
+    };
+
+    it.each(WORK_ORDER_TYPES)('requires a machine for a %s order too', (type) => {
+      expect.assertions(2);
+      currentUser.set(creatorOf[type]);
+
+      component.onSubmit({ ...payload, type, machineId: '' });
+      expect(workOrdersServiceMock.create).not.toHaveBeenCalled();
+
+      component.onSubmit({ ...payload, type });
+      expect(workOrdersServiceMock.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops at the machine: partId null and breadcrumb equal to the machine name', () => {
+      expect.assertions(2);
+
+      component.onSubmit({ ...payload, machineId: '2', partId: null });
+
+      expect(lastRequest().machineRef.partId).toBeNull();
+      expect(lastRequest().machineRef.breadcrumb).toBe('Selladora');
+    });
+
+    it('builds the full chain of ancestors, in order, for a level-3 part', () => {
+      component.onMachineChange('1');
+
+      component.onSubmit({ ...payload, machineId: '1', partId: '3' });
+
+      expect(lastRequest().machineRef).toEqual({
+        machineId: '1',
+        partId: '3',
+        breadcrumb: 'Envasadora línea 1 > Mesa de transporte > Cinta 1 > Motor de cinta',
+        comment: '',
+      });
+    });
+
+    it('keeps the failure comment in its own field, never inside the breadcrumb', () => {
+      expect.assertions(3);
+      component.onMachineChange('1');
+
+      component.onSubmit({ ...payload, partId: '3', comment: '  Vibración en el arranque  ' });
+
+      expect(lastRequest().machineRef.comment).toBe('Vibración en el arranque');
+      expect(lastRequest().machineRef.breadcrumb).not.toContain('Vibración');
+      expect(Object.keys(lastRequest())).not.toContain('comment');
+    });
+
+    it('does not create the order when the part cannot be resolved: warning, no request', () => {
+      expect.assertions(3);
+      component.onMachineChange('1');
+
+      component.onSubmit({ ...payload, partId: 'inexistente' });
+
+      expect(workOrdersServiceMock.create).not.toHaveBeenCalled();
+      expect(routerMock.navigate).not.toHaveBeenCalled();
+      expect(message()?.variant).toBe('error');
+    });
+
+    it('loads the parts of the chosen machine and shows them as a tree', () => {
+      const select = fixture.nativeElement.querySelector('#machine-select') as HTMLSelectElement;
+      select.value = '1';
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      expect(partsServiceMock.getByMachine).toHaveBeenCalledExactlyOnceWith('1');
+      expect(
+        Array.from(fixture.nativeElement.querySelectorAll('.part-tree__name')).map((el) =>
+          (el as HTMLElement).textContent?.trim(),
+        ),
+      ).toEqual(['Mesa de transporte', 'Cinta 1', 'Motor de cinta']);
+    });
+
+    it('does not use the parts of the previous machine once the machine changed', () => {
+      expect.assertions(2);
+      component.onMachineChange('1');
+      component.onMachineChange('2');
+
+      component.onSubmit({ ...payload, machineId: '2', partId: '3' });
+
+      // La parte 3 es de la máquina 1: no se puede colgar de la 2.
+      expect(workOrdersServiceMock.create).not.toHaveBeenCalled();
+      expect(message()?.variant).toBe('error');
+    });
+
+    it('discards the answer of an earlier parts request when the machine changed meanwhile', () => {
+      expect.assertions(2);
+      const slow = new Subject<Part[]>();
+      partsServiceMock.getByMachine.mockImplementation((machineId) =>
+        machineId === '1' ? slow : of([]),
+      );
+
+      component.onMachineChange('1');
+      component.onMachineChange('2');
+      slow.next(PARTS_OF_MACHINE_1);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelectorAll('.part-tree__name')).toHaveLength(0);
+      expect(component.partNodes()).toEqual([]);
+    });
+
+    it('shows an error with a retry when the machines cannot be loaded, and no form', () => {
+      expect.assertions(4);
+      machinesServiceMock.getAll.mockReturnValueOnce(throwError(() => new Error('down')));
+      const failed = TestBed.createComponent(WorkOrderCreate);
+      failed.detectChanges();
+
+      expect(failed.componentInstance.machinesError()).toBe(true);
+      expect(failed.nativeElement.textContent).toContain('No se pudieron cargar las máquinas');
+      expect(failed.nativeElement.querySelector('app-form')).toBeNull();
+
+      failed.componentInstance.loadMachines();
+      failed.detectChanges();
+
+      expect(failed.nativeElement.querySelector('app-form')).not.toBeNull();
+    });
+
+    it('warns when the parts cannot be loaded but still lets the order be created on the machine', () => {
+      expect.assertions(3);
+      partsServiceMock.getByMachine.mockReturnValue(throwError(() => new Error('down')));
+
+      component.onMachineChange('1');
+      fixture.detectChanges();
+      expect(component.partsError()).toBe(true);
+      expect(fixture.nativeElement.textContent).toContain('No se pudieron cargar las partes');
+
+      component.onSubmit({ ...payload, machineId: '1', partId: null });
+      expect(workOrdersServiceMock.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not ask for parts when the machine is cleared, and forgets the previous ones', () => {
+      component.onMachineChange('1');
+      partsServiceMock.getByMachine.mockClear();
+
+      component.onMachineChange(null);
+
+      expect(partsServiceMock.getByMachine).not.toHaveBeenCalled();
+      expect(component.partNodes()).toEqual([]);
+    });
+
+    it('clears the parts warning when another machine is chosen', () => {
+      partsServiceMock.getByMachine.mockReturnValueOnce(throwError(() => new Error('down')));
+      component.onMachineChange('1');
+      expect(component.partsError()).toBe(true);
+
+      component.onMachineChange('2');
+
+      expect(component.partsError()).toBe(false);
+    });
+  });
+
   describe('permissions by role', () => {
-    const pronto: WorkOrderCreateRequest = { ...payload, type: 'pronto-intervencion' };
-    const preventiva: WorkOrderCreateRequest = { ...payload, type: 'preventivo' };
+    const pronto: WorkOrderFormValue = { ...payload, type: 'pronto-intervencion' };
+    const preventiva: WorkOrderFormValue = { ...payload, type: 'preventivo' };
 
     function createFor(user: AuthUser | null): ComponentFixture<WorkOrderCreate> {
       currentUser.set(user);
@@ -154,12 +383,15 @@ describe('WorkOrderCreate', () => {
 
       target.componentInstance.onSubmit(pronto);
 
-      expect(workOrdersServiceMock.create).toHaveBeenCalledExactlyOnceWith(pronto);
+      expect(workOrdersServiceMock.create).toHaveBeenCalledExactlyOnceWith({
+        ...expectedRequest,
+        type: 'pronto-intervencion',
+      });
       expect(routerMock.navigate).toHaveBeenCalledExactlyOnceWith(['/work-orders']);
       expect(warning()?.variant).toBe('success');
     });
 
-    it.each<WorkOrderCreateRequest['type']>(['preventivo', 'correctivo'])(
+    it.each<WorkOrderFormValue['type']>(['preventivo', 'correctivo'])(
       'blocks personal-produccion from creating a %s order: no request, warning shown',
       (type) => {
         expect.assertions(4);
@@ -190,7 +422,10 @@ describe('WorkOrderCreate', () => {
 
       target.componentInstance.onSubmit(preventiva);
 
-      expect(workOrdersServiceMock.create).toHaveBeenCalledExactlyOnceWith(preventiva);
+      expect(workOrdersServiceMock.create).toHaveBeenCalledExactlyOnceWith({
+        ...expectedRequest,
+        type: 'preventivo',
+      });
     });
 
     it.each<[string, AuthUser | null]>([

@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 
@@ -8,7 +9,7 @@ import { Button } from '@shared/components/button/button';
 
 @Component({
   selector: 'app-work-order-detail',
-  imports: [Alert, Button],
+  imports: [Alert, Button, DatePipe],
   templateUrl: './work-order-detail.html',
   styleUrl: './work-order-detail.scss',
   providers: [WorkOrderLoader],

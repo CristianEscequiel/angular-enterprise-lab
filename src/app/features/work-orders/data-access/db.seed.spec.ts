@@ -1,4 +1,23 @@
 import { toAuthUser, USER_ROLES } from '@core/auth/auth.model';
+import { isMachineRecord, normalizeMachineCode } from '../../machines/models/machine.model';
+import { WORK_ORDERS_MOCK } from './work-order.mock';
+import { canTakeWorkOrder } from '../models/work-order.permissions';
+import {
+  isClosedStatus,
+  isWorkOrderClosingNote,
+  isWorkOrderMachineRef,
+  isWorkOrderTaker,
+  WorkOrder,
+  WorkOrderMachineRef,
+} from '../models/work-order.model';
+import {
+  buildBreadcrumb,
+  buildPartTree,
+  flattenPartTree,
+  hasChildren,
+  isPartRecord,
+  Part,
+} from '../../machines/models/part.model';
 import { isTeamRecord } from '../../maintenance/models/team.model';
 import { isTechnicianRecord, Technician } from '../../maintenance/models/technician.model';
 import db from './db.json';
@@ -6,10 +25,13 @@ import db from './db.json';
 // Integridad de los datos de prueba que sirve `pnpm api`. json-server no tiene integridad
 // referencial: si estas referencias se rompen a mano (un legajo borrado, un miembro que no existe),
 // la app falla recién en el navegador. Acá se comprueba con los mismos validadores del código.
-const { users, tecnicos, equipos } = db as unknown as {
+const { users, tecnicos, equipos, maquinas, partes } = db as unknown as {
+  'work-orders': Record<string, unknown>[];
   users: Record<string, unknown>[];
   tecnicos: unknown[];
   equipos: unknown[];
+  maquinas: unknown[];
+  partes: unknown[];
 };
 
 const technicians = tecnicos.filter(isTechnicianRecord);
@@ -18,6 +40,10 @@ const legajos: unknown[] = technicians.map((technician) => technician.legajo);
 const technicianUsers = users.filter((user) => user['role'] === 'tecnico');
 const linkedLegajos = technicianUsers.map((user) => user['legajo']);
 const teamMembers: unknown[] = equipos.filter(isTeamRecord).flatMap((team) => team.memberLegajos);
+
+function partRecords(): Part[] {
+  return partes.filter(isPartRecord);
+}
 
 function profileOf(legajo: unknown): Technician | undefined {
   return technicians.find((technician) => technician.legajo === legajo);
@@ -108,6 +134,267 @@ describe('db.json seed data', () => {
       for (const user of users.filter((candidate) => candidate['role'] !== 'tecnico')) {
         expect(user).not.toHaveProperty('legajo');
       }
+    });
+  });
+
+  // Máquinas y árbol de partes (spec 013a). JSON Server no valida nada ni tiene integridad
+  // referencial: un padre borrado a mano, una parte con otra máquina o un código repetido rompen la
+  // pantalla recién en el navegador. Acá se comprueba con los mismos validadores del código.
+  describe('machines (maquinas)', () => {
+    const machineRecords = maquinas.filter(isMachineRecord);
+
+    it('is not empty and every record is a valid machine', () => {
+      expect(maquinas.length).toBeGreaterThan(0);
+      expect(machineRecords).toHaveLength(maquinas.length);
+    });
+
+    it('has unique ids (json-server would not reject a repeated one)', () => {
+      const ids = machineRecords.map((machine) => machine.id);
+
+      expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    it('has unique codes, ignoring case and edge spaces', () => {
+      const codes = machineRecords.map((machine) => normalizeMachineCode(machine.code));
+
+      expect(new Set(codes).size).toBe(codes.length);
+    });
+
+    it('has a machine without parts: the one that can be deleted', () => {
+      const withParts = new Set(partRecords().map((part) => part.machineId));
+
+      expect(machineRecords.some((machine) => !withParts.has(machine.id))).toBe(true);
+    });
+
+    it('has a machine with parts: deleting it has to be blocked', () => {
+      const withParts = new Set(partRecords().map((part) => part.machineId));
+
+      expect(machineRecords.some((machine) => withParts.has(machine.id))).toBe(true);
+    });
+  });
+
+  describe('parts (partes)', () => {
+    const machineIds = maquinas.filter(isMachineRecord).map((machine) => machine.id);
+
+    it('is not empty and every record is a valid part', () => {
+      expect(partes.length).toBeGreaterThan(0);
+      expect(partRecords()).toHaveLength(partes.length);
+    });
+
+    it('has unique ids', () => {
+      const ids = partRecords().map((part) => part.id);
+
+      expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    it('only points at machines that exist', () => {
+      const unknown = partRecords().filter((part) => !machineIds.includes(part.machineId));
+
+      expect(unknown.map((part) => part.name)).toEqual([]);
+    });
+
+    it('only hangs from parents that exist and belong to the same machine', () => {
+      const all = partRecords();
+      const broken = all.filter((part) => {
+        if (part.parentId === null) return false;
+        const parent = all.find((candidate) => candidate.id === part.parentId);
+
+        return !parent || parent.machineId !== part.machineId;
+      });
+
+      expect(broken.map((part) => part.name)).toEqual([]);
+    });
+
+    it('builds a tree with no orphans for every machine, and loses no part', () => {
+      for (const machineId of machineIds) {
+        const own = partRecords().filter((part) => part.machineId === machineId);
+        const { roots, orphans } = buildPartTree(own);
+
+        expect(orphans, `máquina ${machineId}`).toEqual([]);
+        expect(flattenPartTree(roots), `máquina ${machineId}`).toHaveLength(own.length);
+      }
+    });
+
+    it('has a tree of at least 4 levels, to exercise the depth of the spec', () => {
+      const depths = machineIds.flatMap((machineId) =>
+        flattenPartTree(
+          buildPartTree(partRecords().filter((part) => part.machineId === machineId)).roots,
+        ).map((item) => item.depth),
+      );
+
+      expect(Math.max(...depths)).toBeGreaterThanOrEqual(3);
+    });
+
+    it('has a leaf next to a part with children at level 2, to exercise both kinds of sibling', () => {
+      const all = partRecords();
+      const levelTwo = all.filter((part) => part.parentId !== null);
+      const siblingsOfMixedKind = levelTwo.some(
+        (part) =>
+          !hasChildren(all, part.id) &&
+          levelTwo.some(
+            (other) =>
+              other.parentId === part.parentId &&
+              other.id !== part.id &&
+              hasChildren(all, other.id),
+          ),
+      );
+
+      expect(siblingsOfMixedKind).toBe(true);
+    });
+
+    it('has a part with children: deleting it has to be blocked', () => {
+      const all = partRecords();
+
+      expect(all.some((part) => hasChildren(all, part.id))).toBe(true);
+    });
+
+    it('has more than one machine with parts, so the trees can be told apart', () => {
+      expect(new Set(partRecords().map((part) => part.machineId)).size).toBeGreaterThan(1);
+    });
+
+    // JSON Server anula, al borrar, las claves foráneas llamadas `<singular>Id` de otras colecciones
+    // (`maquinaId`, `parteId`). Los campos elegidos (`machineId`, `parentId`) no la disparan: si
+    // alguien los renombra a esa convención, un DELETE convertiría hijos en raíces sin avisar.
+    it('does not use the foreign key names that json-server nullifies on delete', () => {
+      for (const record of partes as Record<string, unknown>[]) {
+        expect(record).not.toHaveProperty('maquinaId');
+        expect(record).not.toHaveProperty('parteId');
+      }
+    });
+  });
+
+  // Invariantes de spec 013d: pending → sin dueño; in-progress → con dueño; cerrada → con dueño y
+  // comentario de cierre escrito por ese mismo dueño.
+  describe.each<[string, () => WorkOrder[]]>([
+    ['db.json', () => (db as unknown as { 'work-orders': WorkOrder[] })['work-orders']],
+    ['work-order.mock.ts', () => WORK_ORDERS_MOCK],
+  ])('order owner and closing note (%s)', (_source, load) => {
+    const orders = load();
+    const ids = (list: WorkOrder[]) => list.map((order) => order.id);
+
+    it('a pending order has no owner (or a released one, null) and no closing note', () => {
+      const broken = orders.filter(
+        (order) => order.status === 'pending' && (order.takenBy || order.closingNote),
+      );
+
+      expect(ids(broken)).toEqual([]);
+    });
+
+    it('an in-progress order has a valid owner and no closing note', () => {
+      const broken = orders.filter(
+        (order) =>
+          order.status === 'in-progress' && (!isWorkOrderTaker(order.takenBy) || order.closingNote),
+      );
+
+      expect(ids(broken)).toEqual([]);
+    });
+
+    it('a closed order has an owner and a valid closing note written by that owner', () => {
+      const closed = orders.filter((order) => isClosedStatus(order.status));
+      const broken = closed.filter(
+        (order) =>
+          !isWorkOrderTaker(order.takenBy) ||
+          !isWorkOrderClosingNote(order.closingNote) ||
+          order.closingNote.authorId !== order.takenBy.id,
+      );
+
+      expect(closed.length).toBeGreaterThan(0);
+      expect(ids(broken)).toEqual([]);
+    });
+
+    it('the owner is a technician with a login whose team attends the order type', () => {
+      const owned = orders.filter((order) => isWorkOrderTaker(order.takenBy));
+      const broken = owned.filter((order) => {
+        const user = users.find((candidate) => candidate['id'] === order.takenBy?.id);
+        const authUser = toAuthUser(user, profileOf(user?.['legajo']));
+
+        return user?.['role'] !== 'tecnico' || !authUser || !canTakeWorkOrder(authUser, order);
+      });
+
+      expect(owned.length).toBeGreaterThan(0);
+      expect(ids(broken)).toEqual([]);
+    });
+
+    it('never mixes the closing comment into the machine path or the failure comment', () => {
+      const mixed = orders.filter(
+        (order) =>
+          order.closingNote &&
+          (order.machineRef.breadcrumb.includes(order.closingNote.comment) ||
+            order.machineRef.comment === order.closingNote.comment),
+      );
+
+      expect(ids(mixed)).toEqual([]);
+    });
+  });
+
+  describe('work orders (work-orders)', () => {
+    const orders = (db as unknown as { 'work-orders': Record<string, unknown>[] })['work-orders'];
+    const machines = maquinas.filter(isMachineRecord);
+    const refOf = (order: Record<string, unknown>): WorkOrderMachineRef =>
+      order['machineRef'] as WorkOrderMachineRef;
+
+    // El mock es solo de tres órdenes: el caso cancelado lo aporta db.json.
+    it('has at least one cancelled order, to exercise the filter and the detail', () => {
+      expect(orders.some((order) => order['status'] === 'cancelled')).toBe(true);
+    });
+
+    it('every order carries a valid machineRef and no free-text asset', () => {
+      const invalid = orders.filter((order) => !isWorkOrderMachineRef(order['machineRef']));
+
+      expect(invalid.map((order) => order['id'])).toEqual([]);
+      expect(orders.filter((order) => 'asset' in order)).toEqual([]);
+    });
+
+    it('points at machines that exist', () => {
+      const unknown = orders.filter(
+        (order) => !machines.some((machine) => machine.id === refOf(order).machineId),
+      );
+
+      expect(unknown.map((order) => order['id'])).toEqual([]);
+    });
+
+    it('points at parts that exist and belong to that machine', () => {
+      const all = partRecords();
+      const broken = orders.filter((order) => {
+        const { partId, machineId } = refOf(order);
+
+        return (
+          partId !== null && !all.some((part) => part.id === partId && part.machineId === machineId)
+        );
+      });
+
+      expect(broken.map((order) => order['id'])).toEqual([]);
+    });
+
+    it('stores a breadcrumb equal to the chain of names of the seeded master', () => {
+      const all = partRecords();
+      const stale = orders.filter((order) => {
+        const ref = refOf(order);
+        const machine = machines.find((candidate) => candidate.id === ref.machineId);
+
+        return !machine || buildBreadcrumb(machine, ref.partId, all) !== ref.breadcrumb;
+      });
+
+      expect(stale.map((order) => order['id'])).toEqual([]);
+    });
+
+    it('keeps the comment apart: it is never inside the breadcrumb', () => {
+      const mixed = orders.filter((order) => {
+        const { comment, breadcrumb } = refOf(order);
+
+        return comment !== '' && breadcrumb.includes(comment);
+      });
+
+      expect(mixed.map((order) => order['id'])).toEqual([]);
+    });
+
+    it('has a machine-level order and one that goes down to level 3 or deeper', () => {
+      const separator = ' > ';
+
+      expect(orders.some((order) => refOf(order).partId === null)).toBe(true);
+      expect(orders.some((order) => refOf(order).breadcrumb.split(separator).length >= 4)).toBe(
+        true,
+      );
     });
   });
 });

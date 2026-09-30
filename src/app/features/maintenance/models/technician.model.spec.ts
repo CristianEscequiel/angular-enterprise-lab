@@ -2,8 +2,9 @@ import { TECHNICIAN_SPECIALTIES, TECHNICIAN_TEAM_TYPES } from '@core/auth/auth.m
 import { fullName, isTechnicianRecord, Technician } from './technician.model';
 
 describe('technician model', () => {
+  // `id` lo genera el servidor y es opaco: no coincide con el legajo.
   const valid: Technician = {
-    id: '1001',
+    id: 'srv-1001',
     legajo: '1001',
     firstName: 'Ana',
     lastName: 'Ruiz',
@@ -71,9 +72,23 @@ describe('technician model', () => {
       expect(isTechnicianRecord({ ...valid, ...override })).toBe(false);
     });
 
-    it('rejects a record whose id differs from its legajo', () => {
-      expect(isTechnicianRecord({ ...valid, id: '1002' })).toBe(false);
-      expect(isTechnicianRecord({ ...valid, legajo: '1002' })).toBe(false);
+    // json-server descarta el `id` que manda el cliente al crear y genera uno propio: exigir
+    // `id === legajo` rechazaría todo técnico creado desde la app.
+    it('accepts a record whose id differs from its legajo (the server assigns the id)', () => {
+      expect(isTechnicianRecord({ ...valid, id: 'fRMxqKL-ODo' })).toBe(true);
+    });
+
+    it('still accepts a record whose id happens to equal its legajo (the seed data)', () => {
+      expect(isTechnicianRecord({ ...valid, id: '1001' })).toBe(true);
+    });
+
+    it.each([
+      ['an empty id', { id: '' }],
+      ['a blank id', { id: '  ' }],
+      ['a numeric id', { id: 1001 }],
+      ['a null id', { id: null }],
+    ])('rejects a record with %s', (_label, override) => {
+      expect(isTechnicianRecord({ ...valid, ...override })).toBe(false);
     });
 
     it.each([

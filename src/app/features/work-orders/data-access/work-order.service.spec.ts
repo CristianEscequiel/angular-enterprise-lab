@@ -1,9 +1,26 @@
+import { MACHINE_REF_FIXTURE } from '../testing/work-order.fixtures';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { PaginatedResponse, WorkOrder, WorkOrderCreateRequest } from '../models/work-order.model';
-import { WorkOrderLoadError, WorkOrdersCriteria, WorkOrdersService } from './work-order.service';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+import {
+  ClosedWorkOrderStatus,
+  PaginatedResponse,
+  WorkOrder,
+  WorkOrderClosingNote,
+  WorkOrderCreateRequest,
+  WorkOrderTaker,
+} from '../models/work-order.model';
+import {
+  InvalidClosingNoteError,
+  WorkOrderLoadError,
+  WorkOrderStateError,
+  WorkOrdersCriteria,
+  WorkOrdersService,
+} from './work-order.service';
 
 describe('WorkOrdersService', () => {
   const apiUrl = 'http://localhost:3000/work-orders';
@@ -14,7 +31,7 @@ describe('WorkOrdersService', () => {
     id: '1',
     title: 'Revisar motor',
     description: 'Revisar temperatura del motor',
-    asset: 'Motor 1',
+    machineRef: MACHINE_REF_FIXTURE,
     type: 'correctivo',
     priority: 'medium',
     status: 'pending',
@@ -147,17 +164,29 @@ describe('WorkOrdersService', () => {
     expect(error?.kind).toBe('connection');
   });
 
-  it('updateStatus issues PATCH /work-orders/:id with only the new status', () => {
+  it('getPaginated sends _page and _per_page as strings', () => {
+    let result: PaginatedResponse<WorkOrder> | undefined;
+    service.getPaginated(2, 5).subscribe((value) => (result = value));
+
+    const request = httpMock.expectOne((req) => req.url === apiUrl);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.get('_page')).toBe('2');
+    expect(request.request.params.get('_per_page')).toBe('5');
+    request.flush(page);
+
+    expect(result).toEqual(page);
+  });
+
+  it('update issues PUT /work-orders/:id with the whole order', () => {
     let result: WorkOrder | undefined;
-    service.updateStatus('7', 'completed').subscribe((value) => (result = value));
+    service.update('1', order).subscribe((value) => (result = value));
 
-    const request = httpMock.expectOne(`${apiUrl}/7`);
-    expect(request.request.method).toBe('PATCH');
-    expect(request.request.body).toEqual({ status: 'completed' });
-    const updated = { ...order, id: '7', status: 'completed' as const };
-    request.flush(updated);
+    const request = httpMock.expectOne(`${apiUrl}/1`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual(order);
+    request.flush(order);
 
-    expect(result).toEqual(updated);
+    expect(result).toEqual(order);
   });
 
   it('delete issues DELETE /work-orders/:id', () => {
@@ -175,7 +204,7 @@ describe('WorkOrdersService', () => {
     const payload: WorkOrderCreateRequest = {
       title: 'Falla en cinta',
       description: 'La cinta transportadora se detuvo por completo.',
-      asset: 'Transportador 01',
+      machineRef: MACHINE_REF_FIXTURE,
       type: 'pronto-intervencion',
       priority: 'high',
     };
@@ -194,6 +223,34 @@ describe('WorkOrdersService', () => {
     expect(result?.type).toBe('pronto-intervencion');
   });
 
+  it('create sends the machineRef intact, with breadcrumb and comment as separate fields', () => {
+    expect.assertions(4);
+    const machineRef = {
+      machineId: '1',
+      partId: '3',
+      breadcrumb: 'Envasadora línea 1 > Mesa de transporte > Cinta 1 > Motor de cinta',
+      comment: 'Vibración en el arranque',
+    };
+
+    service
+      .create({
+        title: 'Orden',
+        description: 'Descripción suficiente',
+        machineRef,
+        type: 'correctivo',
+        priority: 'low',
+      })
+      .subscribe();
+
+    const request = httpMock.expectOne(apiUrl);
+    const body = request.request.body as { machineRef: typeof machineRef };
+    expect(body.machineRef).toEqual(machineRef);
+    expect(body.machineRef.breadcrumb).not.toContain('Vibración');
+    expect(Object.keys(body)).not.toContain('asset');
+    expect(Object.keys(body)).not.toContain('comment');
+    request.flush({ ...order, machineRef });
+  });
+
   it.each(['preventivo', 'correctivo', 'pronto-intervencion'] as const)(
     'create keeps the %s type untouched in the request body',
     (type) => {
@@ -201,7 +258,7 @@ describe('WorkOrdersService', () => {
         .create({
           title: 'Orden',
           description: 'Descripción suficiente',
-          asset: 'Activo',
+          machineRef: MACHINE_REF_FIXTURE,
           type,
           priority: 'low',
         })
@@ -212,4 +269,340 @@ describe('WorkOrdersService', () => {
       request.flush({ ...order, type });
     },
   );
+
+  // Tomar, cerrar y liberar (spec 013d). Toda transición LEE la orden fresca y solo después escribe.
+  describe('state transitions', () => {
+    const url = `${apiUrl}/1`;
+    const taker: WorkOrderTaker = {
+      id: '2',
+      name: 'Técnico Mecánico de Guardia',
+      at: '2026-09-25T10:00:00.000Z',
+    };
+    const otherTaker: WorkOrderTaker = { id: '5', name: 'Técnico Electricista', at: taker.at };
+    const note: WorkOrderClosingNote = {
+      comment: 'Se reemplazó el rodamiento delantero y se verificó el giro sin vibración.',
+      authorId: taker.id,
+      authorName: taker.name,
+      at: '2026-09-25T15:00:00.000Z',
+    };
+    const inProgress: WorkOrder = { ...order, status: 'in-progress', takenBy: taker };
+
+    interface Outcome<T> {
+      value?: T;
+      error?: unknown;
+      done: boolean;
+    }
+
+    function run<T>(source: Observable<T>): Outcome<T> {
+      const outcome: Outcome<T> = { done: false };
+
+      source.subscribe({
+        next: (value) => (outcome.value = value),
+        error: (error: unknown) => {
+          outcome.error = error;
+          outcome.done = true;
+        },
+        complete: () => (outcome.done = true),
+      });
+      return outcome;
+    }
+
+    const flushGet = (body: WorkOrder) => {
+      const request = httpMock.expectOne(url);
+      expect(request.request.method).toBe('GET');
+      request.flush(body);
+    };
+    const noWrites = () => httpMock.expectNone((request) => request.method !== 'GET');
+    const noRequestAtAll = () => httpMock.expectNone(() => true);
+    const stateError = (outcome: Outcome<unknown>): WorkOrderStateError => {
+      expect(outcome.error).toBeInstanceOf(WorkOrderStateError);
+      return outcome.error as WorkOrderStateError;
+    };
+
+    describe('close', () => {
+      it.each<[string, string]>([
+        ['an empty comment', ''],
+        ['a 49-character comment', 'x'.repeat(49)],
+        ['a comment of only spaces', ' '.repeat(80)],
+        ['a comment that is long only because of its edge spaces', ' '.repeat(60) + 'x'.repeat(10)],
+        ['a comment over 500 characters', 'x'.repeat(501)],
+      ])('rejects %s without sending any request', (_label, comment) => {
+        const outcome = run(service.close('1', 'completed', { ...note, comment }));
+
+        expect(outcome.error).toBeInstanceOf(InvalidClosingNoteError);
+        noRequestAtAll();
+      });
+
+      it('rejects a note without an author, without any request', () => {
+        const outcome = run(service.close('1', 'completed', { ...note, authorId: '' }));
+
+        expect(outcome.error).toBeInstanceOf(InvalidClosingNoteError);
+        noRequestAtAll();
+      });
+
+      it('rejects a destination that is not a closed status, without any request', () => {
+        const outcome = run(service.close('1', 'in-progress' as ClosedWorkOrderStatus, note));
+
+        expect(outcome.error).toBeInstanceOf(InvalidClosingNoteError);
+        noRequestAtAll();
+      });
+
+      it.each<ClosedWorkOrderStatus>(['completed', 'cancelled'])(
+        'reads the order and then PATCHes exactly { status: %s, closingNote }',
+        (outcome) => {
+          const result = run(service.close('1', outcome, note));
+          flushGet(inProgress);
+
+          const patch = httpMock.expectOne(url);
+          expect(patch.request.method).toBe('PATCH');
+          expect(patch.request.body).toEqual({ status: outcome, closingNote: note });
+          const closed = { ...inProgress, status: outcome, closingNote: note };
+          patch.flush(closed);
+
+          expect(result.value).toEqual(closed);
+        },
+      );
+
+      it('stores the trimmed comment', () => {
+        run(service.close('1', 'completed', { ...note, comment: `   ${note.comment}   ` }));
+        flushGet(inProgress);
+
+        const patch = httpMock.expectOne(url);
+        expect(
+          (patch.request.body as { closingNote: WorkOrderClosingNote }).closingNote.comment,
+        ).toBe(note.comment);
+        patch.flush(inProgress);
+      });
+
+      it.each<[string, WorkOrder]>([
+        ['a pending order', order],
+        ['a released order', { ...order, takenBy: null }],
+      ])('refuses to close %s: not-in-progress and no write', (_label, current) => {
+        const outcome = run(service.close('1', 'completed', note));
+        flushGet(current);
+
+        expect(stateError(outcome).reason).toBe('not-in-progress');
+        expect(outcome.done).toBe(true);
+        noWrites();
+      });
+
+      it.each<ClosedWorkOrderStatus>(['completed', 'cancelled'])(
+        'refuses to close an order that is already %s',
+        (status) => {
+          const outcome = run(service.close('1', 'completed', note));
+          flushGet({ ...inProgress, status, closingNote: note });
+
+          const error = stateError(outcome);
+          expect(error.reason).toBe('not-in-progress');
+          expect(error.message).toBe('La orden ya fue cerrada.');
+          noWrites();
+        },
+      );
+
+      it('refuses to let another technician close an order taken by someone else', () => {
+        const outcome = run(service.close('1', 'completed', note));
+        flushGet({ ...inProgress, takenBy: otherTaker });
+
+        const error = stateError(outcome);
+        expect(error.reason).toBe('taken-by-other');
+        expect(error.takenBy).toEqual(otherTaker);
+        expect(error.message).toBe('La orden está siendo ejecutada por Técnico Electricista.');
+        noWrites();
+      });
+
+      it('propagates a failure of the fresh read as an HTTP error, without writing', () => {
+        const outcome = run(service.close('1', 'completed', note));
+
+        httpMock.expectOne(url).flush('boom', { status: 500, statusText: 'Server Error' });
+
+        expect(outcome.error).toBeInstanceOf(HttpErrorResponse);
+        expect(outcome.error).not.toBeInstanceOf(WorkOrderStateError);
+        noWrites();
+      });
+    });
+
+    describe('take', () => {
+      it('reads the order, PATCHes { status: in-progress, takenBy } and reads it again', () => {
+        const result = run(service.take('1', taker));
+        flushGet(order);
+
+        const patch = httpMock.expectOne(url);
+        expect(patch.request.method).toBe('PATCH');
+        expect(patch.request.body).toEqual({ status: 'in-progress', takenBy: taker });
+        patch.flush(inProgress);
+
+        flushGet(inProgress);
+        expect(result.value).toEqual(inProgress);
+        expect(result.done).toBe(true);
+      });
+
+      it('takes a released order (takenBy null) like a pending one', () => {
+        const result = run(service.take('1', taker));
+        flushGet({ ...order, takenBy: null });
+        httpMock.expectOne(url).flush(inProgress);
+        flushGet(inProgress);
+
+        expect(result.value?.takenBy).toEqual(taker);
+      });
+
+      it('refuses an order that another technician is running: names them and does not write', () => {
+        const outcome = run(service.take('1', taker));
+        flushGet({ ...inProgress, takenBy: otherTaker });
+
+        const error = stateError(outcome);
+        expect(error.reason).toBe('not-pending');
+        expect(error.takenBy).toEqual(otherTaker);
+        expect(error.message).toBe('La orden está siendo ejecutada por Técnico Electricista.');
+        expect(outcome.done).toBe(true);
+        noWrites();
+      });
+
+      it.each<ClosedWorkOrderStatus>(['completed', 'cancelled'])(
+        'never reopens an order that is %s: not-pending and no write',
+        (status) => {
+          const outcome = run(service.take('1', taker));
+          flushGet({ ...inProgress, status, closingNote: note });
+
+          const error = stateError(outcome);
+          expect(error.reason).toBe('not-pending');
+          expect(error.message).toBe('La orden ya fue cerrada.');
+          noWrites();
+        },
+      );
+
+      it('tells the caller when somebody else wrote in between (the re-read shows another owner)', () => {
+        const outcome = run(service.take('1', taker));
+        flushGet(order);
+        httpMock.expectOne(url).flush(inProgress);
+        flushGet({ ...inProgress, takenBy: otherTaker });
+
+        const error = stateError(outcome);
+        expect(error.reason).toBe('taken-by-other');
+        expect(error.takenBy).toEqual(otherTaker);
+      });
+
+      it('propagates a failure of the fresh read as an HTTP error, without writing', () => {
+        const outcome = run(service.take('1', taker));
+
+        httpMock.expectOne(url).flush('boom', { status: 500, statusText: 'Server Error' });
+
+        expect(outcome.error).toBeInstanceOf(HttpErrorResponse);
+        expect(outcome.error).not.toBeInstanceOf(WorkOrderStateError);
+        noWrites();
+      });
+    });
+
+    describe('release', () => {
+      it('PATCHes { status: pending, takenBy: null } on an in-progress order', () => {
+        const result = run(service.release('1'));
+        flushGet(inProgress);
+
+        const patch = httpMock.expectOne(url);
+        expect(patch.request.method).toBe('PATCH');
+        expect(patch.request.body).toEqual({ status: 'pending', takenBy: null });
+        const released = { ...order, takenBy: null };
+        patch.flush(released);
+
+        expect(result.value).toEqual(released);
+        expect(result.done).toBe(true);
+      });
+
+      it.each<[string, WorkOrder]>([
+        ['a pending order', order],
+        ['a completed order', { ...inProgress, status: 'completed', closingNote: note }],
+        ['a cancelled order', { ...inProgress, status: 'cancelled', closingNote: note }],
+      ])(
+        'refuses to release %s: not-in-progress and no write (a closed order is never reopened)',
+        (_label, current) => {
+          const outcome = run(service.release('1'));
+          flushGet(current);
+
+          expect(stateError(outcome).reason).toBe('not-in-progress');
+          noWrites();
+        },
+      );
+
+      it('propagates a failure of the fresh read as an HTTP error, without writing', () => {
+        const outcome = run(service.release('1'));
+
+        httpMock.expectOne(url).flush('boom', { status: 500, statusText: 'Server Error' });
+
+        expect(outcome.error).toBeInstanceOf(HttpErrorResponse);
+        noWrites();
+      });
+    });
+
+    describe('orders that carry no owner (data written before spec 013d)', () => {
+      const legacyInProgress: WorkOrder = { ...order, status: 'in-progress' };
+
+      it('take on an in-progress order with no owner recorded is refused as not pending, naming nobody', () => {
+        const outcome = run(service.take('1', taker));
+        flushGet(legacyInProgress);
+
+        const error = stateError(outcome);
+        expect(error.reason).toBe('not-pending');
+        expect(error.takenBy).toBeNull();
+        expect(error.message).toBe('La orden ya no está pendiente.');
+        noWrites();
+      });
+
+      it('take reports taken-by-other, without a name, when the re-read shows no owner at all', () => {
+        const outcome = run(service.take('1', taker));
+        flushGet(order);
+        httpMock.expectOne(url).flush(legacyInProgress);
+        flushGet(legacyInProgress);
+
+        const error = stateError(outcome);
+        expect(error.reason).toBe('taken-by-other');
+        expect(error.takenBy).toBeNull();
+      });
+
+      it('close refuses an in-progress order with no owner: nobody can prove it is theirs', () => {
+        const outcome = run(service.close('1', 'completed', note));
+        flushGet(legacyInProgress);
+
+        const error = stateError(outcome);
+        expect(error.reason).toBe('taken-by-other');
+        expect(error.takenBy).toBeNull();
+        noWrites();
+      });
+
+      it('release works on an in-progress order with no owner recorded', () => {
+        const result = run(service.release('1'));
+        flushGet(legacyInProgress);
+
+        const patchRequest = httpMock.expectOne(url);
+        expect(patchRequest.request.body).toEqual({ status: 'pending', takenBy: null });
+        patchRequest.flush({ ...order, takenBy: null });
+        expect(result.done).toBe(true);
+      });
+    });
+
+    describe('WorkOrderStateError messages', () => {
+      it.each<[string, WorkOrderStateError, string]>([
+        [
+          'pending expected, nobody named',
+          new WorkOrderStateError('not-pending'),
+          'La orden ya no está pendiente.',
+        ],
+        [
+          'in-progress expected, nobody named',
+          new WorkOrderStateError('not-in-progress'),
+          'La orden ya no está en progreso.',
+        ],
+        [
+          'someone runs it',
+          new WorkOrderStateError('not-pending', otherTaker, 'in-progress'),
+          'La orden está siendo ejecutada por Técnico Electricista.',
+        ],
+        [
+          'it is closed, even with an owner',
+          new WorkOrderStateError('not-pending', otherTaker, 'completed'),
+          'La orden ya fue cerrada.',
+        ],
+      ])('%s', (_label, error, message) => {
+        expect(error.message).toBe(message);
+      });
+    });
+  });
 });

@@ -1,0 +1,82 @@
+<section>
+  <h1>Máquinas</h1>
+
+  <p class="u-sr-only" aria-live="polite" role="status">{{ resultsAnnouncement() }}</p>
+
+  @if (canManage()) {
+    <div class="d-flex flex-wrap justify-end gap-md py-lg">
+      <app-button variant="primary" (clicked)="navigateToCreate()"> Nueva máquina </app-button>
+    </div>
+  }
+
+  @if (error()) {
+    <app-alert title="Error" [message]="error()!" variant="error" />
+    <app-button variant="primary" (clicked)="loadMachines()"> Reintentar </app-button>
+  } @else if (machines().length === 0) {
+    <app-alert title="Sin máquinas" message="No existen máquinas registradas." variant="info" />
+  } @else {
+    <div class="table-wrapper">
+      <table class="table">
+        <caption class="u-sr-only">
+          Listado de máquinas
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Código</th>
+            <th scope="col">Nombre</th>
+            <th scope="col">Partes</th>
+            @if (canManage()) {
+              <th scope="col" class="u-text-center">Acciones</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (machine of machines(); track machine.id) {
+            <tr>
+              <td>{{ machine.code }}</td>
+              <td>{{ machine.name }}</td>
+              <td>{{ partsLabel(machine) }}</td>
+              @if (canManage()) {
+                <td class="d-flex justify-center gap-sm">
+                  <app-button
+                    size="sm"
+                    variant="outline"
+                    [ariaLabel]="'Ver partes de ' + machine.name"
+                    (clicked)="openParts(machine.id)"
+                  >
+                    Partes
+                  </app-button>
+                  <app-button
+                    size="sm"
+                    variant="secondary"
+                    [ariaLabel]="'Editar ' + machine.name"
+                    (clicked)="editMachine(machine.id)"
+                  >
+                    Editar
+                  </app-button>
+                  <app-button
+                    size="sm"
+                    variant="danger"
+                    [ariaLabel]="'Eliminar ' + machine.name"
+                    (clicked)="openDeleteModal(machine)"
+                  >
+                    Eliminar
+                  </app-button>
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <app-modal
+    [(isOpen)]="deleteModalOpen"
+    title="Eliminar máquina"
+    [message]="deleteMessage()"
+    confirmText="Eliminar"
+    cancelText="Cancelar"
+    (confirmed)="deleteMachine(machineToDelete()!.id)"
+  />
+</section>

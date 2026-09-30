@@ -1,3 +1,4 @@
+import { MACHINE_ONLY_REF_FIXTURE, MACHINE_REF_FIXTURE } from '../../testing/work-order.fixtures';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { signal } from '@angular/core';
@@ -7,12 +8,17 @@ import { AuthUser } from '@core/auth/auth.model';
 import { AuthService } from '@core/auth/auth.service';
 import { LocalStorageService } from '@core/services/localStorage.service';
 import { MessageService } from '@core/services/message.service';
-import { WorkOrdersCriteria, WorkOrdersService } from '../../data-access/work-order.service';
+import {
+  WorkOrdersCriteria,
+  WorkOrdersService,
+  WorkOrderStateError,
+} from '../../data-access/work-order.service';
 import {
   PaginatedResponse,
   WorkOrder,
   WorkOrderPriority,
   WorkOrderStatus,
+  WorkOrderTaker,
 } from '../../models/work-order.model';
 import { WorkOrdersList } from './work-orders-list';
 
@@ -31,7 +37,7 @@ describe('WorkOrdersList search and pagination', () => {
     id: '1',
     title: 'Revisar motor',
     description: 'Revisar temperatura del motor',
-    asset: 'Motor 1',
+    machineRef: MACHINE_REF_FIXTURE,
     type: 'correctivo',
     priority: 'medium',
     status: 'pending',
@@ -52,7 +58,8 @@ describe('WorkOrdersList search and pagination', () => {
 
   const service = {
     search: vi.fn<(criteria: WorkOrdersCriteria) => Observable<PaginatedResponse<WorkOrder>>>(),
-    updateStatus: vi.fn<(id: string, status: WorkOrderStatus) => Observable<WorkOrder>>(),
+    take: vi.fn<(id: string, taker: WorkOrderTaker) => Observable<WorkOrder>>(),
+    release: vi.fn<(id: string) => Observable<WorkOrder>>(),
     delete: vi.fn<(...args: string[]) => Observable<void>>(),
   };
   const storage = {
@@ -96,7 +103,8 @@ describe('WorkOrdersList search and pagination', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     service.search.mockReset().mockReturnValue(of(response()));
-    service.updateStatus.mockReset();
+    service.take.mockReset();
+    service.release.mockReset();
     service.delete.mockReset().mockReturnValue(of(undefined));
     storage.get.mockReset().mockReturnValue(null);
     storage.set.mockReset().mockReturnValue(true);
@@ -130,29 +138,14 @@ describe('WorkOrdersList search and pagination', () => {
     vi.advanceTimersByTime(300);
   }
 
-  function choose(select: HTMLSelectElement, value: string): void {
-    select.value = value;
-    select.dispatchEvent(new Event('change'));
-  }
-
   function rows(): HTMLTableRowElement[] {
     return Array.from(fixture.nativeElement.querySelectorAll('tbody tr'));
-  }
-
-  function inlineSelects(): HTMLSelectElement[] {
-    return Array.from(fixture.nativeElement.querySelectorAll('tbody select'));
   }
 
   function rowAt(index: number): HTMLTableRowElement {
     const row = rows()[index];
     if (!row) throw new Error(`No hay fila ${index}`);
     return row;
-  }
-
-  function selectAt(index: number): HTMLSelectElement {
-    const select = inlineSelects()[index];
-    if (!select) throw new Error(`No hay select en la fila ${index}`);
-    return select;
   }
 
   function rowBadges(row: HTMLTableRowElement): { priority: HTMLElement; status: HTMLElement } {
@@ -309,6 +302,25 @@ describe('WorkOrdersList search and pagination', () => {
     expect(component.currentPage()).toBe(1);
     expect(component.workOrders()).toEqual([]);
     expect(service.search).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows the stored machine path of each order in its row', () => {
+    expect.assertions(3);
+    const other = {
+      ...order,
+      id: '2',
+      title: 'Cambiar filtro hidráulico',
+      machineRef: MACHINE_ONLY_REF_FIXTURE,
+    };
+    service.search.mockReturnValueOnce(of(response(1, [order, other])));
+    start();
+    fixture.detectChanges();
+
+    const rows: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('tbody tr'));
+
+    expect(fixture.nativeElement.textContent).toContain('Máquina / parte');
+    expect(rows[0]?.textContent).toContain(MACHINE_REF_FIXTURE.breadcrumb);
+    expect(rows[1]?.textContent).toContain('Envasadora línea 1');
   });
 
   it('gives each row a distinct accessible name for its action buttons', () => {
@@ -656,7 +668,13 @@ describe('WorkOrdersList search and pagination', () => {
           ),
         ).map((option) => option.value);
 
-      expect(options('status-filter')).toEqual(['', 'pending', 'in-progress', 'completed']);
+      expect(options('status-filter')).toEqual([
+        '',
+        'pending',
+        'in-progress',
+        'completed',
+        'cancelled',
+      ]);
       expect(options('priority-filter')).toEqual(['', 'low', 'medium', 'high']);
     });
 
@@ -711,136 +729,397 @@ describe('WorkOrdersList search and pagination', () => {
     });
   });
 
-  describe('inline status change', () => {
-    const second: WorkOrder = { ...order, id: '2', title: 'Segunda orden', status: 'pending' };
+  // Tomar, continuar y liberar (spec 013d). El estado ya no se cambia con un <select>.
+  describe('take, continue and release', () => {
+    const at = '2026-09-25T10:00:00.000Z';
+    const me = { id: '2', name: 'Técnico Mecánico de Guardia', at };
+    const someoneElse = { id: '5', name: 'Luis Paz', at };
+    const note = {
+      comment: 'Se reemplazó el rodamiento delantero y se verificó el giro sin vibración.',
+      authorId: '2',
+      authorName: me.name,
+      at,
+    };
 
-    function startWithTwoRows(storedQuery: unknown = null): void {
-      service.search.mockReturnValueOnce(of(response(4, [order, second])));
-      start(storedQuery);
+    const pending: WorkOrder = {
+      ...order,
+      id: '10',
+      title: 'Falla en cinta',
+      type: 'pronto-intervencion',
+      status: 'pending',
+    };
+    const mine: WorkOrder = {
+      ...pending,
+      id: '11',
+      title: 'Parada de sellado',
+      status: 'in-progress',
+      takenBy: me,
+    };
+    const running: WorkOrder = {
+      ...pending,
+      id: '12',
+      title: 'Fuga de aire',
+      status: 'in-progress',
+      takenBy: someoneElse,
+    };
+    const closed: WorkOrder = {
+      ...pending,
+      id: '13',
+      title: 'Cinta reparada',
+      status: 'completed',
+      takenBy: me,
+      closingNote: note,
+    };
+    const preventive: WorkOrder = {
+      ...order,
+      id: '14',
+      title: 'Lubricar guías',
+      type: 'preventivo',
+      status: 'pending',
+    };
+
+    let navigate: ReturnType<typeof vi.spyOn>;
+
+    function startAs(user: AuthUser | null, orders: WorkOrder[]): void {
+      currentUser.set(user);
+      service.search.mockReset().mockReturnValue(of(response(1, orders)));
+      start();
+      navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      fixture.detectChanges();
     }
 
-    it('gives each row select its own accessible name and the three status options', () => {
-      startWithTwoRows();
+    const message = () => TestBed.inject(MessageService).message();
 
-      const selects = inlineSelects();
-      expect(selects.map((select) => select.getAttribute('aria-label'))).toEqual([
-        'Cambiar estado de Revisar motor',
-        'Cambiar estado de Segunda orden',
-      ]);
-      expect(Array.from(selectAt(0).options).map((option) => option.value)).toEqual([
-        'pending',
-        'in-progress',
-        'completed',
-      ]);
-      expect(selects.map((select) => select.value)).toEqual(['pending', 'pending']);
-    });
-
-    it('patches only the changed row without reloading the list', () => {
-      startWithTwoRows();
-      service.updateStatus.mockReturnValue(of({ ...second, status: 'completed' }));
-
-      choose(selectAt(1), 'completed');
-      fixture.detectChanges();
-
-      expect(service.updateStatus).toHaveBeenCalledExactlyOnceWith('2', 'completed');
-      expect(service.search).toHaveBeenCalledTimes(1);
-      expect(component.workOrders().map((item) => item.status)).toEqual(['pending', 'completed']);
-      expect(rowBadges(rowAt(0)).status.classList.contains('badge--warning')).toBe(true);
-      expect(rowBadges(rowAt(1)).status.classList.contains('badge--success')).toBe(true);
-      expect(inlineSelects().map((select) => select.value)).toEqual(['pending', 'completed']);
-    });
-
-    it('confirms the change with a success message', () => {
-      startWithTwoRows();
-      service.updateStatus.mockReturnValue(of({ ...second, status: 'in-progress' }));
-
-      choose(selectAt(1), 'in-progress');
-
-      expect(TestBed.inject(MessageService).message()).toEqual(
-        expect.objectContaining({ variant: 'success', message: 'Estado actualizado.' }),
+    function labelsOf(prefix: string): string[] {
+      const buttons: HTMLButtonElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll('tbody button'),
       );
-    });
 
-    it('reloads the current query when the row no longer matches the active status filter', () => {
-      startWithTwoRows(stored({ status: 'pending', page: 2 }));
-      service.updateStatus.mockReturnValue(of({ ...second, status: 'completed' }));
-      service.search.mockClear();
-      service.search.mockReturnValueOnce(of(response(4, [order])));
+      return buttons
+        .map((button) => button.getAttribute('aria-label') ?? '')
+        .filter((label) => label.startsWith(prefix));
+    }
 
-      choose(selectAt(1), 'completed');
+    function click(label: string): void {
+      const button = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('tbody button'),
+      ).find((candidate) => candidate.getAttribute('aria-label') === label);
+
+      if (!button) throw new Error(`No hay el botón "${label}"`);
+      button.click();
       fixture.detectChanges();
+    }
 
-      expect(service.search).toHaveBeenCalledExactlyOnceWith(
-        expected({ status: 'pending', page: 2 }),
-      );
-      expect(rows()).toHaveLength(1);
+    it('no longer offers a select to change the status by hand', () => {
+      startAs(administrador, [pending, mine]);
+
+      expect(fixture.nativeElement.querySelectorAll('tbody select')).toHaveLength(0);
     });
 
-    it('does not reload when only a priority filter is active', () => {
-      startWithTwoRows(stored({ priority: 'medium' }));
-      service.updateStatus.mockReturnValue(of({ ...second, status: 'completed' }));
-      service.search.mockClear();
+    describe('technician of the guardia team', () => {
+      it('sees "Tomar orden" on a pending order and "Continuar" on the one they took', () => {
+        startAs(tecnico, [pending, mine]);
 
-      choose(selectAt(1), 'completed');
-
-      expect(service.updateStatus).toHaveBeenCalledExactlyOnceWith('2', 'completed');
-      expect(service.search).not.toHaveBeenCalled();
-      expect(component.workOrders().map((item) => item.status)).toEqual(['pending', 'completed']);
-    });
-
-    it('does not call the service when the selected status is the current one', () => {
-      startWithTwoRows();
-
-      choose(selectAt(0), 'pending');
-
-      expect(service.updateStatus).not.toHaveBeenCalled();
-    });
-
-    it('restores the select and shows an error when the update fails', () => {
-      startWithTwoRows();
-      service.updateStatus.mockReturnValue(throwError(() => new Error('offline')));
-
-      choose(selectAt(1), 'completed');
-      fixture.detectChanges();
-
-      expect(selectAt(1).value).toBe('pending');
-      expect(component.workOrders().map((item) => item.status)).toEqual(['pending', 'pending']);
-      expect(rowBadges(rowAt(1)).status.classList.contains('badge--warning')).toBe(true);
-      expect(TestBed.inject(MessageService).message()).toEqual({
-        variant: 'error',
-        title: 'Error',
-        message: 'No se pudo actualizar el estado.',
+        expect(labelsOf('Tomar orden')).toEqual(['Tomar orden Falla en cinta']);
+        expect(labelsOf('Continuar')).toEqual(['Continuar Parada de sellado']);
       });
-      expect(selectAt(1).disabled).toBe(false);
+
+      it('sees "Tomar orden" on an order that someone else is running (to be warned)', () => {
+        startAs(tecnico, [running]);
+
+        expect(labelsOf('Tomar orden')).toEqual(['Tomar orden Fuga de aire']);
+        expect(labelsOf('Continuar')).toEqual([]);
+      });
+
+      it('sees neither button on a closed order', () => {
+        startAs(tecnico, [closed]);
+
+        expect(labelsOf('Tomar orden')).toEqual([]);
+        expect(labelsOf('Continuar')).toEqual([]);
+      });
+
+      it('does not see "Tomar orden" on an order type that their team does not attend', () => {
+        startAs(tecnico, [preventive]);
+
+        expect(labelsOf('Tomar orden')).toEqual([]);
+      });
+
+      it('shows who runs each in-progress order next to its status', () => {
+        startAs(tecnico, [pending, mine, running]);
+
+        const owners = Array.from(
+          fixture.nativeElement.querySelectorAll('.work-orders-status__owner'),
+        ).map((element) => (element as HTMLElement).textContent?.trim());
+
+        expect(owners).toEqual(['Tomada por Técnico Mecánico de Guardia', 'Tomada por Luis Paz']);
+      });
+
+      it('takes the order and only then opens its closing page', () => {
+        const taking = new Subject<WorkOrder>();
+        service.take.mockReturnValue(taking);
+        startAs(tecnico, [pending]);
+
+        click('Tomar orden Falla en cinta');
+
+        expect(service.take).toHaveBeenCalledExactlyOnceWith(
+          '10',
+          expect.objectContaining({ id: '2', name: tecnico.displayName }),
+        );
+        // Todavía no terminó de tomarla: no se abre la página de cierre.
+        expect(navigate).not.toHaveBeenCalled();
+
+        taking.next({ ...pending, status: 'in-progress', takenBy: me });
+        taking.complete();
+
+        expect(navigate).toHaveBeenCalledExactlyOnceWith(['/work-orders', '10', 'resolve']);
+        expect(message()?.variant).not.toBe('error');
+      });
+
+      it('does not navigate when taking the order fails', () => {
+        service.take.mockReturnValue(throwError(() => new Error('offline')));
+        startAs(tecnico, [pending]);
+
+        click('Tomar orden Falla en cinta');
+
+        expect(navigate).not.toHaveBeenCalled();
+        expect(message()?.variant).toBe('error');
+        // El botón vuelve a estar disponible para reintentar.
+        expect(component.isBusy('10')).toBe(false);
+      });
+
+      it('continues an order they already took without calling the service', () => {
+        startAs(tecnico, [mine]);
+
+        click('Continuar Parada de sellado');
+
+        expect(service.take).not.toHaveBeenCalled();
+        expect(navigate).toHaveBeenCalledExactlyOnceWith(['/work-orders', '11', 'resolve']);
+      });
+
+      it('warns who is running an order taken by someone else, without calling the service or navigating', () => {
+        startAs(tecnico, [running]);
+
+        click('Tomar orden Fuga de aire');
+
+        expect(service.take).not.toHaveBeenCalled();
+        expect(navigate).not.toHaveBeenCalled();
+        expect(message()?.variant).toBe('warning');
+        expect(message()?.message).toBe('La orden está siendo ejecutada por Luis Paz.');
+      });
+
+      it('with a stale list: another technician took it meanwhile → same warning, reload, no navigation', () => {
+        service.take.mockReturnValue(
+          throwError(() => new WorkOrderStateError('not-pending', someoneElse, 'in-progress')),
+        );
+        startAs(tecnico, [pending]);
+        service.search.mockClear();
+
+        click('Tomar orden Falla en cinta');
+
+        expect(message()?.message).toBe('La orden está siendo ejecutada por Luis Paz.');
+        expect(message()?.variant).toBe('warning');
+        expect(service.search).toHaveBeenCalledTimes(1);
+        expect(navigate).not.toHaveBeenCalled();
+      });
+
+      it('with a stale list: it was already theirs → continues to the closing page', () => {
+        service.take.mockReturnValue(
+          throwError(() => new WorkOrderStateError('not-pending', me, 'in-progress')),
+        );
+        startAs(tecnico, [pending]);
+
+        click('Tomar orden Falla en cinta');
+
+        expect(navigate).toHaveBeenCalledExactlyOnceWith(['/work-orders', '10', 'resolve']);
+      });
+
+      it('with a stale list: it was closed meanwhile → says so and does not navigate', () => {
+        service.take.mockReturnValue(
+          throwError(() => new WorkOrderStateError('not-pending', me, 'completed')),
+        );
+        startAs(tecnico, [pending]);
+
+        click('Tomar orden Falla en cinta');
+
+        expect(message()?.message).toBe('La orden ya fue cerrada.');
+        expect(navigate).not.toHaveBeenCalled();
+      });
+
+      it('warns without naming anybody when an in-progress order has no owner recorded (older data)', () => {
+        const { takenBy, ...withoutOwner } = running;
+        void takenBy;
+        startAs(tecnico, [withoutOwner]);
+
+        click('Tomar orden Fuga de aire');
+
+        expect(service.take).not.toHaveBeenCalled();
+        expect(message()?.message).toBe('La orden ya no está pendiente.');
+      });
+
+      it('sends a single take request on a double click', () => {
+        service.take.mockReturnValue(new Subject<WorkOrder>());
+        startAs(tecnico, [pending]);
+
+        component.takeWorkOrder(pending);
+        component.takeWorkOrder(pending);
+
+        expect(service.take).toHaveBeenCalledTimes(1);
+      });
+
+      it('cannot take an order of a type their team does not attend, even if the method is invoked', () => {
+        startAs(tecnico, [preventive]);
+
+        component.takeWorkOrder(preventive);
+
+        expect(service.take).not.toHaveBeenCalled();
+        expect(navigate).not.toHaveBeenCalled();
+        expect(message()?.title).toBe('Acceso denegado');
+      });
     });
 
-    it('disables the row select while its update is in flight and ignores a second change', () => {
-      startWithTwoRows();
-      const inFlight = new Subject<WorkOrder>();
-      service.updateStatus.mockReturnValue(inFlight);
+    describe.each<[string, AuthUser | null]>([
+      ['administrador', administrador],
+      ['team leader', teamLeader],
+      ['personal-produccion', produccion],
+      ['no session', null],
+    ])('%s', (_label, user) => {
+      it('sees no "Tomar orden" nor "Continuar", and cannot take even if the method is invoked', () => {
+        startAs(user, [pending, mine]);
 
-      choose(selectAt(1), 'completed');
-      fixture.detectChanges();
-      expect(selectAt(1).disabled).toBe(true);
-      expect(selectAt(0).disabled).toBe(false);
+        expect(labelsOf('Tomar orden')).toEqual([]);
+        expect(labelsOf('Continuar')).toEqual([]);
 
-      choose(selectAt(1), 'in-progress');
-      expect(service.updateStatus).toHaveBeenCalledTimes(1);
+        component.takeWorkOrder(pending);
 
-      inFlight.next({ ...second, status: 'completed' });
-      inFlight.complete();
-      fixture.detectChanges();
-      expect(selectAt(1).disabled).toBe(false);
+        expect(service.take).not.toHaveBeenCalled();
+        expect(navigate).not.toHaveBeenCalled();
+      });
     });
 
-    it('ignores a value that is not a valid status', () => {
-      startWithTwoRows();
-      const select = selectAt(0);
+    describe('release', () => {
+      it.each<[string, AuthUser]>([
+        ['administrador', administrador],
+        ['team leader', teamLeader],
+      ])('%s sees "Liberar" only on in-progress orders', (_label, user) => {
+        startAs(user, [pending, mine, running, closed]);
 
-      choose(select, 'archived');
+        expect(labelsOf('Liberar')).toEqual(['Liberar Parada de sellado', 'Liberar Fuga de aire']);
+      });
 
-      expect(service.updateStatus).not.toHaveBeenCalled();
-      expect(select.value).toBe('pending');
+      it.each<[string, AuthUser | null]>([
+        ['the technician who owns the order', tecnico],
+        ['personal-produccion', produccion],
+        ['no session', null],
+      ])('%s does not see "Liberar"', (_label, user) => {
+        startAs(user, [mine, running]);
+
+        expect(labelsOf('Liberar')).toEqual([]);
+      });
+
+      it('asks for confirmation naming the owner, and does not call the service until confirmed', () => {
+        startAs(administrador, [running]);
+
+        click('Liberar Fuga de aire');
+
+        expect(component.releaseModalOpen()).toBe(true);
+        expect(component.releaseMessage()).toContain('Luis Paz');
+        expect(service.release).not.toHaveBeenCalled();
+      });
+
+      it("the dialog's confirm button releases the order", () => {
+        service.release.mockReturnValue(of({ ...running, status: 'pending', takenBy: null }));
+        startAs(administrador, [running]);
+        click('Liberar Fuga de aire');
+
+        (
+          fixture.nativeElement.querySelector('.modal__actions .btn--danger') as HTMLElement
+        ).click();
+
+        expect(service.release).toHaveBeenCalledExactlyOnceWith('12');
+      });
+
+      it('does nothing when confirmed with no order selected', () => {
+        startAs(administrador, [running]);
+
+        component.confirmRelease();
+
+        expect(service.release).not.toHaveBeenCalled();
+      });
+
+      it('cancelling the confirmation makes no request', () => {
+        startAs(administrador, [running]);
+        click('Liberar Fuga de aire');
+
+        component.releaseModalOpen.set(false);
+        fixture.detectChanges();
+
+        expect(service.release).not.toHaveBeenCalled();
+      });
+
+      it('confirming releases the order and reloads the list with it pending and without an owner', () => {
+        const released: WorkOrder = { ...running, status: 'pending', takenBy: null };
+        service.release.mockReturnValue(of(released));
+        startAs(administrador, [running]);
+        service.search.mockClear();
+        service.search.mockReturnValue(of(response(1, [released])));
+
+        click('Liberar Fuga de aire');
+        component.confirmRelease();
+        fixture.detectChanges();
+
+        expect(service.release).toHaveBeenCalledExactlyOnceWith('12');
+        expect(service.search).toHaveBeenCalledTimes(1);
+        expect(fixture.nativeElement.querySelector('.work-orders-status__owner')).toBeNull();
+        expect(labelsOf('Liberar')).toEqual([]);
+      });
+
+      it('cannot release without permission, even if the method is invoked', () => {
+        startAs(tecnico, [mine]);
+        component.workOrderToRelease.set(mine);
+
+        component.confirmRelease();
+        component.openReleaseModal(mine);
+
+        expect(service.release).not.toHaveBeenCalled();
+        expect(component.releaseModalOpen()).toBe(false);
+        expect(message()?.title).toBe('Acceso denegado');
+      });
+
+      it('warns and reloads when the order was no longer in progress', () => {
+        service.release.mockReturnValue(
+          throwError(() => new WorkOrderStateError('not-in-progress', null, 'completed')),
+        );
+        startAs(administrador, [running]);
+        service.search.mockClear();
+
+        click('Liberar Fuga de aire');
+        component.confirmRelease();
+
+        expect(message()?.variant).toBe('warning');
+        expect(message()?.message).toBe('La orden ya fue cerrada.');
+        expect(service.search).toHaveBeenCalledTimes(1);
+      });
+
+      it('shows an error when releasing fails for another reason', () => {
+        service.release.mockReturnValue(throwError(() => new Error('offline')));
+        startAs(administrador, [running]);
+
+        click('Liberar Fuga de aire');
+        component.confirmRelease();
+
+        expect(message()?.variant).toBe('error');
+      });
+
+      it('sends a single release request when confirmed twice', () => {
+        service.release.mockReturnValue(new Subject<WorkOrder>());
+        startAs(administrador, [running]);
+        click('Liberar Fuga de aire');
+
+        component.confirmRelease();
+        component.confirmRelease();
+
+        expect(service.release).toHaveBeenCalledTimes(1);
+      });
     });
   });
 

@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { catchError, map, Observable, of, switchMap, throwError } from 'rxjs';
+import { map, Observable, of, switchMap, throwError } from 'rxjs';
 
 import { API_BASE_URL } from '../config/api.config';
 import {
@@ -12,6 +12,7 @@ import {
   UserRole,
 } from './auth.model';
 import { InvalidUserRecordError } from './auth.service';
+import { TechnicianDirectory } from './technician-directory';
 
 // El legajo falta, no tiene el formato del dominio, o se envió a un rol que no es técnico.
 export class InvalidLegajoError extends Error {
@@ -48,15 +49,12 @@ export interface UserDraft {
   legajo?: string;
 }
 
-function isNotFound(error: unknown): boolean {
-  return (error as { status?: number } | null)?.status === 404;
-}
-
 @Injectable({
   providedIn: 'root',
 })
 export class UsersService {
   private readonly http = inject(HttpClient);
+  private readonly technicianDirectory = inject(TechnicianDirectory);
   private readonly usersUrl = `${API_BASE_URL}/users`;
 
   // Crea un usuario de login. Para el rol `tecnico` valida la referencia cruzada contra el maestro
@@ -86,17 +84,13 @@ export class UsersService {
     );
   }
 
-  // Consulta por ruta y no por `?legajo=`: json-server convierte a número los valores numéricos
-  // del query string y no encontraría un legajo guardado como string.
+  // Solo "no está en el maestro" significa "no existe"; un error de red o 5xx se propaga como tal.
   private findTechnicianProfile(legajo: string): Observable<TechnicianProfile> {
-    return this.http
-      .get<TechnicianProfile>(`${API_BASE_URL}/tecnicos/${encodeURIComponent(legajo)}`)
+    return this.technicianDirectory
+      .find(legajo)
       .pipe(
-        // Solo el 404 significa "no existe"; un error de red o 5xx se propaga como tal.
-        catchError((error: unknown) =>
-          isNotFound(error)
-            ? throwError(() => new TechnicianNotFoundError(legajo))
-            : throwError(() => error),
+        switchMap((profile) =>
+          profile ? of(profile) : throwError(() => new TechnicianNotFoundError(legajo)),
         ),
       );
   }

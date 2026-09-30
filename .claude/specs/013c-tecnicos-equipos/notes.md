@@ -103,13 +103,16 @@ alguien decida sus permisos.
 
 ### Hallazgos de JSON Server (1.0.0-beta.15, comprobados)
 
-- **No rechaza ids duplicados**: un `POST` con un `id` existente responde `201` y
-  crea otro registro. La unicidad del legajo la garantiza el cliente
-  (`TechniciansService.create` consulta antes de escribir).
+- ~~**No rechaza ids duplicados**: un `POST` con un `id` existente responde `201` y
+  crea otro registro.~~ **Incorrecto** (ver "Corrección posterior"): el `POST` descarta
+  el `id` que manda el cliente. Lo que sí es cierto: no valida unicidad de ningún campo,
+  así que la del legajo la garantiza el cliente (`TechniciansService.create` consulta
+  antes de escribir).
 - **Convierte a número los valores numéricos del query string**: `?legajo=100`
-  devuelve `[]` aunque exista `"legajo": "100"`. Por eso el maestro se consulta
-  por ruta (`GET /tecnicos/:legajo`, `200`/`404`) y los usuarios técnicos se
-  filtran en el cliente sobre `GET /users?role=tecnico`.
+  devuelve `[]` aunque exista `"legajo": "100"`. Los usuarios técnicos se filtran en
+  el cliente sobre `GET /users?role=tecnico`. ~~Por eso el maestro se consulta por
+  ruta (`GET /tecnicos/:legajo`)~~: **esa consulta por ruta no funcionaba** para
+  técnicos creados desde la app (ver "Corrección posterior").
 - Sin integridad referencial. Con el backend real (spec 018) todo esto pasa a ser
   FK + índice único y los chequeos previos se vuelven `409`/`422` del servidor.
 
@@ -277,6 +280,46 @@ archivo quedó idéntico), con los mismos pedidos que hace la app:
 - `GET /tecnicos/9999`, `/tecnicos/abc` y `/equipos/99` responden `404`.
 - `GET /tecnicos`, `/tecnicos/1003`, `/equipos`, `/equipos/1`,
   `/users?role=tecnico` y `work-orders` (paginado) responden bien.
+
+## Corrección posterior (2026-09-24): el `id` de un técnico NO es su legajo
+
+**Defecto encontrado durante la spec 013a.** El diseño de esta spec suponía `id === legajo`
+en `tecnicos` y consultaba el maestro por ruta (`GET /tecnicos/:legajo`). Contra el
+JSON Server real eso solo funcionaba para los técnicos **sembrados a mano** en `db.json`:
+
+- `POST` **descarta el `id` del cuerpo y genera uno propio** (`lib/service.js`:
+  `{ ...data, id: randomId() }`; comprobado con `pnpm api` sobre una copia del `db.json`).
+  Un técnico dado de alta desde la app (`POST` con `id: "1004"`) quedaba con un id como
+  `"fRMxqKL-ODo"`.
+- Entonces `GET /tecnicos/1004` y `PUT /tecnicos/1004` daban `404`: el técnico recién
+  creado **no se podía editar, ni buscar por legajo, ni asignar a un equipo, ni crearle un
+  usuario de login**. `PUT` sobre un id inexistente tampoco crea (no hay _upsert_).
+- Los tests no lo detectaron porque usaban `HttpTestingController`, que devuelve lo que el
+  test le dice; el "Contrato con JSON Server" de abajo solo hizo **lecturas** sobre técnicos
+  sembrados (donde `id` sí coincidía con el legajo). Nadie creó un técnico contra el servidor.
+
+**Arreglo:**
+
+- `id` pasa a ser **opaco y asignado por el servidor**; el identificador de negocio es
+  `legajo` (único, inmutable). `isTechnicianRecord` ya no exige `id === legajo`.
+- Nuevo `core/auth/technician-directory.ts` (`TechnicianDirectory.find(legajo)`): pide
+  `GET /tecnicos` y filtra en el cliente. Es el **único** lugar que sabe cómo se busca un
+  técnico por legajo y lo usan el login, `UsersService` y `TechniciansService`. (`?legajo=`
+  tampoco sirve: el servidor convierte el valor a número y no hay forma de forzar string.)
+- `TechniciansService.create` hace `POST` **sin `id`**; `update` y `delete` ubican al
+  técnico por legajo y operan sobre **su `id` de servidor**. Si el legajo no existe,
+  `TechnicianNotFoundError` y no se escribe nada.
+- Con el backend real (spec 018) la búsqueda pasa a ser `GET /tecnicos?legajo=…` y solo
+  cambia `TechnicianDirectory`.
+
+**Verificación del arreglo:** el spec de ida y vuelta
+`technicians.service.integration.spec.ts` corre `TechniciansService` contra un emulador fiel
+de JSON Server (`core/testing/in-memory-api.ts`); contra el servicio **original** falla en 7
+casos (crear→buscar/editar/borrar), con el arreglo pasa. Además se repitió la secuencia
+crear → buscar → editar → borrar contra el JSON Server real (12/12, `db.json` intacto).
+
+**Pendiente conocido (no arreglado):** un legajo repetido en un `db.json` editado a mano hace
+que `find` devuelva el primero; el maestro no tiene índice único hasta el backend real.
 
 ## Cobertura
 

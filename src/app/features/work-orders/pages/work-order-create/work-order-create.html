@@ -5,9 +5,29 @@
       Volver a Lista
     </app-button>
   </div>
-  <app-form
-    [allowedTypes]="allowedTypes()"
-    [submitting]="isSubmitting()"
-    (sendData)="onSubmit($event)"
-  ></app-form>
+
+  @if (machinesError()) {
+    <app-alert
+      title="Error de conexión"
+      message="No se pudieron cargar las máquinas. Sin ellas no se puede crear una orden."
+      variant="error"
+    />
+    <app-button variant="primary" (clicked)="loadMachines()"> Reintentar </app-button>
+  } @else {
+    @if (partsError()) {
+      <app-alert
+        title="Partes no disponibles"
+        message="No se pudieron cargar las partes de la máquina. Podés crear la orden sobre la máquina completa o volver a elegirla."
+        variant="warning"
+      />
+    }
+    <app-form
+      [allowedTypes]="allowedTypes()"
+      [submitting]="isSubmitting()"
+      [machines]="machines()"
+      [partNodes]="partNodes()"
+      (machineChange)="onMachineChange($event)"
+      (sendData)="onSubmit($event)"
+    ></app-form>
+  }
 </section>

@@ -9,9 +9,9 @@ import {
 // técnico tenga acceso al sistema; se vincula con `users` solo por `legajo`. Especialidad y tipo
 // de equipo se reutilizan de `auth.model.ts` (`TechnicianProfile`) para no duplicar los valores.
 //
-// `id === legajo`: json-server exige `id` y el legajo ya es el identificador único, así el
-// registro se consulta por ruta (`/tecnicos/:legajo`). El servicio escribe los dos iguales y el
-// legajo no se puede editar.
+// `id` lo genera el servidor y es opaco: NO es el legajo (json-server descarta el `id` que manda el
+// cliente al crear). El identificador de negocio es `legajo`: es único (lo garantiza el servicio) y
+// no se puede editar, porque es el vínculo con `users` y `equipos`. Se busca con `TechnicianDirectory`.
 export interface Technician extends TechnicianProfile {
   id: string;
   legajo: string;
@@ -19,7 +19,7 @@ export interface Technician extends TechnicianProfile {
   lastName: string;
 }
 
-// Lo que se ingresa al dar de alta un técnico (el `id` lo fija el servicio a partir del legajo).
+// Lo que se ingresa al dar de alta un técnico (el `id` lo asigna el servidor).
 export type TechnicianDraft = Omit<Technician, 'id'>;
 
 function isNonBlankString(value: unknown): value is string {
@@ -35,8 +35,8 @@ export function isTechnicianRecord(value: unknown): value is Technician {
   const record = value as Record<string, unknown>;
 
   return (
+    isNonBlankString(record['id']) &&
     isLegajo(record['legajo']) &&
-    record['id'] === record['legajo'] &&
     isNonBlankString(record['firstName']) &&
     isNonBlankString(record['lastName']) &&
     isTechnicianSpecialty(record['specialty']) &&

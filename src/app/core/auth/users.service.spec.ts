@@ -30,8 +30,9 @@ describe('UsersService.create', () => {
     email: 'lider@enterprise-lab.dev',
     role: 'team-leader-mantenimiento',
   };
+  // Registro del maestro tal como lo devuelve el servidor: su `id` es opaco, no es el legajo.
   const master = {
-    id: '1001',
+    id: 'srv-1001',
     legajo: '1001',
     firstName: 'Ana',
     lastName: 'Ruiz',
@@ -44,7 +45,8 @@ describe('UsersService.create', () => {
   let created: AuthUser | undefined;
   let error: unknown;
 
-  const masterUrl = (legajo: string) => `${API_BASE_URL}/tecnicos/${legajo}`;
+  // El maestro se consulta pidiendo la colección y buscando el legajo en el cliente.
+  const masterUrl = `${API_BASE_URL}/tecnicos`;
   const isMasterRequest = (req: { url: string }) => req.url.startsWith(`${API_BASE_URL}/tecnicos`);
   const expectGetTechnicianUsers = () =>
     httpMock.expectOne(
@@ -79,7 +81,7 @@ describe('UsersService.create', () => {
       expect.assertions(4);
       create(tecnicoDraft);
 
-      httpMock.expectOne(masterUrl('1001')).flush(master);
+      httpMock.expectOne(masterUrl).flush([master]);
       expectGetTechnicianUsers().flush([]);
       const post = expectPost();
       expect(post.request.body).toEqual({
@@ -110,9 +112,7 @@ describe('UsersService.create', () => {
       expect.assertions(2);
       create({ ...tecnicoDraft, legajo: '9999' });
 
-      httpMock
-        .expectOne(masterUrl('9999'))
-        .flush('not found', { status: 404, statusText: 'Not Found' });
+      httpMock.expectOne(masterUrl).flush([master]);
 
       expect(error).toBeInstanceOf(TechnicianNotFoundError);
       expect(error).toMatchObject({ legajo: '9999' });
@@ -122,9 +122,7 @@ describe('UsersService.create', () => {
     it('does not even look for other users when the technician does not exist', () => {
       create({ ...tecnicoDraft, legajo: '9999' });
 
-      httpMock
-        .expectOne(masterUrl('9999'))
-        .flush('not found', { status: 404, statusText: 'Not Found' });
+      httpMock.expectOne(masterUrl).flush([master]);
 
       httpMock.expectNone((req) => req.url === usersUrl);
     });
@@ -133,7 +131,7 @@ describe('UsersService.create', () => {
       expect.assertions(1);
       create(tecnicoDraft);
 
-      httpMock.expectOne(masterUrl('1001')).flush(master);
+      httpMock.expectOne(masterUrl).flush([master]);
       expectGetTechnicianUsers().flush([{ id: '2', role: 'tecnico', legajo: '1001' }]);
 
       expect(error).toBeInstanceOf(LegajoAlreadyLinkedError);
@@ -144,7 +142,7 @@ describe('UsersService.create', () => {
       expect.assertions(2);
       create(tecnicoDraft);
 
-      httpMock.expectOne(masterUrl('1001')).flush(master);
+      httpMock.expectOne(masterUrl).flush([master]);
       expectGetTechnicianUsers().flush([{ id: '5', role: 'tecnico', legajo: '1002' }]);
       const post = expectPost();
       post.flush({ ...post.request.body, id: '8' });
@@ -167,21 +165,51 @@ describe('UsersService.create', () => {
       httpMock.expectNone(() => true);
     });
 
-    it('keeps the leading zeros of the legajo in the master URL', () => {
+    it('asks for the whole master without filters: ?legajo= would not match a numeric string', () => {
+      create(tecnicoDraft);
+
+      const request = httpMock.expectOne(masterUrl);
+
+      expect(request.request.urlWithParams).toBe(masterUrl);
+      request.flush([master]);
+      expectGetTechnicianUsers().flush([]);
+      expectPost().flush({ id: '7', ...tecnicoDraft });
+    });
+
+    it('compares the legajo as a string: "0042" is not "42"', () => {
       create({ ...tecnicoDraft, legajo: '0042' });
 
-      httpMock.expectOne(masterUrl('0042')).flush('not found', { status: 404, statusText: 'x' });
+      httpMock.expectOne(masterUrl).flush([{ ...master, legajo: '42' }]);
 
       expect(error).toBeInstanceOf(TechnicianNotFoundError);
+      expectNoPost();
+    });
+
+    it('finds a legajo with leading zeros when the master has exactly that value', () => {
+      create({ ...tecnicoDraft, legajo: '0042' });
+
+      httpMock.expectOne(masterUrl).flush([{ ...master, legajo: '0042' }]);
+      expectGetTechnicianUsers().flush([]);
+      expectPost().flush({ id: '7', ...tecnicoDraft, legajo: '0042' });
+
+      expect(error).toBeUndefined();
+      expect(created).toMatchObject({ legajo: '0042' });
+    });
+
+    it('blocks any legajo when the master is empty', () => {
+      create(tecnicoDraft);
+
+      httpMock.expectOne(masterUrl).flush([]);
+
+      expect(error).toBeInstanceOf(TechnicianNotFoundError);
+      expectNoPost();
     });
 
     it('propagates a server error from the master lookup instead of reporting "not found"', () => {
       expect.assertions(2);
       create(tecnicoDraft);
 
-      httpMock
-        .expectOne(masterUrl('1001'))
-        .flush('boom', { status: 500, statusText: 'Server Error' });
+      httpMock.expectOne(masterUrl).flush('boom', { status: 500, statusText: 'Server Error' });
 
       expect(error).toBeInstanceOf(HttpErrorResponse);
       expect(error).not.toBeInstanceOf(TechnicianNotFoundError);
@@ -192,7 +220,7 @@ describe('UsersService.create', () => {
       expect.assertions(2);
       create(tecnicoDraft);
 
-      httpMock.expectOne(masterUrl('1001')).flush(master);
+      httpMock.expectOne(masterUrl).flush([master]);
       expectGetTechnicianUsers().flush('boom', { status: 500, statusText: 'Server Error' });
 
       expect(error).toBeInstanceOf(HttpErrorResponse);
@@ -204,7 +232,7 @@ describe('UsersService.create', () => {
       expect.assertions(1);
       create(tecnicoDraft);
 
-      httpMock.expectOne(masterUrl('1001')).flush({ ...master, specialty: 'plomero' });
+      httpMock.expectOne(masterUrl).flush([{ ...master, specialty: 'plomero' }]);
       expectGetTechnicianUsers().flush([]);
 
       expect(error).toBeInstanceOf(InvalidUserRecordError);
@@ -219,7 +247,7 @@ describe('UsersService.create', () => {
         teamType: 'preventivo-correctivo',
       } as UserDraft);
 
-      httpMock.expectOne(masterUrl('1001')).flush(master);
+      httpMock.expectOne(masterUrl).flush([master]);
       expectGetTechnicianUsers().flush([]);
       const post = expectPost();
       post.flush({ ...post.request.body, id: '9' });
@@ -232,7 +260,7 @@ describe('UsersService.create', () => {
       expect.assertions(1);
       create(tecnicoDraft);
 
-      httpMock.expectOne(masterUrl('1001')).flush(master);
+      httpMock.expectOne(masterUrl).flush([master]);
       expectGetTechnicianUsers().flush([]);
       expectPost().flush({});
 

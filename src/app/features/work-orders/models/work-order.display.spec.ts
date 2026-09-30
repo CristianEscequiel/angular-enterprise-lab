@@ -30,6 +30,7 @@ describe('work order display maps', () => {
     ['pending', 'Pendiente', 'pending'],
     ['in-progress', 'En progreso', 'in-progress'],
     ['completed', 'Completada', 'completed'],
+    ['cancelled', 'Cancelada', 'cancelled'],
   ])('status %s shows "%s" with the %s badge variant', (status, label, variant) => {
     expect(STATUS_LABELS[status]).toBe(label);
     expect(STATUS_BADGE[status]).toBe(variant);

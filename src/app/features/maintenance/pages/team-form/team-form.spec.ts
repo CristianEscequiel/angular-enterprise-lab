@@ -10,7 +10,7 @@ import { TeamLoadError, TeamsService } from '../../data-access/teams.service';
 import { TechniciansService } from '../../data-access/technicians.service';
 import { Team, TeamDraft } from '../../models/team.model';
 import { Technician } from '../../models/technician.model';
-import { TeamForm } from './team-form';
+import { LOOKUP_DEBOUNCE_MS, TeamForm } from './team-form';
 
 describe('TeamForm', () => {
   let fixture: ComponentFixture<TeamForm>;
@@ -139,7 +139,7 @@ describe('TeamForm', () => {
   // Tipea y deja pasar el debounce: la consulta ya salió (o se resolvió si responde en el acto).
   function lookUp(value: string): void {
     typeLegajo(value);
-    advance(300);
+    advance(LOOKUP_DEBOUNCE_MS);
   }
 
   function fillTeam(name: string, type: string): void {
@@ -172,7 +172,8 @@ describe('TeamForm', () => {
       // Antes de vencer la espera: todavía buscando, sin consulta y sin poder agregar.
       expect(feedback()).toBe('Buscando técnico…');
       expect(addButton().disabled).toBe(true);
-      advance(299);
+      // Literales a propósito: cambiar el debounce tiene que hacer fallar este test.
+      advance(399);
       expect(technicians.findByLegajo).not.toHaveBeenCalled();
       advance(1);
 
@@ -288,7 +289,26 @@ describe('TeamForm', () => {
       typeLegajo('100');
       advance(100);
       typeLegajo('1001');
-      advance(300);
+      advance(LOOKUP_DEBOUNCE_MS);
+
+      expect(technicians.findByLegajo).toHaveBeenCalledTimes(1);
+      expect(technicians.findByLegajo).toHaveBeenCalledWith('1001');
+    });
+
+    it('does not query between keystrokes spaced 350 ms apart, only once typing stops', () => {
+      expect.assertions(3);
+
+      // 350 ms superaba el debounce anterior (300) y no supera el actual (400).
+      typeLegajo('1');
+      advance(350);
+      typeLegajo('10');
+      advance(350);
+      typeLegajo('100');
+      advance(350);
+      expect(technicians.findByLegajo).not.toHaveBeenCalled();
+
+      typeLegajo('1001');
+      advance(LOOKUP_DEBOUNCE_MS);
 
       expect(technicians.findByLegajo).toHaveBeenCalledTimes(1);
       expect(technicians.findByLegajo).toHaveBeenCalledWith('1001');
@@ -448,7 +468,7 @@ describe('TeamForm', () => {
           '[aria-label="Quitar Ruiz, Ana (legajo 1001)"]',
         );
         remove?.click();
-        advance(300);
+        advance(LOOKUP_DEBOUNCE_MS);
 
         expect(feedback()).toContain('Técnico encontrado: Ruiz, Ana');
         expect(addButton().disabled).toBe(false);

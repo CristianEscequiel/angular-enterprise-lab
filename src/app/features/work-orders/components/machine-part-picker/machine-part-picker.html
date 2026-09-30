@@ -1,0 +1,50 @@
+<div class="machine-part-picker">
+  <label class="form-label" for="machine-select">Máquina:</label>
+  <select
+    #machineSelect
+    class="form-control"
+    id="machine-select"
+    required
+    [class.form-control--invalid]="invalid()"
+    [attr.aria-invalid]="invalid()"
+    [attr.aria-describedby]="invalid() ? errorId() : null"
+    (change)="onMachineSelected(machineSelect)"
+  >
+    <option value="" [selected]="machineId() === null">Seleccioná una máquina</option>
+    @for (machine of machines(); track machine.id) {
+      <option [value]="machine.id" [selected]="machine.id === machineId()">
+        {{ machine.code }} — {{ machine.name }}
+      </option>
+    }
+  </select>
+
+  @if (machine(); as selectedMachine) {
+    <div class="machine-part-picker__parts">
+      <p class="form-label" id="machine-part-picker-parts">
+        Parte (opcional): elegí una parte o usá solo la máquina.
+      </p>
+      <app-part-tree
+        [nodes]="nodes()"
+        [selectedId]="partId()"
+        [showActions]="false"
+        [label]="'Partes de ' + selectedMachine.name"
+        emptyMessage="Esta máquina no tiene partes: la orden se crea sobre la máquina completa."
+        (selectPart)="onPartSelected($event)"
+      />
+      <app-button
+        variant="outline"
+        size="sm"
+        [disabled]="partId() === null"
+        (clicked)="useMachineOnly()"
+      >
+        Usar solo la máquina
+      </app-button>
+    </div>
+
+    <p class="machine-part-picker__path" role="status" aria-live="polite">
+      @if (selectedPath(); as path) {
+        <strong>Seleccionado:</strong> {{ path }}
+      }
+    </p>
+  }
+</div>

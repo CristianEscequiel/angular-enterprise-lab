@@ -1,5 +1,6 @@
 import { Routes, UrlMatcher } from '@angular/router';
 
+import { isTechnician } from '@core/auth/auth.model';
 import { requireUser } from '@core/auth/auth.guard';
 import { canEditWorkOrder, creatableTypes } from './models/work-order.permissions';
 
@@ -32,6 +33,21 @@ export const matchWorkOrderIdEdit: UrlMatcher = (segments) => {
   return { consumed: segments, posParams: { id: idSegment } };
 };
 
+// /work-orders/:id/resolve — página de cierre de la orden (spec 013d).
+export const matchWorkOrderIdResolve: UrlMatcher = (segments) => {
+  const [idSegment, suffixSegment] = segments;
+
+  if (
+    segments.length !== 2 ||
+    !idSegment ||
+    suffixSegment?.path !== 'resolve' ||
+    !ID_PATTERN.test(idSegment.path)
+  ) {
+    return null;
+  }
+  return { consumed: segments, posParams: { id: idSegment } };
+};
+
 export const WORK_ORDERS_ROUTES: Routes = [
   {
     path: '',
@@ -53,6 +69,15 @@ export const WORK_ORDERS_ROUTES: Routes = [
     canActivate: [requireUser((user) => canEditWorkOrder(user))],
     loadComponent: () =>
       import('./pages/work-order-edit/work-order-edit').then((m) => m.WorkOrderEdit),
+  },
+  {
+    matcher: matchWorkOrderIdResolve,
+    title: 'Cerrar orden de trabajo | Angular Enterprise Lab',
+    // Solo los técnicos cierran órdenes. Que la orden sea suya y de un tipo que su equipo atiende lo
+    // comprueba la página, una vez cargada (la ruta no conoce la orden).
+    canActivate: [requireUser((user) => isTechnician(user))],
+    loadComponent: () =>
+      import('./pages/work-order-resolve/work-order-resolve').then((m) => m.WorkOrderResolve),
   },
   {
     matcher: matchWorkOrderId,

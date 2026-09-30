@@ -1,3 +1,4 @@
+import { MACHINE_ONLY_REF_FIXTURE, MACHINE_REF_FIXTURE } from '../../testing/work-order.fixtures';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
@@ -13,7 +14,7 @@ describe('WorkOrderDetail', () => {
     id: '1',
     title: 'Orden de prueba',
     description: 'Descripción de prueba',
-    asset: 'Máquina 1',
+    machineRef: MACHINE_REF_FIXTURE,
     type: 'pronto-intervencion',
     priority: 'medium',
     status: 'pending',
@@ -90,8 +91,113 @@ describe('WorkOrderDetail', () => {
   it('renders the work order normally on success', async () => {
     await createComponent();
     expect(fixture.nativeElement.textContent).toContain('Orden de prueba');
-    expect(fixture.nativeElement.textContent).toContain('Máquina 1');
+    expect(fixture.nativeElement.textContent).toContain(MACHINE_REF_FIXTURE.breadcrumb);
     expect(component.loadError()).toBeNull();
+  });
+
+  describe('machine reference (spec 013d)', () => {
+    const text = (): string => (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
+
+    it('shows the stored path and the failure comment in separate elements', async () => {
+      expect.assertions(4);
+      await createComponent();
+
+      const comment = fixture.nativeElement.querySelector('#machine-comment') as HTMLElement;
+      expect(comment.textContent).toContain(MACHINE_REF_FIXTURE.comment);
+      expect(comment.textContent).not.toContain(MACHINE_REF_FIXTURE.breadcrumb);
+      expect(text()).toContain(`Máquina / parte: ${MACHINE_REF_FIXTURE.breadcrumb}`);
+      // El comentario no se mezcla en la línea de la ruta.
+      expect(text()).not.toContain(
+        `${MACHINE_REF_FIXTURE.breadcrumb} ${MACHINE_REF_FIXTURE.comment}`,
+      );
+    });
+
+    it('shows the snapshot saved in the order, whatever the master says today', async () => {
+      expect.assertions(1);
+      workOrdersServiceMock.getById.mockReturnValue(
+        of({
+          ...mockWorkOrder,
+          machineRef: {
+            ...MACHINE_REF_FIXTURE,
+            breadcrumb: 'Envasadora línea 1 > Nombre de antes',
+          },
+        }),
+      );
+      await createComponent();
+
+      expect(text()).toContain('Envasadora línea 1 > Nombre de antes');
+    });
+
+    it('omits the comment line when the order has no comment', async () => {
+      expect.assertions(2);
+      workOrdersServiceMock.getById.mockReturnValue(
+        of({ ...mockWorkOrder, machineRef: MACHINE_ONLY_REF_FIXTURE }),
+      );
+      await createComponent();
+
+      expect(fixture.nativeElement.querySelector('#machine-comment')).toBeNull();
+      expect(text()).toContain('Máquina / parte: Envasadora línea 1');
+    });
+  });
+
+  describe('who took it and how it was closed (spec 013d)', () => {
+    const text = (): string => (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
+    const taker = { id: '2', name: 'Técnico Mecánico de Guardia', at: '2026-09-25T13:00:00.000Z' };
+    const note = {
+      comment: 'Se reemplazó el rodamiento delantero y se verificó el giro sin vibración.',
+      authorId: '2',
+      authorName: 'Técnico Mecánico de Guardia',
+      at: '2026-09-25T15:00:00.000Z',
+    };
+
+    it('shows nothing about an owner or a closing on a pending order (even a released one)', async () => {
+      workOrdersServiceMock.getById.mockReturnValue(of({ ...mockWorkOrder, takenBy: null }));
+      await createComponent();
+
+      expect(fixture.nativeElement.querySelector('#taken-by')).toBeNull();
+      expect(fixture.nativeElement.querySelector('#closing-note')).toBeNull();
+    });
+
+    it('shows who took an in-progress order, and no closing note', async () => {
+      workOrdersServiceMock.getById.mockReturnValue(
+        of({ ...mockWorkOrder, status: 'in-progress', takenBy: taker }),
+      );
+      await createComponent();
+
+      expect(fixture.nativeElement.querySelector('#taken-by')?.textContent).toContain(
+        'Tomada por: Técnico Mecánico de Guardia',
+      );
+      expect(fixture.nativeElement.querySelector('#closing-note')).toBeNull();
+    });
+
+    it.each(['completed', 'cancelled'])(
+      'shows the comment, author and date of a %s order in their own element',
+      async (status) => {
+        workOrdersServiceMock.getById.mockReturnValue(
+          of({ ...mockWorkOrder, status, takenBy: taker, closingNote: note }),
+        );
+        await createComponent();
+
+        const closing = fixture.nativeElement.querySelector('#closing-note') as HTMLElement;
+        expect(closing.textContent).toContain(note.comment);
+        expect(closing.textContent).toContain('Cerrada por: Técnico Mecánico de Guardia');
+        expect(closing.textContent).toMatch(/\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/);
+      },
+    );
+
+    it('keeps the technician comment apart from the failure comment and the machine path', async () => {
+      workOrdersServiceMock.getById.mockReturnValue(
+        of({ ...mockWorkOrder, status: 'completed', takenBy: taker, closingNote: note }),
+      );
+      await createComponent();
+
+      const closing = fixture.nativeElement.querySelector('#closing-note') as HTMLElement;
+      const failure = fixture.nativeElement.querySelector('#machine-comment') as HTMLElement;
+
+      expect(closing.textContent).not.toContain(MACHINE_REF_FIXTURE.comment);
+      expect(failure.textContent).not.toContain(note.comment);
+      expect(text()).not.toContain(`${MACHINE_REF_FIXTURE.breadcrumb} ${note.comment}`);
+    });
   });
 
   it('exposes the work order title as a heading, not a loose paragraph', async () => {

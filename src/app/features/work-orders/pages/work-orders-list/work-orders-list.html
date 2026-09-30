@@ -61,7 +61,7 @@
         <thead>
           <tr>
             <th scope="col">Título</th>
-            <th scope="col">Activo</th>
+            <th scope="col">Máquina / parte</th>
             <th scope="col">Tipo</th>
             <th scope="col">Prioridad</th>
             <th scope="col">Estado</th>
@@ -72,7 +72,7 @@
           @for (workOrder of workOrders(); track workOrder.id) {
             <tr>
               <td>{{ workOrder.title }}</td>
-              <td>{{ workOrder.asset }}</td>
+              <td>{{ workOrder.machineRef.breadcrumb }}</td>
               <td>{{ typeLabels[workOrder.type] }}</td>
               <td>
                 <app-badge [variant]="priorityBadge[workOrder.priority]">
@@ -84,19 +84,11 @@
                   <app-badge [variant]="statusBadge[workOrder.status]">
                     {{ statusLabels[workOrder.status] }}
                   </app-badge>
-                  <select
-                    #statusSelect
-                    class="form-control work-orders-status__select"
-                    [attr.aria-label]="'Cambiar estado de ' + workOrder.title"
-                    [disabled]="isUpdating(workOrder.id)"
-                    (change)="changeStatus(workOrder, statusSelect)"
-                  >
-                    @for (status of statusOptions; track status) {
-                      <option [value]="status" [selected]="status === workOrder.status">
-                        {{ statusLabels[status] }}
-                      </option>
-                    }
-                  </select>
+                  @if (workOrder.status === 'in-progress' && workOrder.takenBy) {
+                    <span class="work-orders-status__owner u-text-muted">
+                      Tomada por {{ workOrder.takenBy.name }}
+                    </span>
+                  }
                 </div>
               </td>
               <td class="d-flex justify-center gap-sm">
@@ -108,6 +100,38 @@
                 >
                   Ver
                 </app-button>
+                @if (canContinue(workOrder)) {
+                  <app-button
+                    size="sm"
+                    variant="primary"
+                    [ariaLabel]="'Continuar ' + workOrder.title"
+                    [disabled]="isBusy(workOrder.id)"
+                    (clicked)="takeWorkOrder(workOrder)"
+                  >
+                    Continuar
+                  </app-button>
+                } @else if (canTake(workOrder)) {
+                  <app-button
+                    size="sm"
+                    variant="primary"
+                    [ariaLabel]="'Tomar orden ' + workOrder.title"
+                    [disabled]="isBusy(workOrder.id)"
+                    (clicked)="takeWorkOrder(workOrder)"
+                  >
+                    Tomar orden
+                  </app-button>
+                }
+                @if (canRelease(workOrder)) {
+                  <app-button
+                    size="sm"
+                    variant="outline"
+                    [ariaLabel]="'Liberar ' + workOrder.title"
+                    [disabled]="isBusy(workOrder.id)"
+                    (clicked)="openReleaseModal(workOrder)"
+                  >
+                    Liberar
+                  </app-button>
+                }
                 @if (canEdit()) {
                   <app-button
                     size="sm"
@@ -141,6 +165,14 @@
       confirmText="Eliminar"
       cancelText="Cancelar"
       (confirmed)="deleteWorkOrder(workOrderDeleted())"
+    />
+    <app-modal
+      [(isOpen)]="releaseModalOpen"
+      title="Liberar orden de trabajo"
+      [message]="releaseMessage()"
+      confirmText="Liberar"
+      cancelText="Cancelar"
+      (confirmed)="confirmRelease()"
     />
 
     <nav class="pagination mt-lg" aria-label="Paginación de órdenes de trabajo">
