@@ -4,7 +4,7 @@ Laboratorio de arquitectura Angular aplicado a un sistema de gestión de órdene
 
 El proyecto busca construir una aplicación pequeña y mantenible que sirva como referencia técnica, base de aprendizaje y material para explicar decisiones de desarrollo. El foco está en la separación de responsabilidades, la reutilización, el manejo de estado, las pruebas y la documentación.
 
-**Estado:** en desarrollo. El flujo CRUD está implementado y la búsqueda con paginación está en proceso de estabilización. La autenticación simulada, los roles y la gestión de técnicos y equipos ya están implementados (specs 010, 011, 013b y 013c), igual que el maestro de máquinas con su árbol de partes (spec 013a) y, sobre él, la máquina y parte de cada orden con el flujo de tomar, cerrar y liberar una orden (spec 013d); los indicadores del dashboard y la asignación de una orden a un técnico concreto (más allá de quien la toma) forman parte del roadmap.
+**Estado:** en desarrollo. El flujo CRUD está implementado y la búsqueda con paginación está en proceso de estabilización. La autenticación simulada, los roles y la gestión de técnicos y equipos ya están implementados (specs 010, 011, 013b y 013c), igual que el maestro de máquinas con su árbol de partes (spec 013a) y, sobre él, la máquina y parte de cada orden con el flujo de tomar, cerrar y liberar una orden (spec 013d); el resumen del dashboard (spec 014) ya está, pero los indicadores más allá de él y la asignación de una orden a un técnico concreto (más allá de quien la toma) forman parte del roadmap.
 
 ## Metodología de desarrollo
 
@@ -160,8 +160,9 @@ El **maestro de máquinas** (`maquinas`) guarda `code` (único, en mayúsculas, 
 - Eliminación con confirmación.
 - Indicador global de peticiones en curso.
 - Mensajes globales de éxito, advertencia y error.
-- Layout con header, sidebar y área de contenido.
-- Página inicial de dashboard, todavía sin indicadores.
+- Layout mobile-first: bajo 768px una barra de navegación inferior fija; desde 768px un sidebar siempre visible. Sin sesión (p. ej. en `/login`) no hay navegación.
+- Listados que son tarjetas bajo 1024px y tabla desde ahí, con una franja de color por estado en las órdenes.
+- Dashboard "Turno de hoy": pendientes (y cuántas de prioridad alta), en curso (y cuántas son del usuario), cerradas hoy, y la lista de las propias (spec 014).
 
 La búsqueda, la paginación y la recarga después de eliminar requieren completar su coordinación. También están pendientes mejoras de recuperación ante errores y protección durante el envío de formularios.
 
@@ -249,22 +250,22 @@ El árbol se guarda como **lista de adyacencia plana** (cada parte con su `paren
 
 ### Routing
 
-| Ruta                                    | Vista                        |
-| --------------------------------------- | ---------------------------- |
-| `/`                                     | Redirección a `/dashboard`   |
-| `/login`                                | Inicio de sesión (pública)   |
-| `/dashboard`                            | Página inicial del dashboard |
-| `/work-orders`                          | Listado de órdenes           |
-| `/work-orders/new`                      | Creación de una orden        |
-| `/work-orders/:id`                      | Detalle de una orden         |
-| `/work-orders/:id/edit`                 | Edición de una orden         |
-| `/maintenance`                          | Redirección a los técnicos   |
-| `/maintenance/technicians`              | Listado de técnicos          |
-| `/maintenance/technicians/new`          | Alta de un técnico           |
-| `/maintenance/technicians/:legajo/edit` | Edición de un técnico        |
-| `/maintenance/teams`                    | Listado de equipos           |
-| `/maintenance/teams/new`                | Alta de un equipo            |
-| `/maintenance/teams/:id/edit`           | Edición de un equipo         |
+| Ruta                                    | Vista                      |
+| --------------------------------------- | -------------------------- |
+| `/`                                     | Redirección a `/dashboard` |
+| `/login`                                | Inicio de sesión (pública) |
+| `/dashboard`                            | Turno de hoy (resumen)     |
+| `/work-orders`                          | Listado de órdenes         |
+| `/work-orders/new`                      | Creación de una orden      |
+| `/work-orders/:id`                      | Detalle de una orden       |
+| `/work-orders/:id/edit`                 | Edición de una orden       |
+| `/maintenance`                          | Redirección a los técnicos |
+| `/maintenance/technicians`              | Listado de técnicos        |
+| `/maintenance/technicians/new`          | Alta de un técnico         |
+| `/maintenance/technicians/:legajo/edit` | Edición de un técnico      |
+| `/maintenance/teams`                    | Listado de equipos         |
+| `/maintenance/teams/new`                | Alta de un equipo          |
+| `/maintenance/teams/:id/edit`           | Edición de un equipo       |
 
 La feature de órdenes utiliza `loadChildren()` y sus páginas se cargan mediante `loadComponent()`. `/dashboard` y `/work-orders/*` requieren sesión (`authGuard`, spec 011): sin ella se redirige a `/login` conservando la URL pedida para volver tras el login. `/login` redirige al destino de retorno (por defecto `/dashboard`) si ya hay sesión (`guestGuard`), y la página 404 es pública. Los roles son `administrador`, `team-leader-mantenimiento`, `personal-produccion` y `tecnico` (este último con especialidad y tipo de equipo, spec 013b). `requireUser(predicate)` restringe una ruta con una regla sobre el usuario y `requireRole(...roles)` es su atajo por rol: `/work-orders/new` exige un rol que pueda crear órdenes, `/work-orders/:id/edit` uno que pueda editarlas y `/work-orders/:id/resolve` (cierre de la orden, spec 013d) ser técnico, según la política de `work-order.permissions.ts`; sin permiso se vuelve a `/dashboard` con un aviso. `/maintenance/*` sigue el mismo esquema con la política de `maintenance.permissions.ts` (técnicos: Administrador y TeamLeader; equipos: solo TeamLeader), y un legajo con formato inválido en la URL de edición cae en la página 404 sin cargar el formulario. `/machines/*` (listado, alta, `:id/edit` y `:id/parts`) exige `canManageMachines` (Administrador y TeamLeader) en cada ruta, y un id con forma insegura (puntos, espacios, más de 64 caracteres) cae en la página 404 sin cargar la página. Estos guards son control de navegación: la autorización real corresponde al backend.
 
@@ -312,7 +313,9 @@ La operación de negocio permanece en la página que utiliza el componente. El m
 
 Los estilos se apoyan en variables SCSS, propiedades CSS, mixins y clases compartidas. `src/styles.scss` carga `src/styles/main.scss`, que reúne las capas del sistema visual.
 
-La auditoría de accesibilidad y responsive (`008b-accesibilidad-responsive`) cubrió landmarks, foco, `aria-invalid`/`aria-describedby` en formularios, contraste de color y el comportamiento del sidebar como drawer en mobile. El modal ya contaba con manejo de foco desde `005-foco-limpieza-modal`.
+La auditoría de accesibilidad y responsive (`008b-accesibilidad-responsive`) cubrió landmarks, foco, `aria-invalid`/`aria-describedby` en formularios y contraste de color. El modal ya contaba con manejo de foco desde `005-foco-limpieza-modal`.
+
+El rediseño de `014-rediseno-mobile-first` reemplazó el drawer por una barra inferior (mobile) y un sidebar fijo (desde 768px) que comparten los ítems por rol de `layout/nav-items.ts`, y pasó todo el CSS a mobile-first: en `src/styles` solo quedan media queries `min-width` y `prefers-*`. Los tokens (color, espaciado, escala tipográfica, radios) están como propiedades CSS en `:root`, con Atkinson Hyperlegible Next como fuente. El ámbar de señal (`--color-signal`) solo se usa como relleno, nunca como texto (1.82:1 sobre blanco); los bordes decorativos (`--color-border-subtle`) se separan de los de control (`--color-border`, 3.5:1). Con `prefers-reduced-motion: reduce` se apagan transiciones, animaciones y el scroll suave. Decisiones, contrastes medidos y la verificación en navegador en `.claude/specs/014-rediseno-mobile-first/`.
 
 ## Scripts y verificaciones
 
@@ -362,6 +365,7 @@ de las decisiones tomadas para cada feature.
 | Gestión de técnicos y equipos                               | [`013c-tecnicos-equipos`](.claude/specs/013c-tecnicos-equipos)                                   | Implementado (449 tests nuevos, 523→972 en la suite)                                                  |
 | Maestro de máquinas y árbol de partes                       | [`013a-maestro-maquinas-partes`](.claude/specs/013a-maestro-maquinas-partes)                     | Implementado (671 tests nuevos, 972→1643 en la suite; incluye el arreglo de 013c)                     |
 | Máquina y parte en la orden, tomar, cerrar y liberar        | [`013d-maquina-en-orden`](.claude/specs/013d-maquina-en-orden)                                   | Implementado (316 tests nuevos, 1645→1961 en la suite; ver notas)                                     |
+| Rediseño "Tablero de turno", mobile-first                   | [`014-rediseno-mobile-first`](.claude/specs/014-rediseno-mobile-first)                           | Implementado (102 tests nuevos, 1961→2063 en la suite; ver notas)                                     |
 
 ### Estado de las pruebas
 
@@ -381,14 +385,14 @@ La estrategia a completar incluye:
 
 ### Cobertura
 
-`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `013d-maquina-en-orden` (1961 tests):
+`pnpm run test:coverage` (`ng test --configuration coverage`) corre la suite con `@vitest/coverage-v8` y muestra un reporte en consola (texto) y en `coverage/angular-enterprise-lab/index.html` (HTML, no versionado). Última medición, tras `014-rediseno-mobile-first` (2063 tests):
 
 | Métrica    | % Cubierto |
 | ---------- | ---------- |
-| Statements | 98.33%     |
-| Branches   | 98.07%     |
-| Functions  | 96.97%     |
-| Lines      | 99.23%     |
+| Statements | 98.39%     |
+| Branches   | 97.98%     |
+| Functions  | 97.00%     |
+| Lines      | 99.27%     |
 
 Es un número **informativo**, no un umbral bloqueante — no hay `coverageThresholds` configurado en `angular.json`, así que no falla el comando ni el commit si baja. El desbalance de Functions detectado en spec 007 (72.95% sobre specs 001-006, 79.5% recalculado tras 008a/008b) se cerró en spec 009 con tests dirigidos a funciones de lógica real sin cobertura (ver `.claude/specs/009-cobertura-por-feature`); no se persigue el 100%, solo un nivel consistente con el resto de las métricas.
 

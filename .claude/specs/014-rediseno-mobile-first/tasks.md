@@ -118,14 +118,14 @@ Paralelizables: T2 ∥ T3, T5 ∥ T6 ∥ T7, y T8 en cualquier momento (no depen
   - Hacer: recorrer cada pantalla a 320, 375, 768 y 1280px; teclado completo por el shell; skip link con la barra inferior; `prefers-reduced-motion` emulado; dashboard con datos, sin datos y con JSON Server apagado.
   - Verifica: lista de chequeo en `notes.md` con un sí/no por ítem y evidencia (qué pantalla, qué ancho). Cualquier "no" vuelve a la tarea que corresponda.
 
-- [ ] **T13. Cierre de la spec**
+- [x] **T13. Cierre de la spec**
   - Depende de: T12.
   - Hacer: recorrer cada criterio de `requirements.md` (REQ-1 a REQ-6) y marcar sí/no con una línea de evidencia en `notes.md`; actualizar el README donde describa la UI o la cobertura; correr `pnpm test` completo.
   - Verifica: `notes.md` con los 6 grupos de requisitos evaluados uno por uno. La spec no se da por cerrada por tener todas las tareas tildadas.
 
 ## Opcionales
 
-- [ ] **O1. Documentar los tokens en el README** (tabla de colores y escala tipográfica). Depende de: T1.
+- [x] **O1. Documentar los tokens en el README** _(hecho como un párrafo en la sección de estilos, no como tabla)_ (tabla de colores y escala tipográfica). Depende de: T1.
 - [ ] **O2. Skeleton de carga en el dashboard** en lugar del spinner global. Depende de: T9. Solo si el estado de carga de T9 se siente brusco en la verificación manual.
 
 ## Fuera de esta lista
