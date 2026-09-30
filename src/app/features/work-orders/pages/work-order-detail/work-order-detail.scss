@@ -1,0 +1,42 @@
+// Detalle de una orden (spec 014). Solo tokens CSS: así el componente no necesita importar los
+// abstracts y se mantiene bajo el presupuesto de estilos por componente.
+
+.order-detail__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+
+  margin-bottom: var(--spacing-sm);
+}
+
+.order-detail__code {
+  margin: 0;
+  font-weight: 700;
+}
+
+// Un texto largo se lee mejor en una columna angosta que a todo el ancho de la tarjeta.
+.order-detail__description {
+  max-width: 70ch;
+  color: var(--color-text);
+}
+
+// La nota de cierre es su propio bloque: se distingue del resto de la orden por el fondo y la barra
+// lateral, no solo por el título.
+.order-detail__closing {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+
+  background-color: var(--color-surface-light);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--radius-md);
+
+  h3 {
+    margin-bottom: var(--spacing-sm);
+  }
+
+  p {
+    color: var(--color-text);
+  }
+}

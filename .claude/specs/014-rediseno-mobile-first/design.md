@@ -175,9 +175,19 @@ env(safe-area-inset-bottom))` bajo `md`. Desde `md` deja de ser sticky.
 
 ### D6. Detalle de orden (REQ-4.4, 4.5)
 
-Se reordena el contenido de la tarjeta y se agrega un bloque `closing-note`
-(autor, fecha, comentario) cuando `status` es cerrado y existe
-`closingNote`. Los datos ya están en `WorkOrder`; no hay lógica nueva.
+Se reordena el contenido de la tarjeta: número de orden (`id`) y badge de estado
+arriba, luego el título, máquina › parte, prioridad, tipo, fecha de creación,
+descripción y quién la tomó. La nota de cierre (autor, fecha, comentario) pasa a
+ser su propio bloque `#closing-note` dentro de la tarjeta, cuando existe
+`closingNote`. El pie "Estado: in-progress" (crudo, en inglés) se reemplaza por el
+badge con `STATUS_LABELS`/`STATUS_BADGE`, como en el listado. Los datos ya están en
+`WorkOrder`; no hay lógica nueva. Se conservan los ids `#machine-comment`,
+`#taken-by` y `#closing-note` y los rótulos `Tipo:`, `Máquina / parte:`,
+`Cerrada por:` de los que dependen los tests.
+
+No se muestra el creador ni hay acciones en el detalle: `WorkOrder` no tiene
+`createdBy` y la pantalla no tiene más acción que "Volver a Lista" (REQ-4.4
+enmendado).
 
 ### D7. Dashboard (REQ-5)
 

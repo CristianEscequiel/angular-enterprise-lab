@@ -82,7 +82,7 @@ Paralelizables: T2 ∥ T3, T5 ∥ T6 ∥ T7, y T8 en cualquier momento (no depen
   - Hacer: `.form-row` mobile-first (1 columna, 2 desde `md`) y usarlo en los campos emparejados (tipo/prioridad en órdenes; legajo/nombre u otros pares en técnicos y máquinas); barra de acciones `sticky` sobre la barra inferior bajo `md`, estática desde `md`. No tocar el markup de errores.
   - Verifica: specs de formularios existentes pasan (`form.spec`, `technician-form.spec`, `team-form.spec`, `work-order-create.spec`); test: los `aria-describedby` de errores siguen apuntando a un id existente. Manual: a 375px la barra de acciones no tapa ningún campo al hacer scroll hasta el final; a 1024px los pares van en dos columnas.
 
-- [ ] **T7. Detalle de orden y nota de cierre**
+- [x] **T7. Detalle de orden y nota de cierre**
   - Cubre: REQ-4.4, 4.5.
   - Depende de: T2. Paralelizable con T5 y T6.
   - Hacer: reordenar `work-order-detail` (código y estado, título, máquina › parte, prioridad/tipo/creador, descripción, acciones); bloque `closing-note` con autor, fecha y comentario cuando la orden está cerrada y tiene `closingNote`.

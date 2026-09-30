@@ -99,8 +99,13 @@ requisitos. Los usuarios principales son técnicos de planta que toman y cierran
    principales de cada formulario en una barra fija sobre la navegación inferior.
 3. EL SISTEMA DEBERÁ conservar los mensajes de error vinculados a su campo
    (`aria-describedby`), como hoy.
-4. EL SISTEMA DEBERÁ mostrar el detalle de una orden en este orden: código y
-   estado, título, máquina › parte, prioridad/tipo/creador, descripción, acciones.
+4. EL SISTEMA DEBERÁ mostrar el detalle de una orden en este orden: número de
+   orden y estado (con su texto en español), título, máquina › parte, prioridad,
+   tipo y fecha de creación, descripción, y quién la tomó. _(Enmendado al
+   implementar T7: el borrador decía "código", "creador" y "acciones". `WorkOrder`
+   no tiene `createdBy`, el "código" es el `id`, y esta pantalla no tiene acciones
+   salvo "Volver a Lista", que ya está en el encabezado. Se reemplazó por lo que el
+   modelo sí tiene; agregar un creador o acciones en el detalle es otra spec.)_
 5. CUANDO la orden está cerrada, EL SISTEMA DEBERÁ mostrar su nota de cierre
    (autor, fecha, comentario) como bloque propio en el detalle.
 
@@ -147,5 +152,8 @@ requisitos. Los usuarios principales son técnicos de planta que toman y cierran
 - Enmienda durante el diseño: agregado REQ-5.10 (top 3 por columna en desktop).
   Agregado también REQ-2.8 (sin sesión no hay navegación), hallazgo al leer
   `app-shell.html`: hoy el hamburguesa aparece incluso en `/login`.
+- Enmienda durante T7: REQ-4.4 ajustado al modelo real (sin creador ni acciones en
+  el detalle). El pie del detalle mostraba el estado crudo en inglés
+  (`in-progress`); ahora usa el mismo texto y badge que el listado.
 - Sin roles nuevos: los permisos siguen siendo los de 011 y 013b; la barra
   inferior solo filtra los ítems como ya lo hace el sidebar.
