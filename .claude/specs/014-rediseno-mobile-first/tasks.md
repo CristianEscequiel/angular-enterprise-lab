@@ -48,7 +48,7 @@ Paralelizables: T2 ∥ T3, T5 ∥ T6 ∥ T7, y T8 en cualquier momento (no depen
   - Hacer: restilizar `btn`, `form`, `badge`, `alert`, `toast`, `modal`, `pagination`, `spinner`, `table`, `card` en `src/styles/components/`. Sin renombrar clases. Bordes de control con `--color-border-control`; foco de 3:1 o más (primary sobre claro, signal sobre chrome); botones `md`/`lg` de 44px mínimo de alto en mobile; sin sombras ni hover con elevación.
   - Verifica: todos los specs existentes pasan sin tocarlos (`badge.spec`, `alert.spec`, `modal.spec`, etc.); manual: recorrer con Tab un formulario y un modal, ver el foco; los pares de color usados están en la tabla de `design.md` §1.
 
-- [ ] **T3. Extraer `nav-items`**
+- [x] **T3. Extraer `nav-items`**
   - Cubre: REQ-2.1 (qué secciones), base de REQ-2.8.
   - Depende de: T1 no es necesaria; se puede hacer primero. Paralelizable con T2.
   - Hacer: crear `layout/nav-items.ts` con los ítems (Inicio, Órdenes, Técnicos, Equipos, Máquinas) filtrados por `canViewTechnicians`, `canManageTeams`, `canManageMachines` desde `AuthService.currentUser()`. `Sidebar` pasa a consumirlo.
