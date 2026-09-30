@@ -100,7 +100,7 @@ Paralelizables: T2 ∥ T3, T5 ∥ T6 ∥ T7, y T8 en cualquier momento (no depen
   - Hacer: `dashboard-page.ts` con `signal` de `orders`, `loading`, `error`; `computed` de pendientes, altas pendientes, en curso, mías, cerradas hoy; carga con `WorkOrderService.getAll()`; estados de carga (`role="status"`), error con `Alert` y "Reintentar", y vacío con enlace a pendientes; "Mis órdenes en curso" como enlaces al detalle.
   - Verifica: tests con `HttpTestingController`: conteos correctos con un set mixto de órdenes; "mías" filtra por `takenBy.id` del usuario actual; "cerradas hoy" excluye cerradas ayer; el estado de carga aparece antes de responder; error → alerta → "Reintentar" repite la solicitud y muestra los datos; usuario sin órdenes en curso ve el mensaje y el enlace.
 
-- [ ] **T10. Dashboard: layout del tablero**
+- [x] **T10. Dashboard: layout del tablero**
   - Cubre: REQ-5.9, 5.10.
   - Depende de: T9, T4.
   - Hacer: bajo `md`, fila de 3 celdas con cantidades y "Mis órdenes en curso" debajo; desde `md`, tres columnas con hasta 3 órdenes cada una, ordenadas por `createdAt` (Pendientes y En curso) o `closingNote.at` (Cerradas hoy) de más reciente a más antigua, como enlaces al detalle. Estilos globales (presupuesto).

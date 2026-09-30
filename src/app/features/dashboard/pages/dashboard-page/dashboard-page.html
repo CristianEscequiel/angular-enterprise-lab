@@ -13,7 +13,7 @@
   } @else {
     <!-- Tres columnas: las cifras se ven siempre; las listas de órdenes, desde md (REQ-5.9, 5.10). -->
     <div class="shift__board">
-      <section class="shift__column" aria-labelledby="shift-pending-title">
+      <section class="shift__column shift__column--pending" aria-labelledby="shift-pending-title">
         <h2 class="shift__column-title" id="shift-pending-title">Pendientes</h2>
         <p class="shift__count u-tabular" id="shift-pending-count">{{ board().pending.length }}</p>
         <p class="shift__detail" id="shift-pending-high">
@@ -28,7 +28,7 @@
         </ul>
       </section>
 
-      <section class="shift__column" aria-labelledby="shift-progress-title">
+      <section class="shift__column shift__column--progress" aria-labelledby="shift-progress-title">
         <h2 class="shift__column-title" id="shift-progress-title">En curso</h2>
         <p class="shift__count u-tabular" id="shift-progress-count">
           {{ board().inProgress.length }}
@@ -45,7 +45,7 @@
         </ul>
       </section>
 
-      <section class="shift__column" aria-labelledby="shift-closed-title">
+      <section class="shift__column shift__column--closed" aria-labelledby="shift-closed-title">
         <h2 class="shift__column-title" id="shift-closed-title">Cerradas hoy</h2>
         <p class="shift__count u-tabular" id="shift-closed-count">
           {{ board().closedToday.length }}
