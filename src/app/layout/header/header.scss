@@ -1,14 +1,3 @@
-@use '../../../styles/abstracts' as a;
-
-header {
-  background-color: #{a.$color-background};
-  border: #{a.$border-width} solid #{a.$color-border};
-}
-
-.header__session {
-  flex-shrink: 0;
-}
-
-.header__user {
-  white-space: nowrap;
-}
+// Los estilos del header viven en styles/layout/_shell.scss: comparten tokens con el sidebar y la
+// barra inferior, y el botón de cerrar sesión (un <app-button>) queda fuera del alcance de un estilo
+// encapsulado.

@@ -54,7 +54,7 @@ Paralelizables: T2 ∥ T3, T5 ∥ T6 ∥ T7, y T8 en cualquier momento (no depen
   - Hacer: crear `layout/nav-items.ts` con los ítems (Inicio, Órdenes, Técnicos, Equipos, Máquinas) filtrados por `canViewTechnicians`, `canManageTeams`, `canManageMachines` desde `AuthService.currentUser()`. `Sidebar` pasa a consumirlo.
   - Verifica: tests nuevos de `nav-items` por rol (un caso por cada rol de 013b: los ítems visibles coinciden con los permisos); el spec del sidebar sigue pasando con los mismos ítems.
 
-- [ ] **T4. Shell: barra inferior, sidebar fija y header**
+- [x] **T4. Shell: barra inferior, sidebar fija y header**
   - Cubre: REQ-2.1 a 2.5, 2.7, 2.8, REQ-6.2, 6.3.
   - Depende de: T2, T3.
   - Hacer:

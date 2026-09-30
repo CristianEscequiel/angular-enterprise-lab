@@ -1,0 +1,123 @@
+@use '../abstracts' as a;
+
+// Shell de la aplicación (spec 014). Mobile primero: una columna con header arriba, contenido y la
+// barra inferior fija. Desde md, con sesión, el sidebar ocupa una columna a la izquierda de punta a
+// punta y el header y el contenido quedan a su derecha, así el chrome dibuja una "L" continua.
+//
+// `main` conserva exactamente sus clases (`container sidebar-layout__content`): un test de app.spec
+// lo exige, por eso todo lo de `main` se engancha desde `.shell > main` y no desde una clase propia.
+
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  min-height: 100dvh;
+
+  > main {
+    grid-row: 2;
+    padding-block: a.$spacing-md;
+  }
+}
+
+.shell__header {
+  display: block;
+  grid-row: 1;
+}
+
+// Sin sesión no hay navegación. Con sesión, en mobile `main` reserva el alto de la barra inferior
+// más la zona segura del dispositivo para que la barra nunca tape contenido (REQ-2.5).
+.shell--with-nav > main {
+  padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + #{a.$spacing-md});
+}
+
+// El sidebar solo existe desde md; en mobile lo reemplaza la barra inferior.
+.shell__sidebar {
+  display: none;
+}
+
+@include a.respond-above(a.$breakpoint-md) {
+  .shell--with-nav {
+    grid-template-columns: 16rem minmax(0, 1fr);
+
+    > .shell__header,
+    > main {
+      grid-column: 2;
+    }
+
+    > main {
+      padding-block: a.$spacing-lg;
+    }
+
+    > .shell__sidebar {
+      display: block;
+      grid-column: 1;
+      grid-row: 1 / span 2;
+    }
+  }
+}
+
+// ==============================
+// HEADER
+// ==============================
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: a.$spacing-md;
+
+  min-height: 3.5rem;
+  // Con `viewport-fit=cover` el contenido llega hasta el borde físico: se respetan las muescas.
+  padding: a.$spacing-sm max(a.$spacing-md, env(safe-area-inset-right, 0px)) a.$spacing-sm
+    max(a.$spacing-md, env(safe-area-inset-left, 0px));
+
+  color: #ffffff;
+  background-color: var(--color-chrome);
+}
+
+// El título se trunca antes de empujar la sesión fuera de pantalla: a 320px el usuario y el botón de
+// cerrar sesión tienen prioridad sobre el nombre del sitio.
+.header__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+
+  color: #ffffff;
+  font-weight: a.$font-weight-bold;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header__session {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: a.$spacing-sm;
+}
+
+.header__user {
+  max-width: 7rem;
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @include a.respond-above(a.$breakpoint-md) {
+    max-width: 16rem;
+  }
+}
+
+// El botón "Cerrar sesión" es outline en primario, que sobre el chrome no se lee (1.6:1): acá se
+// invierte a blanco, y el foco usa la señal (6.77:1 contra el chrome).
+.header .btn--outline {
+  color: #ffffff;
+  border-color: rgb(255 255 255 / 70%);
+
+  &:hover:not(:disabled) {
+    color: var(--color-chrome);
+    background-color: #ffffff;
+  }
+}
+
+.header .btn:focus-visible {
+  outline-color: var(--color-signal);
+}

@@ -9,15 +9,9 @@ import { Button } from '@shared/components/button/button';
   styleUrl: './header.scss',
 })
 export class Header {
-  sidebarOpen = input<boolean>(false);
   // null = no hay sesión: no se muestra ni el nombre ni el botón de logout.
   userName = input<string | null>(null);
-  viewSidebar = output<void>();
   logout = output<void>();
-
-  onViewClick(): void {
-    this.viewSidebar.emit();
-  }
 
   onLogoutClick(): void {
     this.logout.emit();

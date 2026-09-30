@@ -41,25 +41,10 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.sidebar-layout {
-  display: grid;
-  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
-  gap: a.$spacing-lg;
-  min-height: 100dvh;
-}
-
-.sidebar-layout__sidebar {
-  min-width: 0;
-}
-
+// El grid del shell vive en _shell.scss; `main` conserva esta clase y su min-width para que el
+// contenido ancho (tablas) no estire la columna.
 .sidebar-layout__content {
   min-width: 0;
-}
-
-@include a.respond-below(a.$breakpoint-md) {
-  .sidebar-layout {
-    grid-template-columns: 1fr;
-  }
 }
 
 // Antes usaba `@media (max-width: a.$breakpoint-md)` directo: a los 768px

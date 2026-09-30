@@ -262,12 +262,14 @@ describe('Sidebar', () => {
     });
   });
 
-  it('emits closed when the close button is used', () => {
-    const closed = vi.fn();
-    component.closed.subscribe(closed);
+  // Desde la spec 014 el sidebar es fijo (>= md): ya no hay drawer que abrir ni cerrar.
+  it('has no toggle or close button: it is always visible', () => {
+    expect(fixture.nativeElement.querySelector('button')).toBeNull();
+  });
 
-    fixture.nativeElement.querySelector('button[aria-label="Cerrar menú de navegación"]').click();
-
-    expect(closed).toHaveBeenCalledTimes(1);
+  it('labels its navigation landmark', () => {
+    expect(fixture.nativeElement.querySelector('nav')?.getAttribute('aria-label')).toBe(
+      'Navegación principal',
+    );
   });
 });

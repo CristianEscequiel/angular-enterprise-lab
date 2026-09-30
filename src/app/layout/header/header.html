@@ -1,17 +1,8 @@
-<header class="d-flex u-align-center p-sm">
-  <button
-    type="button"
-    class="btn btn--secondary"
-    aria-label="Abrir menú de navegación"
-    aria-controls="app-sidebar"
-    [attr.aria-expanded]="sidebarOpen()"
-    (click)="onViewClick()"
-  >
-    <span aria-hidden="true">☰</span>
-  </button>
-  <h2 class="u-full-width u-text-center">Centro de Gestión de Mantenimiento.</h2>
+<header class="header">
+  <!-- Es el nombre del sitio, no un encabezado: cada página tiene su propio h1. -->
+  <p class="header__title">Centro de Gestión de Mantenimiento</p>
   @if (userName() !== null) {
-    <div class="header__session d-flex u-align-center gap-md">
+    <div class="header__session">
       <span class="header__user">{{ userName() }}</span>
       <app-button variant="outline" size="sm" (clicked)="onLogoutClick()">Cerrar sesión</app-button>
     </div>

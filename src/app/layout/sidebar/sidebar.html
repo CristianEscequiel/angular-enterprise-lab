@@ -1,15 +1,4 @@
-<aside id="app-sidebar" class="sidebar-layout__sidebar sidebar">
-  <button
-    #closeButton
-    class="btn btn--close"
-    type="button"
-    aria-label="Cerrar menú de navegación"
-    (click)="closeSidebar()"
-  >
-    ✕
-  </button>
-  <p class="u-text-muted pb-md">Menú</p>
-
+<aside class="sidebar">
   <nav class="sidebar__nav" aria-label="Navegación principal">
     @for (item of navItems(); track item.path) {
       <a
