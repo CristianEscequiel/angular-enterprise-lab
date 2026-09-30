@@ -1,33 +1,28 @@
 @use '../abstracts' as a;
 
+// Superficie blanca con borde fino y sin sombra: la jerarquía la dan el espaciado y el texto, no la
+// elevación. El borde es decorativo (`border-subtle`): una tarjeta no es un control.
 .card {
-  padding: a.$spacing-lg;
+  padding: a.$spacing-md;
 
   background-color: var(--color-surface);
-  border: a.$border-width solid var(--color-border);
+  border: a.$border-width solid var(--color-border-subtle);
   border-radius: a.$radius-lg;
-  box-shadow: a.$shadow-sm;
+
+  @include a.respond-above(a.$breakpoint-md) {
+    padding: a.$spacing-lg;
+  }
 }
 
 .card--interactive {
   cursor: pointer;
 
-  transition:
-    border-color a.$transition-fast,
-    box-shadow a.$transition-fast,
-    transform a.$transition-fast;
+  transition: border-color a.$transition-fast;
 
   @include a.focus-visible;
 
   &:hover {
     border-color: var(--color-primary);
-    box-shadow: a.$shadow-md;
-    transform: translateY(-2px);
-  }
-
-  &:active {
-    box-shadow: a.$shadow-sm;
-    transform: translateY(0);
   }
 }
 
@@ -53,6 +48,7 @@
 
 .card__footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: a.$spacing-sm;
@@ -60,5 +56,5 @@
   margin-top: a.$spacing-lg;
   padding-top: a.$spacing-md;
 
-  border-top: a.$border-width solid var(--color-border);
+  border-top: a.$border-width solid var(--color-border-subtle);
 }

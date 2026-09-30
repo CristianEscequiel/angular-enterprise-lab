@@ -42,7 +42,7 @@ Paralelizables: T2 ∥ T3, T5 ∥ T6 ∥ T7, y T8 en cualquier momento (no depen
   - Hacer: tokens de color, espaciado, escala tipográfica y radios como custom properties en `themes/_default.scss` (incluye `--color-chrome`, `--color-signal`, `--color-border`, `--color-border-control`, `--bottom-nav-h`); Atkinson Hyperlegible Next en `index.html` con `preconnect` y `display=swap`; `base/_typography.scss` con escala 1.25 y `tabular-nums`; bloque global `prefers-reduced-motion` en `base/` (reemplaza la regla suelta del spinner); utilidad `justify-end`; agregar `respond-above` sin tocar aún los usos de `respond-below`.
   - Verifica: test de una utilidad/tokens si aplica (al menos que `justify-end` exista: búsqueda en `src/styles`); `pnpm test` verde; `pnpm ng build` sin errores ni warnings de presupuesto; manual: la fuente carga y el texto ya no es Arial.
 
-- [ ] **T2. Componentes globales con los tokens nuevos**
+- [x] **T2. Componentes globales con los tokens nuevos**
   - Cubre: REQ-1.5, REQ-6.1.
   - Depende de: T1. Paralelizable con T3.
   - Hacer: restilizar `btn`, `form`, `badge`, `alert`, `toast`, `modal`, `pagination`, `spinner`, `table`, `card` en `src/styles/components/`. Sin renombrar clases. Bordes de control con `--color-border-control`; foco de 3:1 o más (primary sobre claro, signal sobre chrome); botones `md`/`lg` de 44px mínimo de alto en mobile; sin sombras ni hover con elevación.

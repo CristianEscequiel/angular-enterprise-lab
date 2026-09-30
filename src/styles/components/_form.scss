@@ -8,13 +8,14 @@
 
 .form-label {
   color: var(--color-text);
-  font-size: a.$font-size-sm;
+  font-size: a.$font-size-base;
   font-weight: a.$font-weight-medium;
 }
 
 .form-control {
   width: 100%;
-  min-height: 2.5rem;
+  // 44px: objetivo táctil mínimo. Con 16px de fuente además iOS no hace zoom al enfocar.
+  min-height: 2.75rem;
   padding: a.$spacing-sm a.$spacing-md;
 
   color: var(--color-text);

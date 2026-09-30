@@ -10,8 +10,10 @@
 
   color: var(--color-text);
   background-color: var(--color-surface-light);
-  border: a.$border-width solid var(--color-border);
-  border-radius: a.$radius-full;
+  // Etiqueta rectangular de esquinas chicas, como una chapa: no una píldora. Sin variante, el borde
+  // es decorativo; las semánticas de abajo lo pisan con su color.
+  border: a.$border-width solid var(--color-border-subtle);
+  border-radius: a.$radius-sm;
 
   font-size: a.$font-size-sm;
   font-weight: a.$font-weight-medium;

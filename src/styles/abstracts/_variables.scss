@@ -155,9 +155,11 @@ $spacing-2xl: 3rem;
 
 $border-width: 1px;
 
+// Radios chicos (spec 014): 4 / 6 / 8px. Un solo radio para todo quita jerarquía; con estos tres
+// el control (md) y la superficie (lg) se distinguen sin redondear de más.
 $radius-sm: 0.25rem;
-$radius-md: 0.5rem;
-$radius-lg: 1rem;
+$radius-md: 0.375rem;
+$radius-lg: 0.5rem;
 $radius-full: 9999px;
 
 // ==============================
