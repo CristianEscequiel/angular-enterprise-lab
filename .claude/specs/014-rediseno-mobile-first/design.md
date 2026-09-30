@@ -191,8 +191,17 @@ enmendado).
 
 ### D7. Dashboard (REQ-5)
 
-- `dashboard-page.ts`: `signal` de `orders`, `loading` y `error`; `computed` de
-  `pendientes`, `enCurso`, `mias`, `cerradasHoy`, `altasPendientes`.
+- `dashboard-page.ts`: `signal` de `orders`, `loading` y `error`, y un único
+  `computed` `board`. _(Desvío respecto del borrador: los conteos no son cinco
+  `computed` sueltos sino la función pura `buildShiftBoard(orders, userId, now)`
+  en `features/dashboard/models/shift-board.ts`, que devuelve `pending`,
+  `pendingHigh`, `inProgress`, `mine` y `closedToday` ya ordenados. Así las reglas
+  ("de hoy" por fecha de cierre, "mía" por `takenBy.id`) se prueban sin HTTP ni
+  reloj real.)_
+- "Hoy" se fija al cargar (`loadedAt`), no en cada evaluación.
+- El estado de carga es un `<p role="status">` propio de la página: el spinner
+  global del `LoadingService` ya cubre la pantalla durante la petición, y repetir un
+  `Spinner` duplicaría el anuncio.
 - `isSameLocalDay(iso: string, now: Date): boolean` como función pura en
   `features/work-orders/models/`, testeable sin reloj real.
 - `getAll()` trae todas las órdenes. Con JSON Server y el volumen del lab es

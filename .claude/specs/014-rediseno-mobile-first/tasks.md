@@ -88,13 +88,13 @@ Paralelizables: T2 ∥ T3, T5 ∥ T6 ∥ T7, y T8 en cualquier momento (no depen
   - Hacer: reordenar `work-order-detail` (código y estado, título, máquina › parte, prioridad/tipo/creador, descripción, acciones); bloque `closing-note` con autor, fecha y comentario cuando la orden está cerrada y tiene `closingNote`.
   - Verifica: ajustar `work-order-detail.spec.ts` si cambia `h2.card__header`; tests nuevos: orden cerrada muestra autor, fecha y comentario; orden pendiente no muestra el bloque; el orden de los elementos coincide con REQ-4.4.
 
-- [ ] **T8. `isSameLocalDay`**
+- [x] **T8. `isSameLocalDay`**
   - Cubre: REQ-5.4 (base).
   - Depende de: nada. Paralelizable con cualquiera.
   - Hacer: función pura `isSameLocalDay(iso: string, now: Date): boolean` en `features/work-orders/models/`.
   - Verifica: test con `it.each`: mismo día, día anterior, día siguiente, justo a las 23:59 y 00:00 locales, ISO inválido (devuelve `false`, no lanza).
 
-- [ ] **T9. Dashboard: lógica y estados**
+- [x] **T9. Dashboard: lógica y estados**
   - Cubre: REQ-5.1 a 5.8.
   - Depende de: T2, T8.
   - Hacer: `dashboard-page.ts` con `signal` de `orders`, `loading`, `error`; `computed` de pendientes, altas pendientes, en curso, mías, cerradas hoy; carga con `WorkOrderService.getAll()`; estados de carga (`role="status"`), error con `Alert` y "Reintentar", y vacío con enlace a pendientes; "Mis órdenes en curso" como enlaces al detalle.
