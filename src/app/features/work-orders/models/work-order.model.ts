@@ -143,12 +143,12 @@ export interface WorkOrderCreateRequest {
   priority: WorkOrderPriority;
 }
 
+// Página de un listado de la API: `page` va desde 1 y `size` es el tamaño pedido. Una página fuera de
+// rango devuelve `data` vacío con los totales reales.
 export interface PaginatedResponse<T> {
-  first: number;
-  prev: number | null;
-  next: number | null;
-  last: number;
-  pages: number;
-  items: number;
   data: T[];
+  page: number;
+  size: number;
+  totalItems: number;
+  totalPages: number;
 }

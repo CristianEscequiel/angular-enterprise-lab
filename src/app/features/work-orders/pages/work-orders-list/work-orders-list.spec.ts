@@ -45,7 +45,7 @@ describe('WorkOrdersList search and pagination', () => {
   };
 
   function response(pages = 4, data: WorkOrder[] = [order]): PaginatedResponse<WorkOrder> {
-    return { first: 1, prev: null, next: 2, last: pages, pages, items: pages * 10, data };
+    return { data, page: 1, size: 10, totalItems: pages * 10, totalPages: pages };
   }
 
   function expected(over: Partial<WorkOrdersCriteria> = {}): WorkOrdersCriteria {

@@ -39,13 +39,11 @@ describe('WorkOrdersService', () => {
     createdAt: '2026-09-08T10:00:00Z',
   };
   const page: PaginatedResponse<WorkOrder> = {
-    first: 1,
-    prev: null,
-    next: null,
-    last: 1,
-    pages: 1,
-    items: 1,
     data: [order],
+    page: 1,
+    size: 10,
+    totalItems: 1,
+    totalPages: 1,
   };
 
   beforeEach(() => {
@@ -69,15 +67,15 @@ describe('WorkOrdersService', () => {
     perPage: 10,
   };
 
-  it('search sends _page, _per_page and title:contains to /work-orders', () => {
+  it('search sends page, size and title to GET /work-orders', () => {
     let result: PaginatedResponse<WorkOrder> | undefined;
     service.search({ ...criteria, title: 'motor', page: 2 }).subscribe((value) => (result = value));
 
     const request = httpMock.expectOne((req) => req.url === apiUrl);
     expect(request.request.method).toBe('GET');
-    expect(request.request.params.get('_page')).toBe('2');
-    expect(request.request.params.get('_per_page')).toBe('10');
-    expect(request.request.params.get('title:contains')).toBe('motor');
+    expect(request.request.params.get('page')).toBe('2');
+    expect(request.request.params.get('size')).toBe('10');
+    expect(request.request.params.get('title')).toBe('motor');
     request.flush(page);
 
     expect(result).toEqual(page);
@@ -89,9 +87,9 @@ describe('WorkOrdersService', () => {
       .subscribe();
 
     const request = httpMock.expectOne((req) => req.url === apiUrl);
-    expect(request.request.params.get('_page')).toBe('2');
-    expect(request.request.params.get('_per_page')).toBe('10');
-    expect(request.request.params.get('title:contains')).toBe('motor');
+    expect(request.request.params.get('page')).toBe('2');
+    expect(request.request.params.get('size')).toBe('10');
+    expect(request.request.params.get('title')).toBe('motor');
     expect(request.request.params.get('status')).toBe('in-progress');
     expect(request.request.params.get('priority')).toBe('high');
     request.flush(page);
@@ -104,7 +102,7 @@ describe('WorkOrdersService', () => {
     expect(request.request.params.has('title:contains')).toBe(false);
     expect(request.request.params.has('status')).toBe(false);
     expect(request.request.params.has('priority')).toBe(false);
-    expect(request.request.params.get('_page')).toBe('1');
+    expect(request.request.params.get('page')).toBe('1');
     request.flush(page);
   });
 
@@ -165,17 +163,36 @@ describe('WorkOrdersService', () => {
     expect(error?.kind).toBe('connection');
   });
 
-  it('getPaginated sends _page and _per_page as strings', () => {
+  it('search never sends the json-server style parameters', () => {
+    expect.assertions(2);
+    service
+      .search({ title: 'motor', status: 'pending', priority: 'low', page: 3, perPage: 5 })
+      .subscribe();
+
+    const request = httpMock.expectOne((req) => req.url === apiUrl);
+    expect(request.request.params.keys().sort()).toEqual([
+      'page',
+      'priority',
+      'size',
+      'status',
+      'title',
+    ]);
+    expect(request.request.params.get('page')).toBe('3');
+    request.flush(page);
+  });
+
+  it('listByStatus asks the first page with the maximum size and only that status', () => {
+    expect.assertions(4);
     let result: PaginatedResponse<WorkOrder> | undefined;
-    service.getPaginated(2, 5).subscribe((value) => (result = value));
+    service.listByStatus('in-progress').subscribe((value) => (result = value));
 
     const request = httpMock.expectOne((req) => req.url === apiUrl);
     expect(request.request.method).toBe('GET');
-    expect(request.request.params.get('_page')).toBe('2');
-    expect(request.request.params.get('_per_page')).toBe('5');
-    request.flush(page);
+    expect(request.request.params.keys().sort()).toEqual(['page', 'size', 'status']);
+    expect(request.request.params.get('size')).toBe('100');
+    request.flush({ ...page, size: 100, totalItems: 250, totalPages: 3 });
 
-    expect(result).toEqual(page);
+    expect(result?.totalItems).toBe(250);
   });
 
   it('update issues PUT /work-orders/:id with the whole order', () => {

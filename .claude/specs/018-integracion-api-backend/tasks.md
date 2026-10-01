@@ -72,7 +72,7 @@ T3, T4 y T5 son independientes entre sí. T6→T7 comparten `WorkOrdersService`,
     previo); `PATCH` lleva solo `{name}`; `PARENT_PART_*` recargan el árbol;
     `machines-tree.integration.spec.ts` reescrito sin emulador.
 
-- [ ] **T5 — Órdenes: paginación y lectura** · REQ-8 · depende de: T1
+- [x] **T5 — Órdenes: paginación y lectura** · REQ-8 · depende de: T1
   - `PaginatedResponse` nuevo; `search()` envía `page`, `size`, `title`, `status`, `priority`
     (omite vacíos); `listByStatus(status)`; retiro de `getPaginated()`; la lista usa
     `totalPages` y `totalItems`.

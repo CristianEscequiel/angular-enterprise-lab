@@ -151,7 +151,7 @@ export class WorkOrdersList implements OnInit {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe(({ query, response }) => {
-        const totalPages = Math.max(1, response.pages);
+        const totalPages = Math.max(1, response.totalPages);
         this.totalPages.set(totalPages);
         if (query.page > totalPages) {
           this.requestWorkOrders({ ...query, page: totalPages });

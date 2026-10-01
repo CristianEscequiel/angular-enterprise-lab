@@ -16,6 +16,9 @@ import {
   WorkOrderTaker,
 } from '../models/work-order.model';
 
+// Tamaño máximo de página que acepta la API (`size` de 1 a 100).
+export const MAX_PAGE_SIZE = 100;
+
 export interface WorkOrdersCriteria {
   title: string;
   status: WorkOrderStatus | '';
@@ -85,19 +88,10 @@ export class WorkOrderStateError extends Error {
 })
 export class WorkOrdersService {
   private readonly http = inject(HttpClient);
-  // '/api/work-orders'
   private readonly apiUrl = `${API_BASE_URL}/work-orders`;
 
   getAll(): Observable<WorkOrder[]> {
     return this.http.get<WorkOrder[]>(this.apiUrl);
-  }
-
-  getPaginated(page: number, limit: number): Observable<PaginatedResponse<WorkOrder>> {
-    const params = {
-      _page: page.toString(),
-      _per_page: limit.toString(),
-    };
-    return this.http.get<PaginatedResponse<WorkOrder>>(this.apiUrl, { params });
   }
 
   getById(id: string): Observable<WorkOrder> {
@@ -220,10 +214,10 @@ export class WorkOrdersService {
 
   search(criteria: WorkOrdersCriteria): Observable<PaginatedResponse<WorkOrder>> {
     let params = new HttpParams()
-      .set('_page', criteria.page.toString())
-      .set('_per_page', criteria.perPage.toString());
+      .set('page', criteria.page.toString())
+      .set('size', criteria.perPage.toString());
 
-    if (criteria.title) params = params.set('title:contains', criteria.title);
+    if (criteria.title) params = params.set('title', criteria.title);
     if (criteria.status) params = params.set('status', criteria.status);
     if (criteria.priority) params = params.set('priority', criteria.priority);
 
@@ -234,5 +228,11 @@ export class WorkOrdersService {
         return throwError(() => new Error('No se pudieron buscar las órdenes de trabajo'));
       }),
     );
+  }
+
+  // Primera página (hasta 100, el máximo de la API) de las órdenes en un estado. El tablero de turno
+  // arma sus listas con esto; `totalItems` dice si hay más de las que se devuelven.
+  listByStatus(status: WorkOrderStatus): Observable<PaginatedResponse<WorkOrder>> {
+    return this.search({ title: '', status, priority: '', page: 1, perPage: MAX_PAGE_SIZE });
   }
 }
