@@ -3,13 +3,13 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { Observable } from 'rxjs';
 
-import { InvalidLegajoError } from '@core/auth/users.service';
+import { InvalidLegajoError } from './technicians.service';
 import { API_BASE_URL } from '@core/config/api.config';
 import { Team, TeamDraft } from '../models/team.model';
-import { TeamLoadError, TeamsService } from './teams.service';
+import { TeamLoadError, TeamsService, UnknownTechnicianError } from './teams.service';
 
 describe('TeamsService', () => {
-  const baseUrl = `${API_BASE_URL}/equipos`;
+  const baseUrl = `${API_BASE_URL}/teams`;
   const guardia: Team = {
     id: '1',
     name: 'Guardia mecánica',
@@ -74,7 +74,7 @@ describe('TeamsService', () => {
       expect(result).toEqual(guardia);
     });
 
-    it('encodes the id in the URL (json-server generates ids such as "-F0Rxw22vkQ")', () => {
+    it('encodes the id in the URL (ids are opaque strings)', () => {
       subscribe(service.getById('-F0R/x'));
 
       httpMock.expectOne(`${baseUrl}/-F0R%2Fx`).flush(guardia);
@@ -114,7 +114,7 @@ describe('TeamsService', () => {
   });
 
   describe('create', () => {
-    it('posts the team without an id (json-server generates it)', () => {
+    it('posts the team without an id (the server assigns it)', () => {
       expect.assertions(3);
       subscribe(service.create(draft));
 
@@ -173,16 +173,16 @@ describe('TeamsService', () => {
   });
 
   describe('update', () => {
-    it('replaces the team at /equipos/:id keeping the id from the route', () => {
+    it('replaces the team at /teams/{id}, without an id in the body', () => {
       expect.assertions(3);
       subscribe(service.update('1', { ...draft, memberLegajos: ['1001', '1003'] }));
 
       const put = httpMock.expectOne(`${baseUrl}/1`);
       expect(put.request.method).toBe('PUT');
-      expect(put.request.body).toEqual({ id: '1', ...draft, memberLegajos: ['1001', '1003'] });
+      expect(put.request.body).toEqual({ ...draft, memberLegajos: ['1001', '1003'] });
       put.flush(put.request.body);
 
-      expect(result).toMatchObject({ id: '1', memberLegajos: ['1001', '1003'] });
+      expect(result).toMatchObject({ memberLegajos: ['1001', '1003'] });
     });
 
     it('sends the members without repeats when the draft has duplicates', () => {
@@ -195,12 +195,12 @@ describe('TeamsService', () => {
       put.flush(put.request.body);
     });
 
-    it('ignores an id carried by the draft', () => {
+    it('never sends an id, even if the draft carries one', () => {
       expect.assertions(1);
       subscribe(service.update('1', { ...draft, id: '2' } as TeamDraft));
 
       const put = httpMock.expectOne(`${baseUrl}/1`);
-      expect(put.request.body).toMatchObject({ id: '1' });
+      expect(put.request.body).not.toHaveProperty('id');
       put.flush({});
     });
 
@@ -220,10 +220,31 @@ describe('TeamsService', () => {
 
       expect(error).toBeInstanceOf(HttpErrorResponse);
     });
+
+    it.each([
+      ['create', () => service.create(draft), 'POST', baseUrl],
+      ['update', () => service.update('1', draft), 'PUT', `${baseUrl}/1`],
+    ] as const)(
+      '%s translates 400 UNKNOWN_TECHNICIAN into UnknownTechnicianError',
+      (_n, call, method, url) => {
+        expect.assertions(3);
+        subscribe(call());
+
+        const request = httpMock.expectOne({ method, url });
+        request.flush(
+          { code: 'UNKNOWN_TECHNICIAN', message: 'No existe el técnico con legajo 1009' },
+          { status: 400, statusText: 'Bad Request' },
+        );
+
+        expect(error).toBeInstanceOf(UnknownTechnicianError);
+        expect(error).toMatchObject({ message: 'No existe el técnico con legajo 1009' });
+        expect(result).toBeUndefined();
+      },
+    );
   });
 
   describe('delete', () => {
-    it('sends DELETE to /equipos/:id', () => {
+    it('sends DELETE to /teams/{id}', () => {
       expect.assertions(2);
       const next = vi.fn();
       service.delete('1').subscribe(next);

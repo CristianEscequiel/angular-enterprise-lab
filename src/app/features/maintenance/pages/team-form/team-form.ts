@@ -27,7 +27,11 @@ import { AuthService } from '@core/auth/auth.service';
 import { MessageService } from '@core/services/message.service';
 import { Alert } from '@shared/components/alert/alert';
 import { Button } from '@shared/components/button/button';
-import { TeamLoadError, TeamsService } from '../../data-access/teams.service';
+import {
+  TeamLoadError,
+  TeamsService,
+  UnknownTechnicianError,
+} from '../../data-access/teams.service';
 import { TechniciansService } from '../../data-access/technicians.service';
 import { canManageTeams } from '../../models/maintenance.permissions';
 import { SPECIALTY_LABELS, TEAM_TYPE_LABELS } from '../../models/technician.display';
@@ -308,6 +312,14 @@ export class TeamForm implements OnInit {
       );
   }
 
+  // `UNKNOWN_TECHNICIAN`: algún legajo de la lista no existe. Se dice cuál y el formulario queda como
+  // está (miembros incluidos) para corregirlo sin volver a armarlo.
+  private showSaveError(error: unknown, fallback: string): void {
+    this.messageService.showError(
+      error instanceof UnknownTechnicianError ? error.message : fallback,
+    );
+  }
+
   private create(draft: { name: string; type: TechnicianTeamType; memberLegajos: string[] }): void {
     this.isSubmitting.set(true);
     this.teamsService
@@ -321,7 +333,7 @@ export class TeamForm implements OnInit {
           this.messageService.showSuccess('Equipo creado satisfactoriamente.');
           this.navigateToList();
         },
-        error: () => this.messageService.showError('Error al crear el equipo.'),
+        error: (error: unknown) => this.showSaveError(error, 'Error al crear el equipo.'),
       });
   }
 
@@ -354,7 +366,7 @@ export class TeamForm implements OnInit {
           this.messageService.showSuccess('Equipo actualizado correctamente.');
           this.navigateToList();
         },
-        error: () => this.messageService.showError('Error al actualizar el equipo.'),
+        error: (error: unknown) => this.showSaveError(error, 'Error al actualizar el equipo.'),
       });
   }
 }

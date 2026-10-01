@@ -3,9 +3,10 @@ import { inject, Injectable } from '@angular/core';
 import { catchError, map, Observable, throwError } from 'rxjs';
 
 import { isLegajo } from '@core/auth/auth.model';
-import { InvalidLegajoError } from '@core/auth/users.service';
+import { errorCode, errorMessage } from '@core/api/api-error';
 import { API_BASE_URL } from '@core/config/api.config';
 import { Team, TeamDraft, uniqueMembers } from '../models/team.model';
+import { InvalidLegajoError } from './technicians.service';
 
 export type TeamLoadErrorKind = 'not-found' | 'connection';
 
@@ -21,12 +22,21 @@ export class TeamLoadError extends Error {
   }
 }
 
+// Algún legajo de la lista de miembros no existe en el maestro de técnicos (`UNKNOWN_TECHNICIAN`).
+// El mensaje es el de la API, que dice cuál.
+export class UnknownTechnicianError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UnknownTechnicianError';
+  }
+}
+
 @Injectable({
   providedIn: 'root',
 })
 export class TeamsService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = `${API_BASE_URL}/equipos`;
+  private readonly apiUrl = `${API_BASE_URL}/teams`;
 
   getAll(): Observable<Team[]> {
     return this.http.get<Team[]>(this.apiUrl);
@@ -54,7 +64,9 @@ export class TeamsService {
       return invalid;
     }
 
-    return this.http.post<Team>(this.apiUrl, this.fields(draft));
+    return this.http
+      .post<Team>(this.apiUrl, this.fields(draft))
+      .pipe(catchError((error: unknown) => throwError(() => this.translate(error))));
   }
 
   // `PUT` reemplaza el equipo entero, con su lista de miembros. El `id` viene de la ruta.
@@ -65,11 +77,19 @@ export class TeamsService {
       return invalid;
     }
 
-    return this.http.put<Team>(this.url(id), { id, ...this.fields(draft) });
+    return this.http
+      .put<Team>(this.url(id), this.fields(draft))
+      .pipe(catchError((error: unknown) => throwError(() => this.translate(error))));
   }
 
   delete(id: string): Observable<void> {
     return this.http.delete<void>(this.url(id)).pipe(map(() => undefined));
+  }
+
+  private translate(error: unknown): unknown {
+    return errorCode(error) === 'UNKNOWN_TECHNICIAN'
+      ? new UnknownTechnicianError(errorMessage(error, 'Algún legajo de la lista no existe.'))
+      : error;
   }
 
   private url(id: string): string {

@@ -379,36 +379,37 @@ describe('TechnicianForm', () => {
 
     afterEach(() => httpMock.verify());
 
-    it('creates the technician without creating a login user for it', () => {
+    it('creates the technician with a single POST /technicians and no id', () => {
       expect.assertions(3);
       start();
 
       fillForm(validValues);
       submit();
-      // El legajo se busca en el maestro completo; el servidor asigna el `id` (no se manda).
-      httpMock.expectOne(`${API_BASE_URL}/tecnicos`).flush([ana]);
-      const post = httpMock.expectOne({ method: 'POST', url: `${API_BASE_URL}/tecnicos` });
+      // La API garantiza el legajo único y asigna el `id`: el cliente no lee ni manda nada más.
+      const post = httpMock.expectOne({ method: 'POST', url: `${API_BASE_URL}/technicians` });
       expect(post.request.body).toMatchObject({ legajo: '1004' });
       expect(post.request.body).not.toHaveProperty('id');
-      post.flush({ ...post.request.body, id: 'srv-1004' });
+      post.flush({ ...post.request.body, id: '15' });
 
       expect(navigate).toHaveBeenCalledWith(['/maintenance/technicians']);
-      httpMock.expectNone((req) => req.url.startsWith(`${API_BASE_URL}/users`));
     });
 
-    it('shows the duplicated legajo error when the master already has it', () => {
-      expect.assertions(1);
+    it('shows the duplicated legajo error when the API answers 409 DUPLICATE_LEGAJO', () => {
+      expect.assertions(2);
       start();
 
       fillForm(validValues);
       submit();
       httpMock
-        .expectOne(`${API_BASE_URL}/tecnicos`)
-        .flush([ana, { ...ana, id: 'srv-x', legajo: '1004' }]);
+        .expectOne({ method: 'POST', url: `${API_BASE_URL}/technicians` })
+        .flush(
+          { code: 'DUPLICATE_LEGAJO', message: 'Ya existe el legajo 1004' },
+          { status: 409, statusText: 'Conflict' },
+        );
       fixture.detectChanges();
 
       expect(text()).toContain('Ya existe un técnico con ese legajo.');
-      httpMock.expectNone({ method: 'POST', url: `${API_BASE_URL}/tecnicos` });
+      expect(navigate).not.toHaveBeenCalled();
     });
   });
 

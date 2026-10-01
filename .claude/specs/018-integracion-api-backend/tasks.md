@@ -49,7 +49,7 @@ T3, T4 y T5 son independientes entre sí. T6→T7 comparten `WorkOrdersService`,
     comprueba el initializer.
   - No borra `TechnicianDirectory` ni `UsersService` todavía (los usan técnicos, T3).
 
-- [ ] **T3 — Técnicos y equipos** · REQ-4, REQ-5 · depende de: T1
+- [x] **T3 — Técnicos y equipos** · REQ-4, REQ-5 · depende de: T1
   - `TechniciansService` y `TeamsService` a las rutas nuevas, por legajo; mapeo de
     `DUPLICATE_LEGAJO`, `TECHNICIAN_IN_USE`, `UNKNOWN_TECHNICIAN` y `404`.
   - Borrar `technician-directory.ts`, `users.service.ts` y sus specs; `technicians-list` sin

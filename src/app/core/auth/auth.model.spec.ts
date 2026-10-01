@@ -4,7 +4,6 @@ import {
   isLegajo,
   isTechnician,
   StaffRole,
-  toAuthUser,
   TECHNICIAN_SPECIALTIES,
   TECHNICIAN_TEAM_TYPES,
   TechnicianUser,
@@ -207,93 +206,6 @@ describe('isAuthSession', () => {
     it('is true only for the tecnico role', () => {
       expect(isTechnician(validTechnician)).toBe(true);
       expect(isTechnician(validSession.user)).toBe(false);
-    });
-  });
-
-  describe('toAuthUser', () => {
-    const record = { ...validSession.user, password: 'admin123' };
-
-    it('builds the session user without the password', () => {
-      expect(toAuthUser(record)).toEqual(validSession.user);
-      expect(toAuthUser(record)).not.toHaveProperty('password');
-    });
-
-    const profile = { specialty: 'mecanico', teamType: 'guardia' } as const;
-    const technicianRecord = {
-      id: validTechnician.id,
-      username: validTechnician.username,
-      displayName: validTechnician.displayName,
-      email: validTechnician.email,
-      role: 'tecnico',
-      legajo: validTechnician.legajo,
-      password: 'x',
-    };
-
-    it('takes legajo from the record and specialty and team type from the profile', () => {
-      const user = toAuthUser(technicianRecord, profile);
-
-      expect(user).toEqual(validTechnician);
-      expect(user).not.toHaveProperty('password');
-    });
-
-    it('ignores the specialty and team type carried by the technician record', () => {
-      const stale = {
-        ...technicianRecord,
-        specialty: 'electricista',
-        teamType: 'preventivo-correctivo',
-      };
-
-      expect(toAuthUser(stale, profile)).toEqual(validTechnician);
-    });
-
-    it('uses each attribute of the profile independently', () => {
-      expect(toAuthUser(technicianRecord, { specialty: 'general', teamType: 'guardia' })).toEqual({
-        ...validTechnician,
-        specialty: 'general',
-      });
-      expect(
-        toAuthUser(technicianRecord, { specialty: 'mecanico', teamType: 'preventivo-correctivo' }),
-      ).toEqual({ ...validTechnician, teamType: 'preventivo-correctivo' });
-    });
-
-    it.each([
-      ['no profile', undefined],
-      ['a null profile', null],
-    ])('returns null for a technician with %s', (_label, missing) => {
-      expect(toAuthUser(technicianRecord, missing)).toBeNull();
-    });
-
-    it('returns null for a technician record without a valid legajo', () => {
-      expect(toAuthUser({ ...technicianRecord, legajo: undefined }, profile)).toBeNull();
-      expect(toAuthUser({ ...technicianRecord, legajo: '../users' }, profile)).toBeNull();
-    });
-
-    it('drops technician attributes carried by a record that is not a technician', () => {
-      const user = toAuthUser(
-        { ...record, specialty: 'mecanico', teamType: 'guardia', legajo: '1001' },
-        profile,
-      );
-
-      expect(user).toEqual(validSession.user);
-      expect(user).not.toHaveProperty('specialty');
-      expect(user).not.toHaveProperty('teamType');
-      expect(user).not.toHaveProperty('legajo');
-    });
-
-    it.each([
-      ['null', null],
-      ['undefined', undefined],
-      ['a string', 'admin'],
-      ['a number', 7],
-    ])('returns null for %s', (_label, value) => {
-      expect(toAuthUser(value)).toBeNull();
-    });
-
-    it.each([
-      ['an unknown role', { ...record, role: 'admin' }],
-      ['a record without id', { ...record, id: '' }],
-    ])('returns null for %s', (_label, value) => {
-      expect(toAuthUser(value)).toBeNull();
     });
   });
 });
