@@ -126,7 +126,7 @@ T3, T4 y T5 son independientes entre sí. T6→T7 comparten `WorkOrdersService`,
     `dev`, retiro de JSON Server; actualizar "Estado actual" (autenticación implementada).
   - **Verifica:** revisión manual: los comandos del README se pueden seguir de principio a fin.
 
-- [ ] **T11 — Verificación contra la API real y cierre** · REQ-13 · depende de: T10
+- [x] **T11 — Verificación contra la API real y cierre** (66/66 comprobaciones de contrato; sin recorrido manual en navegador, ver `notes.md`) · REQ-13 · depende de: T10
   - Levantar la API con `dev` y recorrer: login con los cinco usuarios (rol y nombre),
     alta de máquina y parte, alta de orden, tomar, cerrar, liberar, dashboard por rol;
     forzar `409` (tomar dos veces), `401` (token alterado) y `403` (técnico de otro equipo).
