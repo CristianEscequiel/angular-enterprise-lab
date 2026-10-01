@@ -104,7 +104,7 @@ T3, T4 y T5 son independientes entre sí. T6→T7 comparten `WorkOrdersService`,
     (mensaje de la spec 013d y recarga); `work-order-closure.integration.spec.ts`
     reescrito sin emulador.
 
-- [ ] **T8 — Dashboard** · REQ-11 · depende de: T2, T5
+- [x] **T8 — Dashboard** · REQ-11 · depende de: T2, T5
   - `DashboardService`, modelos, `dashboard.permissions.ts` (`canViewWorkload`);
     `DashboardPage.load()` con `forkJoin`; franja "Resumen" y sección "Carga de trabajo";
     aviso de truncado; `buildShiftBoard` intacto. Se borra `WorkOrdersService.getAll()`.

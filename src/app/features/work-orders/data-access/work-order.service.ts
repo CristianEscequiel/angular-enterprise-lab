@@ -135,10 +135,6 @@ export class WorkOrdersService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = `${API_BASE_URL}/work-orders`;
 
-  getAll(): Observable<WorkOrder[]> {
-    return this.http.get<WorkOrder[]>(this.apiUrl);
-  }
-
   getById(id: string): Observable<WorkOrder> {
     return this.http.get<WorkOrder>(`${this.apiUrl}/${id}`).pipe(
       catchError((error: unknown) => {

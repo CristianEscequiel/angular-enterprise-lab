@@ -13,6 +13,7 @@ import { MessageService } from './core/services/message.service';
 import { WorkOrdersService } from './features/work-orders/data-access/work-order.service';
 import { WorkOrder } from './features/work-orders/models/work-order.model';
 import { MachinesService } from './features/machines/data-access/machines.service';
+import { DashboardService } from './features/dashboard/data-access/dashboard.service';
 import { PartsService } from './features/machines/data-access/parts.service';
 import { Machine } from './features/machines/models/machine.model';
 import { Part } from './features/machines/models/part.model';
@@ -46,15 +47,31 @@ describe('app routes', () => {
     },
   };
 
+  const dashboardServiceMock = {
+    getSummary: vi.fn().mockReturnValue(
+      of({
+        period: { from: '2026-09-01', to: '2026-09-30' },
+        byStatus: { pending: 1, 'in-progress': 0, completed: 0, cancelled: 0 },
+        byPriority: { low: 0, medium: 1, high: 0 },
+        byType: { preventivo: 0, correctivo: 1, 'pronto-intervencion': 0 },
+        total: 1,
+        open: 1,
+        closedInPeriod: { completed: 0, cancelled: 0, total: 0 },
+        averageResolutionMinutes: null,
+      }),
+    ),
+    getWorkload: vi.fn().mockReturnValue(of([])),
+  };
+
   const workOrdersServiceMock = {
-    // El dashboard (destino de las redirecciones por falta de permiso) carga las órdenes (spec 014).
-    getAll: vi.fn().mockReturnValue(of([order])),
+    // El dashboard (destino de las redirecciones por falta de permiso) carga las órdenes por estado.
+    listByStatus: vi
+      .fn()
+      .mockReturnValue(of({ data: [order], page: 1, size: 100, totalItems: 1, totalPages: 1 })),
     getById: vi.fn().mockReturnValue(of(order)),
     search: vi
       .fn()
-      .mockReturnValue(
-        of({ first: 1, prev: null, next: null, last: 1, pages: 1, items: 1, data: [order] }),
-      ),
+      .mockReturnValue(of({ data: [order], page: 1, size: 10, totalItems: 1, totalPages: 1 })),
   };
 
   const technician: Technician = {
@@ -121,6 +138,7 @@ describe('app routes', () => {
         { provide: TeamsService, useValue: teamsServiceMock },
         { provide: MachinesService, useValue: machinesServiceMock },
         { provide: PartsService, useValue: partsServiceMock },
+        { provide: DashboardService, useValue: dashboardServiceMock },
       ],
     });
 

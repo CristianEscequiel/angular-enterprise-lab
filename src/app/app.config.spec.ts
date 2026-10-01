@@ -5,7 +5,7 @@ import { appConfig } from './app.config';
 import { AuthSession } from './core/auth/auth.model';
 import { AUTH_STORAGE_KEY, AuthService } from './core/auth/auth.service';
 import { API_BASE_URL } from './core/config/api.config';
-import { WorkOrdersService } from './features/work-orders/data-access/work-order.service';
+import { DashboardService } from './features/dashboard/data-access/dashboard.service';
 
 describe('appConfig', () => {
   const meUrl = `${API_BASE_URL}/auth/me`;
@@ -43,9 +43,9 @@ describe('appConfig', () => {
     const httpMock = configure();
     httpMock.expectOne(meUrl).flush(session.user);
 
-    TestBed.inject(WorkOrdersService).getAll().subscribe();
+    TestBed.inject(DashboardService).getSummary().subscribe();
 
-    const request = httpMock.expectOne(`${API_BASE_URL}/work-orders`);
+    const request = httpMock.expectOne(`${API_BASE_URL}/dashboard/summary`);
     expect(request.request.headers.get('Authorization')).toBe(`Bearer ${session.token}`);
     request.flush([]);
     httpMock.verify();
@@ -55,9 +55,9 @@ describe('appConfig', () => {
     expect.assertions(1);
     const httpMock = configure();
 
-    TestBed.inject(WorkOrdersService).getAll().subscribe();
+    TestBed.inject(DashboardService).getSummary().subscribe();
 
-    const request = httpMock.expectOne(`${API_BASE_URL}/work-orders`);
+    const request = httpMock.expectOne(`${API_BASE_URL}/dashboard/summary`);
     expect(request.request.headers.has('Authorization')).toBe(false);
     request.flush([]);
     httpMock.verify();
