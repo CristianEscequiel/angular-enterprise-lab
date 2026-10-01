@@ -121,7 +121,7 @@ T3, T4 y T5 son independientes entre sí. T6→T7 comparten `WorkOrdersService`,
   - **Verifica:** `grep -rn "in-memory-api\|work-order.mock\|mock-api\|mock-delay\|db.json\|json-server" src package.json`
     sin resultados; `pnpm test`, `pnpm lint` y `pnpm build` en verde con la API apagada.
 
-- [ ] **T10 — Documentación** · REQ-12.6 · depende de: T9
+- [x] **T10 — Documentación** · REQ-12.6 · depende de: T9
   - `README.md` y `CLAUDE.md`: backend real, cómo levantar la API (repo hermano), usuarios
     `dev`, retiro de JSON Server; actualizar "Estado actual" (autenticación implementada).
   - **Verifica:** revisión manual: los comandos del README se pueden seguir de principio a fin.

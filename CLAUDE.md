@@ -1,8 +1,12 @@
 # Angular Enterprise Lab
 
 Frontend: Angular 22 + TypeScript 6, standalone components, signals.
-Backend actual: JSON Server (mock). Backend real (Java/Spring Boot/PostgreSQL)
-planificado para después de estabilizar el frontend — NO asumir que existe todavía.
+Backend: API real (Java 21 / Spring Boot 3 / PostgreSQL) en el repo hermano
+`../angular-enterprise-lab-api`, con JWT y autoridad de roles en el servidor. JSON Server y los
+mocks se retiraron (spec 018). Para correr la app hay que levantar la API con el perfil `dev`
+(ver README, "Ejecutar la aplicación"); los tests NO la necesitan.
+La API es la fuente de verdad de unicidad, integridad referencial y transiciones de estado: el
+cliente solo valida formato y traduce los errores (`code`/`details`) a errores tipados.
 
 ## Arquitectura
 
@@ -23,8 +27,9 @@ planificado para después de estabilizar el frontend — NO asumir que existe to
 ## Estado actual (no lo repitas en cada spec, ya está acá)
 
 - CRUD implementado, búsqueda+paginación en estabilización
-- Autenticación: NO implementada (roadmap fase 2)
+- Autenticación: JWT contra la API (`POST /auth/login`, `GET /auth/me`); sesión en `localStorage`
 - Coverage: no medible todavía, falta configurar proveedor Vitest
+- Integración con la API (spec 018): ver `.claude/specs/018-integracion-api-backend/` (tareas T1–T12)
 
 ## Testing
 
