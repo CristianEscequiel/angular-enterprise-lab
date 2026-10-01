@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { catchError, Observable, of, switchMap, throwError } from 'rxjs';
 
+import { API_BASE_URL } from '@core/config/api.config';
 import {
   ClosedWorkOrderStatus,
   isClosedStatus,
@@ -85,7 +86,7 @@ export class WorkOrderStateError extends Error {
 export class WorkOrdersService {
   private readonly http = inject(HttpClient);
   // '/api/work-orders'
-  private readonly apiUrl = 'http://localhost:3000/work-orders';
+  private readonly apiUrl = `${API_BASE_URL}/work-orders`;
 
   getAll(): Observable<WorkOrder[]> {
     return this.http.get<WorkOrder[]>(this.apiUrl);

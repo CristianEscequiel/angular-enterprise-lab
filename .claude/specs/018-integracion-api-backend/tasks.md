@@ -25,7 +25,7 @@ T3, T4 y T5 son independientes entre sí. T6→T7 comparten `WorkOrdersService`,
 
 ## Obligatorias
 
-- [ ] **T1 — Base: configuración y errores** · REQ-1, REQ-2 · depende de: —
+- [x] **T1 — Base: configuración y errores** · REQ-1, REQ-2 · depende de: —
   - `api.config.ts` → `http://localhost:8080`; `WorkOrdersService` deriva su URL de `API_BASE_URL`.
   - `core/api/api-error.ts` (`readApiError`); `AppHttpError` suma `code` y `details`.
   - `errorInterceptor`: sin toast en `409` ni en `400` con `details`; `403` con texto fijo;

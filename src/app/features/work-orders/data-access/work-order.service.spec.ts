@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@core/config/api.config';
 import { MACHINE_REF_FIXTURE } from '../testing/work-order.fixtures';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -23,7 +24,7 @@ import {
 } from './work-order.service';
 
 describe('WorkOrdersService', () => {
-  const apiUrl = 'http://localhost:3000/work-orders';
+  const apiUrl = `${API_BASE_URL}/work-orders`;
   let service: WorkOrdersService;
   let httpMock: HttpTestingController;
 
