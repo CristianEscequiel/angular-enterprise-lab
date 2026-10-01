@@ -1,7 +1,6 @@
 import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
 
 import { AuthService } from '@core/auth/auth.service';
 import { MessageService } from '@core/services/message.service';
@@ -9,7 +8,6 @@ import { Alert } from '@shared/components/alert/alert';
 import { Button } from '@shared/components/button/button';
 import { Modal } from '@shared/components/modal/modal';
 import { MachineHasPartsError, MachinesService } from '../../data-access/machines.service';
-import { PartsService } from '../../data-access/parts.service';
 import { Machine } from '../../models/machine.model';
 import { canManageMachines } from '../../models/machines.permissions';
 
@@ -21,7 +19,6 @@ import { canManageMachines } from '../../models/machines.permissions';
 export class MachinesList implements OnInit {
   private readonly router = inject(Router);
   private readonly machinesService = inject(MachinesService);
-  private readonly partsService = inject(PartsService);
   private readonly messageService = inject(MessageService);
   private readonly authService = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
@@ -32,8 +29,6 @@ export class MachinesList implements OnInit {
   readonly canManage = computed(() => canManageMachines(this.authService.currentUser()));
 
   readonly machines = signal<Machine[]>([]);
-  // Cantidad de partes por máquina (`machineId` → cantidad), con un solo `GET /partes`.
-  private readonly partCounts = signal<ReadonlyMap<string, number>>(new Map());
   readonly error = signal<string | null>(null);
   readonly machineToDelete = signal<Machine | null>(null);
   readonly deleteModalOpen = signal(false);
@@ -59,25 +54,17 @@ export class MachinesList implements OnInit {
 
   loadMachines(): void {
     this.error.set(null);
-    forkJoin({ machines: this.machinesService.getAll(), parts: this.partsService.getAll() })
+    this.machinesService
+      .getAll()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ machines, parts }) => {
-          const counts = new Map<string, number>();
-
-          for (const part of parts) {
-            counts.set(part.machineId, (counts.get(part.machineId) ?? 0) + 1);
-          }
-
-          this.partCounts.set(counts);
-          this.machines.set(machines);
-        },
+        next: (machines) => this.machines.set(machines),
         error: () => this.error.set('No se pudieron cargar las máquinas. Intentá nuevamente.'),
       });
   }
 
   partsLabel(machine: Machine): string {
-    const count = this.partCounts().get(machine.id) ?? 0;
+    const count = machine.partCount;
     return count === 1 ? '1 parte' : `${count} partes`;
   }
 
@@ -102,8 +89,8 @@ export class MachinesList implements OnInit {
     this.deleteModalOpen.set(true);
   }
 
-  // No verifica las partes por su cuenta: `MachinesService.delete` lo hace con datos frescos y
-  // bloquea con `MachineHasPartsError`. Acá solo se traduce el resultado a un aviso.
+  // No verifica las partes por su cuenta: la API bloquea el borrado (`409 MACHINE_HAS_PARTS`) y
+  // `MachinesService` lo traduce a `MachineHasPartsError`. Acá solo se traduce el resultado a un aviso.
   deleteMachine(id: string): void {
     if (!this.canManage()) {
       this.warnDenied();

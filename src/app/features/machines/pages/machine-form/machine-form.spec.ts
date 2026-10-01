@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
@@ -6,7 +8,7 @@ import { Observable, of, Subject, throwError } from 'rxjs';
 import { AuthUser, TechnicianUser, UserRole } from '@core/auth/auth.model';
 import { AuthService } from '@core/auth/auth.service';
 import { MessageService } from '@core/services/message.service';
-import { createInMemoryApi, InMemoryApi, provideInMemoryApi } from '@core/testing/in-memory-api';
+import { API_BASE_URL } from '@core/config/api.config';
 import {
   DuplicateMachineCodeError,
   InvalidMachineError,
@@ -21,7 +23,7 @@ describe('MachineForm', () => {
   let component: MachineForm;
   let navigate: ReturnType<typeof vi.spyOn>;
 
-  const envasadora: Machine = { id: 'm1', code: 'ENV-01', name: 'Envasadora' };
+  const envasadora: Machine = { id: 'm1', code: 'ENV-01', name: 'Envasadora', partCount: 0 };
   const validValues = { code: 'ROT-03', name: 'Rotuladora' };
 
   const machines = {
@@ -58,10 +60,12 @@ describe('MachineForm', () => {
   const currentUser = signal<AuthUser | null>(administrador);
 
   function configure(id: string | null, extraProviders: unknown[] = []): void {
-    machines.create.mockReset().mockImplementation((draft) => of({ ...draft, id: 'srv-new' }));
+    machines.create
+      .mockReset()
+      .mockImplementation((draft) => of({ ...draft, id: 'srv-new', partCount: 0 }));
     machines.update
       .mockReset()
-      .mockImplementation((machineId, draft) => of({ ...draft, id: machineId }));
+      .mockImplementation((machineId, draft) => of({ ...draft, id: machineId, partCount: 0 }));
     machines.getById.mockReset().mockReturnValue(of(envasadora));
     currentUser.set(administrador);
 
@@ -289,7 +293,7 @@ describe('MachineForm', () => {
         expect(submitButton().disabled).toBe(true);
         expect(submitButton().textContent).toContain('Guardando...');
 
-        pending.next({ ...validValues, id: 'srv-new' });
+        pending.next({ ...validValues, id: 'srv-new', partCount: 0 });
         pending.complete();
         fixture.detectChanges();
 
@@ -601,110 +605,115 @@ describe('MachineForm', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────────────────────────
-  // Con los servicios reales contra un emulador fiel de json-server: lo que el formulario muestra es
-  // lo que el servicio decide con los datos del "servidor".
+  // Con el servicio real y las respuestas de la API simuladas: el formulario muestra lo que el
+  // servicio traduce de cada respuesta.
   describe('against the real service', () => {
-    let api: InMemoryApi;
+    const machinesUrl = `${API_BASE_URL}/machines`;
+    let httpMock: HttpTestingController;
 
-    beforeEach(() => {
-      api = createInMemoryApi({
-        maquinas: [
-          { id: 'srv-1', code: 'ENV-01', name: 'Envasadora' },
-          { id: 'srv-2', code: '0042', name: 'Selladora' },
-        ],
-        partes: [],
-      });
-    });
+    function configureReal(id: string | null): void {
+      configure(id, [provideHttpClient(), provideHttpClientTesting()]);
+      httpMock = TestBed.inject(HttpTestingController);
+    }
 
-    it('creates the machine with the normalized code and goes back to the list', async () => {
-      configure(null, [provideInMemoryApi(api)]);
+    afterEach(() => httpMock.verify());
+
+    it('creates the machine with a single POST of the normalized code and goes back to the list', () => {
+      expect.assertions(2);
+      configureReal(null);
       start();
 
       fillForm({ code: ' rot-03 ', name: ' Rotuladora ' });
       submit();
-      await fixture.whenStable();
+      const post = httpMock.expectOne({ method: 'POST', url: machinesUrl });
+      expect(post.request.body).toEqual({ code: 'ROT-03', name: 'Rotuladora' });
+      post.flush({ id: '4', code: 'ROT-03', name: 'Rotuladora', partCount: 0 });
 
-      expect(api.db['maquinas']?.map((row) => [row['code'], row['name']])).toContainEqual([
-        'ROT-03',
-        'Rotuladora',
-      ]);
       expect(navigate).toHaveBeenCalledWith(['/machines']);
     });
 
-    it('shows a duplicated code that only differs in case, and stores nothing', async () => {
-      configure(null, [provideInMemoryApi(api)]);
+    it('shows the duplicated code error when the API answers 409 DUPLICATE_MACHINE_CODE', () => {
+      expect.assertions(2);
+      configureReal(null);
       start();
 
       fillForm({ code: 'env-01', name: 'Otra envasadora' });
       submit();
-      await fixture.whenStable();
+      httpMock
+        .expectOne({ method: 'POST', url: machinesUrl })
+        .flush(
+          { code: 'DUPLICATE_MACHINE_CODE', message: 'Ya existe ENV-01' },
+          { status: 409, statusText: 'Conflict' },
+        );
       fixture.detectChanges();
 
       expect(text()).toContain('Ya existe una máquina con ese código.');
-      expect(api.db['maquinas']).toHaveLength(2);
       expect(navigate).not.toHaveBeenCalled();
     });
 
-    it('shows a duplicated numeric-looking code ("0042")', async () => {
-      configure(null, [provideInMemoryApi(api)]);
+    it('loads a machine and saves it with a PUT that keeps its own code', () => {
+      expect.assertions(2);
+      configureReal('1');
       start();
-
-      fillForm({ code: '0042', name: 'Otra' });
-      submit();
-      await fixture.whenStable();
-      fixture.detectChanges();
-
-      expect(text()).toContain('Ya existe una máquina con ese código.');
-      expect(api.db['maquinas']).toHaveLength(2);
-    });
-
-    it('lets a machine keep its own code when it is renamed (it is not its own duplicate)', async () => {
-      configure('srv-1', [provideInMemoryApi(api)]);
-      start();
-      await fixture.whenStable();
+      httpMock
+        .expectOne(`${machinesUrl}/1`)
+        .flush({ id: '1', code: 'ENV-01', name: 'Envasadora', partCount: 7 });
       fixture.detectChanges();
 
       fillForm({ name: 'Envasadora renombrada' });
       submit();
-      await fixture.whenStable();
+      const put = httpMock.expectOne({ method: 'PUT', url: `${machinesUrl}/1` });
+      expect(put.request.body).toEqual({ code: 'ENV-01', name: 'Envasadora renombrada' });
+      put.flush({ id: '1', code: 'ENV-01', name: 'Envasadora renombrada', partCount: 7 });
 
-      expect(api.db['maquinas']?.[0]).toMatchObject({
-        id: 'srv-1',
-        code: 'ENV-01',
-        name: 'Envasadora renombrada',
-      });
       expect(navigate).toHaveBeenCalledWith(['/machines']);
     });
 
-    it('does not let a machine take the code of another one', async () => {
-      configure('srv-1', [provideInMemoryApi(api)]);
+    it('does not let a machine take the code of another one (409)', () => {
+      expect.assertions(2);
+      configureReal('1');
       start();
-      await fixture.whenStable();
+      httpMock
+        .expectOne(`${machinesUrl}/1`)
+        .flush({ id: '1', code: 'ENV-01', name: 'Envasadora', partCount: 7 });
       fixture.detectChanges();
 
       fillForm({ code: '0042' });
       submit();
-      await fixture.whenStable();
+      httpMock
+        .expectOne({ method: 'PUT', url: `${machinesUrl}/1` })
+        .flush(
+          { code: 'DUPLICATE_MACHINE_CODE', message: 'Ya existe 0042' },
+          { status: 409, statusText: 'Conflict' },
+        );
       fixture.detectChanges();
 
       expect(text()).toContain('Ya existe una máquina con ese código.');
-      expect(api.db['maquinas']?.[0]).toMatchObject({ code: 'ENV-01' });
+      expect(navigate).not.toHaveBeenCalled();
     });
 
-    it('says "does not exist" for an id that is not in the master, not a connection error', async () => {
-      configure('no-existe', [provideInMemoryApi(api)]);
+    it('says "does not exist" on a 404, not a connection error', () => {
+      expect.assertions(2);
+      configureReal('no-existe');
       start();
-      await fixture.whenStable();
+
+      httpMock
+        .expectOne(`${machinesUrl}/no-existe`)
+        .flush({ code: 'NOT_FOUND', message: 'x' }, { status: 404, statusText: 'Not Found' });
       fixture.detectChanges();
 
       expect(text()).toContain('Máquina no encontrada');
+      expect(text()).not.toContain('Error de conexión');
     });
 
-    it('says "connection error" when the server fails', async () => {
-      api.fail('GET', '/maquinas/srv-1', 500);
-      configure('srv-1', [provideInMemoryApi(api)]);
+    it('says "connection error" when the server fails', () => {
+      expect.assertions(2);
+      configureReal('1');
       start();
-      await fixture.whenStable();
+
+      httpMock
+        .expectOne(`${machinesUrl}/1`)
+        .flush('boom', { status: 500, statusText: 'Server Error' });
       fixture.detectChanges();
 
       expect(text()).toContain('Error de conexión');

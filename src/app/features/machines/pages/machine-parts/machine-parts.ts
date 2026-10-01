@@ -146,7 +146,8 @@ export class MachineParts implements OnInit {
         },
         error: (error: unknown) =>
           this.loadError.set(
-            error instanceof MachineLoadError && error.kind === 'not-found'
+            (error instanceof MachineLoadError && error.kind === 'not-found') ||
+              error instanceof MachineNotFoundError
               ? 'not-found'
               : 'connection',
           ),
@@ -272,8 +273,8 @@ export class MachineParts implements OnInit {
     this.deleteModalOpen.set(true);
   }
 
-  // No verifica los hijos por su cuenta: `PartsService.delete` lo hace con datos frescos y bloquea
-  // con `PartHasChildrenError`. Acá solo se traduce el resultado a un aviso.
+  // No verifica los hijos por su cuenta: la API bloquea el borrado (`409 PART_HAS_CHILDREN`) y
+  // `PartsService` lo traduce a `PartHasChildrenError`. Acá solo se traduce el resultado a un aviso.
   deletePart(id: string): void {
     if (!this.allow('eliminar partes')) return;
 

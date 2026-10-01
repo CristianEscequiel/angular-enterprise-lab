@@ -62,7 +62,7 @@ T3, T4 y T5 son independientes entre sí. T6→T7 comparten `WorkOrdersService`,
     `grep -r "TechnicianDirectory\|UsersService" src` sin resultados; reescritura de
     `technicians.service.integration.spec.ts`.
 
-- [ ] **T4 — Máquinas y partes** · REQ-6, REQ-7 · depende de: T1
+- [x] **T4 — Máquinas y partes** · REQ-6, REQ-7 · depende de: T1
   - `Machine.partCount`; `MachinesService` directo (sin `getAll` previo ni consulta de
     partes); `PartsService` por `/machines/{id}/parts` y `/parts/{id}`; mapeo de
     `DUPLICATE_MACHINE_CODE`, `MACHINE_HAS_PARTS`, `PART_HAS_CHILDREN`,
@@ -142,3 +142,9 @@ T3, T4 y T5 son independientes entre sí. T6→T7 comparten `WorkOrdersService`,
     y, si se hace, simplificar el cálculo de "cerradas hoy". Fuera de esta spec; solo se deja
     el registro en `notes.md`.
   - **Verifica:** la nota existe en `notes.md`.
+
+## Desviaciones registradas durante la implementación
+
+- **T3:** se eliminó `db.seed.spec.ts` (T9 lo borraba igual) porque dependía de `toAuthUser`, retirado en T3.
+- **T4:** se eliminó `machines-tree.integration.spec.ts` (ida y vuelta contra el emulador; el contrato queda cubierto por los specs de `MachinesService` y `PartsService` con `HttpTestingController`). `machine-parts.spec.ts` conserva su estilo de página + servicios reales sobre `features/machines/testing/machines-api.fake.ts`, un servidor en memoria que cumple **el contrato de la API** (no el de JSON Server), porque reescribir 1000 líneas con mocks perdería los escenarios de "otro usuario cambió algo".
+- **T4:** se eliminó `work-order-create.integration.spec.ts` (dependía del emulador y de rutas retiradas); se reescribe en T6 sobre el contrato nuevo.

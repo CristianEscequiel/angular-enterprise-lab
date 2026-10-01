@@ -5,22 +5,22 @@ import { AuthUser, TechnicianUser, UserRole } from '@core/auth/auth.model';
 import { AuthService } from '@core/auth/auth.service';
 import { MessageService } from '@core/services/message.service';
 import {
-  createInMemoryApi,
-  InMemoryApi,
-  provideInMemoryApi,
+  createMachinesApi,
+  MachinesApi,
+  provideMachinesApi,
   Row,
-} from '@core/testing/in-memory-api';
+} from '../../testing/machines-api.fake';
 import { signal } from '@angular/core';
 import { Part, PartNode } from '../../models/part.model';
 import { MachineParts } from './machine-parts';
 
-// La página con los servicios REALES (`MachinesService`, `PartsService`) sobre un emulador fiel de
-// JSON Server: lo que se afirma sobre los pedidos y sobre el estado del "servidor" es lo que pasaría
-// de verdad, y los cambios de "otro usuario" se simulan tocando ese estado a mitad de camino.
+// La página con los servicios REALES (`MachinesService`, `PartsService`) sobre un servidor en memoria
+// que cumple el contrato de la API: lo que se afirma sobre los pedidos y sobre el estado del "servidor"
+// es lo que pasaría de verdad, y los cambios de "otro usuario" se simulan tocando ese estado.
 describe('MachineParts', () => {
   let fixture: ComponentFixture<MachineParts>;
   let component: MachineParts;
-  let api: InMemoryApi;
+  let api: MachinesApi;
   let navigate: ReturnType<typeof vi.spyOn>;
 
   const machine = (id: string, code: string, name: string): Row => ({ id, code, name });
@@ -37,12 +37,12 @@ describe('MachineParts', () => {
   //   └─ Cinta 2                         (hoja de nivel 2)
   //   Cabezal de sellado
   const seed = () => ({
-    maquinas: [
+    machines: [
       machine('srv-1', 'ENV-01', 'Envasadora'),
       machine('srv-2', 'SEL-02', 'Selladora'),
       machine('srv-3', 'ROT-03', 'Rotuladora'),
     ],
-    partes: [
+    parts: [
       part('p1', null, 'Mesa de transporte'),
       part('p2', 'p1', 'Cinta 1'),
       part('p3', 'p2', 'Motor de cinta'),
@@ -79,14 +79,14 @@ describe('MachineParts', () => {
   const currentUser = signal<AuthUser | null>(administrador);
 
   function configure(id: string | null = 'srv-1', data: ReturnType<typeof seed> = seed()): void {
-    api = createInMemoryApi(data);
+    api = createMachinesApi(data);
     currentUser.set(administrador);
 
     TestBed.configureTestingModule({
       imports: [MachineParts],
       providers: [
         provideRouter([]),
-        provideInMemoryApi(api),
+        provideMachinesApi(api),
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap(id === null ? {} : { id }) } },
@@ -116,7 +116,7 @@ describe('MachineParts', () => {
 
   const message = () => TestBed.inject(MessageService).message();
   const text = (): string => fixture.nativeElement.textContent ?? '';
-  const stored = (): Row[] => api.db['partes'] ?? [];
+  const stored = (): Row[] => api.db.parts ?? [];
   const writes = () => api.requests.filter((request) => request.method !== 'GET');
 
   const treeItems = (): HTMLElement[] =>
@@ -209,8 +209,8 @@ describe('MachineParts', () => {
     it('reads the machine and then all the parts, and writes nothing', async () => {
       await start();
 
-      expect(api.requestsTo('GET', '/maquinas/srv-1')).toHaveLength(1);
-      expect(api.requestsTo('GET', '/partes')).toHaveLength(1);
+      expect(api.requestsTo('GET', '/machines/srv-1')).toHaveLength(1);
+      expect(api.requestsTo('GET', '/machines/srv-1/parts')).toHaveLength(1);
       expect(writes()).toEqual([]);
     });
 
@@ -236,10 +236,10 @@ describe('MachineParts', () => {
       });
 
       it('retries a machine that was not found and shows it once it exists', async () => {
-        api.db['maquinas']?.splice(0, 1);
+        api.db.machines?.splice(0, 1);
         await start();
         expect(text()).toContain('Máquina no encontrada');
-        api.db['maquinas']?.unshift(machine('srv-1', 'ENV-01', 'Envasadora'));
+        api.db.machines?.unshift(machine('srv-1', 'ENV-01', 'Envasadora'));
 
         await click(buttonByText('Reintentar')!);
 
@@ -248,7 +248,7 @@ describe('MachineParts', () => {
       });
 
       it('says it could not connect when the server fails, which is not "does not exist"', async () => {
-        api.fail('GET', '/maquinas/srv-1', 500);
+        api.fail('GET', '/machines/srv-1', 500);
         await start();
 
         expect(text()).toContain('Error de conexión');
@@ -256,7 +256,7 @@ describe('MachineParts', () => {
       });
 
       it('says it could not connect when the parts cannot be read', async () => {
-        api.fail('GET', '/partes', 500);
+        api.fail('GET', '/machines/srv-1/parts', 500);
         await start();
 
         expect(text()).toContain('Error de conexión');
@@ -264,7 +264,7 @@ describe('MachineParts', () => {
       });
 
       it('retries and shows the tree once the server is back', async () => {
-        api.fail('GET', '/maquinas/srv-1', 500);
+        api.fail('GET', '/machines/srv-1', 500);
         await start();
         api.clearFailures();
 
@@ -305,8 +305,8 @@ describe('MachineParts', () => {
         await typeName('Tolva');
         await submitPanel();
 
-        const post = api.requestsTo('POST', '/partes')[0];
-        expect(post?.body).toEqual({ machineId: 'srv-1', parentId: null, name: 'Tolva' });
+        const post = api.requestsTo('POST', '/machines/srv-1/parts')[0];
+        expect(post?.body).toEqual({ name: 'Tolva', parentId: null });
         expect(levelOf('Tolva')).toBe('1');
         expect(message()).toMatchObject({
           variant: 'success',
@@ -342,8 +342,7 @@ describe('MachineParts', () => {
         await typeName('Rodamiento');
         await submitPanel();
 
-        expect(api.requestsTo('POST', '/partes')[0]?.body).toEqual({
-          machineId: 'srv-1',
+        expect(api.requestsTo('POST', '/machines/srv-1/parts')[0]?.body).toEqual({
           parentId: 'p3',
           name: 'Rodamiento',
         });
@@ -373,13 +372,13 @@ describe('MachineParts', () => {
       });
 
       it('reads the tree again from the server after saving', async () => {
-        const readsBefore = api.requestsTo('GET', '/partes').length;
+        const readsBefore = api.requestsTo('GET', '/machines/srv-1/parts').length;
 
         await click(treeButton('Motor de cinta', 'Agregar sub-parte a Motor de cinta'));
         await typeName('Rodamiento');
         await submitPanel();
 
-        expect(api.requestsTo('GET', '/partes').length).toBeGreaterThan(readsBefore);
+        expect(api.requestsTo('GET', '/machines/srv-1/parts').length).toBeGreaterThan(readsBefore);
       });
 
       it('shows what another user added meanwhile, not just what this screen created', async () => {
@@ -400,7 +399,9 @@ describe('MachineParts', () => {
         await typeName('   Tolva  ');
         await submitPanel();
 
-        expect(api.requestsTo('POST', '/partes')[0]?.body).toMatchObject({ name: 'Tolva' });
+        expect(api.requestsTo('POST', '/machines/srv-1/parts')[0]?.body).toMatchObject({
+          name: 'Tolva',
+        });
       });
 
       it.each([
@@ -495,7 +496,7 @@ describe('MachineParts', () => {
     });
 
     describe('when something changed meanwhile or fails', () => {
-      it('a parent deleted by another user: warns, shows the tree as it is now and sends no POST', async () => {
+      it('a parent deleted by another user: the API refuses the POST, the page warns and shows the tree as it is now', async () => {
         await click(treeButton('Cinta 2', 'Agregar sub-parte a Cinta 2'));
         await typeName('Tensor');
         stored().splice(
@@ -506,7 +507,7 @@ describe('MachineParts', () => {
         await submitPanel();
 
         expect(message()).toMatchObject({ variant: 'warning', title: 'No se pudo guardar' });
-        expect(api.requestsTo('POST', '/partes')).toEqual([]);
+        expect(api.requestsTo('POST', '/machines/srv-1/parts')).toHaveLength(1);
         expect(shownNames()).not.toContain('Cinta 2');
         expect(fixture.nativeElement.querySelector('#part-name')).toBeNull();
       });
@@ -514,17 +515,17 @@ describe('MachineParts', () => {
       it('the machine deleted by another user: says so and shows the not-found state', async () => {
         await click(buttonByText('Agregar parte')!);
         await typeName('Tolva');
-        api.db['maquinas']?.splice(0, 1);
+        api.db.machines?.splice(0, 1);
 
         await submitPanel();
 
         expect(message()).toMatchObject({ variant: 'error', message: 'La máquina ya no existe.' });
         expect(text()).toContain('Máquina no encontrada');
-        expect(api.requestsTo('POST', '/partes')).toEqual([]);
+        expect(api.requestsTo('POST', '/machines/srv-1/parts')).toHaveLength(1);
       });
 
       it('a server failure on the POST: generic error, nothing stored, the panel stays open to retry', async () => {
-        api.fail('POST', '/partes', 500);
+        api.fail('POST', '/machines/srv-1/parts', 500);
         await click(buttonByText('Agregar parte')!);
         await typeName('Tolva');
 
@@ -538,7 +539,7 @@ describe('MachineParts', () => {
       it('keeps what it had, and says so, when the tree cannot be refreshed after saving', async () => {
         await click(buttonByText('Agregar parte')!);
         await typeName('Tolva');
-        api.fail('GET', '/partes', 500);
+        api.fail('GET', '/machines/srv-1/parts', 500);
 
         await submitPanel();
 
@@ -571,7 +572,7 @@ describe('MachineParts', () => {
       await typeName('Motor principal');
       await submitPanel();
 
-      const patch = api.requestsTo('PATCH', '/partes/p3')[0];
+      const patch = api.requestsTo('PATCH', '/parts/p3')[0];
       expect(patch?.body).toEqual({ name: 'Motor principal' });
       expect(Object.keys(patch?.body as object)).toEqual(['name']);
       expect(levelOf('Motor principal')).toBe('3');
@@ -645,7 +646,7 @@ describe('MachineParts', () => {
     });
 
     it('a server failure: generic error and the panel stays open', async () => {
-      api.fail('PATCH', '/partes/p3', 500);
+      api.fail('PATCH', '/parts/p3', 500);
       await click(treeButton('Motor de cinta', 'Editar Motor de cinta'));
       await typeName('Motor principal');
 
@@ -686,7 +687,7 @@ describe('MachineParts', () => {
       await click(treeButton('Cinta 2', 'Eliminar Cinta 2'));
       await confirmDeletion();
 
-      expect(api.requestsTo('DELETE', '/partes/p4')).toHaveLength(1);
+      expect(api.requestsTo('DELETE', '/parts/p4')).toHaveLength(1);
       expect(shownNames()).toEqual([
         'Mesa de transporte',
         'Cinta 1',
@@ -706,7 +707,7 @@ describe('MachineParts', () => {
       expect(dialog.textContent).toContain('Tiene sub-partes');
     });
 
-    it('a part WITH sub-parts is blocked: warns, sends no DELETE and the tree stays the same', async () => {
+    it('a part WITH sub-parts is blocked by the API (409): warns and the tree stays the same', async () => {
       const before = shownNames();
 
       await click(treeButton('Cinta 1', 'Eliminar Cinta 1'));
@@ -714,7 +715,7 @@ describe('MachineParts', () => {
 
       expect(message()).toMatchObject({ variant: 'warning', title: 'No se puede eliminar' });
       expect(message()?.message).toContain('1 sub-parte');
-      expect(api.requestsTo('DELETE', '/partes/p2')).toEqual([]);
+      expect(api.requestsTo('DELETE', '/parts/p2')).toHaveLength(1);
       expect(shownNames()).toEqual(before);
       expect(stored().some((row) => row.id === 'p3' && row['parentId'] === 'p2')).toBe(true);
     });
@@ -726,7 +727,7 @@ describe('MachineParts', () => {
       await confirmDeletion();
 
       expect(message()).toMatchObject({ variant: 'warning', title: 'No se puede eliminar' });
-      expect(api.requestsTo('DELETE', '/partes/p4')).toEqual([]);
+      expect(api.requestsTo('DELETE', '/parts/p4')).toHaveLength(1);
       expect(shownNames()).toContain('Hija de Cinta 2');
     });
 
@@ -756,7 +757,7 @@ describe('MachineParts', () => {
     });
 
     it('a server failure: generic error and the tree is left as it was', async () => {
-      api.fail('DELETE', '/partes/p4', 500);
+      api.fail('DELETE', '/parts/p4', 500);
       await click(treeButton('Cinta 2', 'Eliminar Cinta 2'));
 
       await confirmDeletion();
@@ -811,7 +812,7 @@ describe('MachineParts', () => {
   describe('orphans (data broken by hand: they must not vanish from the view)', () => {
     beforeEach(async () => {
       const data = seed();
-      data.partes.push(
+      data.parts.push(
         part('o1', 'no-existe', 'Suelta'),
         part('o2', 'o1', 'Nieta suelta'),
         part('o3', 'x1', 'Cruzada'),
@@ -849,7 +850,7 @@ describe('MachineParts', () => {
       await click(button);
       await confirmDeletion();
 
-      expect(api.requestsTo('DELETE', '/partes/o2')).toHaveLength(1);
+      expect(api.requestsTo('DELETE', '/parts/o2')).toHaveLength(1);
       expect(text()).toContain('2 partes no cuelgan');
       expect(text()).not.toContain('Nieta suelta');
     });
@@ -863,14 +864,14 @@ describe('MachineParts', () => {
       await confirmDeletion();
 
       expect(message()).toMatchObject({ title: 'No se puede eliminar' });
-      expect(api.requestsTo('DELETE', '/partes/o1')).toEqual([]);
+      expect(api.requestsTo('DELETE', '/parts/o1')).toHaveLength(1);
     });
 
     it('says "1 parte no cuelga" in the singular', async () => {
       TestBed.resetTestingModule();
       fixture.destroy();
       const data = seed();
-      data.partes.push(part('o1', 'no-existe', 'Suelta'));
+      data.parts.push(part('o1', 'no-existe', 'Suelta'));
       configure('srv-1', data);
       await start();
 
@@ -881,7 +882,7 @@ describe('MachineParts', () => {
       TestBed.resetTestingModule();
       fixture.destroy();
       const data = seed();
-      data.partes.push(part('o1', 'no-existe', 'Suelta'));
+      data.parts.push(part('o1', 'no-existe', 'Suelta'));
       configure('srv-1', data);
       await start(userWithRole('personal-produccion'));
 
@@ -921,7 +922,7 @@ describe('MachineParts', () => {
         await typeName('Tolva');
         await submitPanel();
 
-        expect(api.requestsTo('POST', '/partes')).toHaveLength(1);
+        expect(api.requestsTo('POST', '/machines/srv-1/parts')).toHaveLength(1);
       });
     });
 
@@ -965,7 +966,7 @@ describe('MachineParts', () => {
         component.deletePart('p4');
 
         expect(writes()).toEqual([]);
-        expect(api.requestsTo('GET', '/partes')).toHaveLength(1);
+        expect(api.requestsTo('GET', '/machines/srv-1/parts')).toHaveLength(1);
         expect(message()).toMatchObject({
           title: 'Acceso denegado',
           message: 'No tiene permiso para eliminar partes.',
@@ -1025,7 +1026,7 @@ describe('MachineParts', () => {
       expect(navigate).toHaveBeenCalledWith(['/machines', 'srv-1', 'edit']);
     });
 
-    it('has nothing to refresh when the route has no id: only the deletion itself reads the parts', async () => {
+    it('has nothing to refresh when the route has no id: the deletion is the only request', async () => {
       TestBed.resetTestingModule();
       fixture.destroy();
       configure(null);
@@ -1035,9 +1036,9 @@ describe('MachineParts', () => {
       component.deletePart('p4');
       await settle();
 
-      expect(api.requestsTo('DELETE', '/partes/p4')).toHaveLength(1);
-      // Una sola lectura: la del chequeo de hijos del propio borrado; no hay nada que recargar.
-      expect(api.requestsTo('GET', '/partes')).toHaveLength(1);
+      expect(api.requestsTo('DELETE', '/parts/p4')).toHaveLength(1);
+      // El borrado no lee nada antes (la API decide) y no hay árbol que recargar.
+      expect(api.requestsTo('GET', '/machines/srv-1/parts')).toHaveLength(0);
     });
 
     it('does nothing to edit the machine when the route has no id', () => {

@@ -14,23 +14,19 @@ import {
 } from './parts.service';
 
 describe('PartsService', () => {
-  const partsUrl = `${API_BASE_URL}/partes`;
-  const machinesUrl = `${API_BASE_URL}/maquinas`;
+  const partsUrl = `${API_BASE_URL}/parts`;
+  const partsOfMachine1 = `${API_BASE_URL}/machines/1/parts`;
   const notFound = { status: 404, statusText: 'Not Found' };
+  const badRequest = { status: 400, statusText: 'Bad Request' };
+  const conflict = { status: 409, statusText: 'Conflict' };
   const serverError = { status: 500, statusText: 'Server Error' };
 
-  const part = (
-    id: string,
-    parentId: string | null,
-    machineId = '1',
-    name = `Parte ${id}`,
-  ): Part => ({
+  const part = (id: string, parentId: string | null, machineId = '1'): Part => ({
     id,
     machineId,
     parentId,
-    name,
+    name: `Parte ${id}`,
   });
-  const machine = { id: '1', code: 'ENV-01', name: 'Envasadora' };
 
   let service: PartsService;
   let httpMock: HttpTestingController;
@@ -70,439 +66,291 @@ describe('PartsService', () => {
     }
   });
 
-  describe('getAll', () => {
-    it('gets the whole collection', () => {
-      const parts = [part('1', null), part('2', '1')];
+  it('does not expose a global parts listing any more', () => {
+    expect(service).not.toHaveProperty('getAll');
+  });
 
-      subscribe(service.getAll());
-      const request = httpMock.expectOne(partsUrl);
+  describe('getByMachine', () => {
+    it('asks GET /machines/{id}/parts and returns the flat list as received', () => {
+      expect.assertions(3);
+      const parts = [part('1', null), part('2', '1'), part('3', '2')];
+      subscribe(service.getByMachine('1'));
+
+      const request = httpMock.expectOne(partsOfMachine1);
       expect(request.request.method).toBe('GET');
+      expect(request.request.params.keys()).toEqual([]);
       request.flush(parts);
 
       expect(result).toEqual(parts);
     });
-  });
-
-  describe('getByMachine', () => {
-    it('does NOT filter with ?machineId= (json-server would coerce it and find nothing)', () => {
-      subscribe(service.getByMachine('1'));
-
-      const request = httpMock.expectOne(partsUrl);
-      expect(request.request.params.keys()).toEqual([]);
-      expect(request.request.urlWithParams).toBe(partsUrl);
-      request.flush([]);
-    });
-
-    it('returns only the parts of that machine, in the order received', () => {
-      subscribe(service.getByMachine('1'));
-
-      httpMock
-        .expectOne(partsUrl)
-        .flush([
-          part('1', null, '1'),
-          part('2', null, '2'),
-          part('3', '1', '1'),
-          part('4', '2', '2'),
-        ]);
-
-      expect((result as Part[]).map((item) => item.id)).toEqual(['1', '3']);
-    });
 
     it('returns an empty list for a machine without parts', () => {
-      subscribe(service.getByMachine('9'));
+      subscribe(service.getByMachine('1'));
 
-      httpMock.expectOne(partsUrl).flush([part('1', null, '1')]);
+      httpMock.expectOne(partsOfMachine1).flush([]);
 
       expect(result).toEqual([]);
     });
 
-    it('propagates a connection error', () => {
+    it('fails with MachineNotFoundError on a 404', () => {
+      expect.assertions(2);
       subscribe(service.getByMachine('1'));
 
-      httpMock.expectOne(partsUrl).flush(null, serverError);
+      httpMock.expectOne(partsOfMachine1).flush({ code: 'NOT_FOUND', message: 'x' }, notFound);
 
-      expect((error as HttpErrorResponse).status).toBe(500);
+      expect(error).toBeInstanceOf(MachineNotFoundError);
+      expect(error).toMatchObject({ machineId: '1' });
+    });
+
+    it('propagates a server error, not as "machine not found"', () => {
+      expect.assertions(2);
+      subscribe(service.getByMachine('1'));
+
+      httpMock.expectOne(partsOfMachine1).flush('boom', serverError);
+
+      expect(error).toBeInstanceOf(HttpErrorResponse);
+      expect(error).not.toBeInstanceOf(MachineNotFoundError);
+    });
+
+    it('fails with MachineNotFoundError for a blank id, with no request', () => {
+      expect.assertions(1);
+      subscribe(service.getByMachine('  '));
+
+      expect(error).toBeInstanceOf(MachineNotFoundError);
+      expectNoRequest();
+    });
+
+    it('encodes the machine id in the URL', () => {
+      subscribe(service.getByMachine('a/b'));
+
+      httpMock.expectOne(`${API_BASE_URL}/machines/a%2Fb/parts`).flush([]);
     });
   });
 
   describe('create', () => {
-    describe('a first-level part', () => {
-      it('checks the machine first and only then POSTs, with parentId null', () => {
-        subscribe(service.create('1', null, 'Mesa de transporte'));
+    it('POSTs { name, parentId: null } to /machines/{id}/parts for a first-level part', () => {
+      expect.assertions(4);
+      subscribe(service.create('1', null, 'Tensor'));
 
-        const check = httpMock.expectOne(`${machinesUrl}/1`);
-        expect(check.request.method).toBe('GET');
-        // Hasta que la máquina no responde, no se escribe nada.
-        httpMock.expectNone(partsUrl);
+      const post = httpMock.expectOne(partsOfMachine1);
+      expect(post.request.method).toBe('POST');
+      expect(post.request.body).toEqual({ name: 'Tensor', parentId: null });
+      post.flush(part('11', null));
 
-        check.flush(machine);
-
-        const post = httpMock.expectOne(partsUrl);
-        expect(post.request.method).toBe('POST');
-        expect(post.request.body).toEqual({
-          machineId: '1',
-          parentId: null,
-          name: 'Mesa de transporte',
-        });
-        post.flush(part('7', null, '1', 'Mesa de transporte'));
-
-        expect(result).toEqual(part('7', null, '1', 'Mesa de transporte'));
-        expect(completed).toBe(true);
-      });
-
-      it('does not look up any parent', () => {
-        subscribe(service.create('1', null, 'Mesa'));
-
-        httpMock.expectOne(`${machinesUrl}/1`).flush(machine);
-        httpMock.expectNone(`${partsUrl}/null`);
-        httpMock.expectOne(partsUrl).flush(part('7', null));
-      });
+      expect(result).toEqual(part('11', null));
+      expect(error).toBeUndefined();
     });
 
-    describe('a child part', () => {
-      it('checks the machine, then the parent, then POSTs with that parentId', () => {
-        subscribe(service.create('1', '5', 'Cinta 1'));
+    it('POSTs the parentId for a sub-part, without looking anything up first', () => {
+      expect.assertions(2);
+      subscribe(service.create('1', '3', 'Tensor'));
 
-        httpMock.expectOne(`${machinesUrl}/1`).flush(machine);
-        httpMock.expectNone(partsUrl);
+      const post = httpMock.expectOne(partsOfMachine1);
+      expect(post.request.body).toEqual({ name: 'Tensor', parentId: '3' });
+      post.flush(part('11', '3'));
 
-        const parentCheck = httpMock.expectOne(`${partsUrl}/5`);
-        expect(parentCheck.request.method).toBe('GET');
-        httpMock.expectNone(partsUrl);
-        parentCheck.flush(part('5', null, '1'));
-
-        const post = httpMock.expectOne(partsUrl);
-        expect(post.request.body).toEqual({ machineId: '1', parentId: '5', name: 'Cinta 1' });
-        post.flush(part('8', '5'));
-
-        expect(result).toEqual(part('8', '5'));
-      });
-
-      it('can add a level below an existing leaf at any depth', () => {
-        subscribe(service.create('1', 'hoja-nivel-3', 'Rodamiento'));
-
-        httpMock.expectOne(`${machinesUrl}/1`).flush(machine);
-        httpMock.expectOne(`${partsUrl}/hoja-nivel-3`).flush(part('hoja-nivel-3', '2', '1'));
-        const post = httpMock.expectOne(partsUrl);
-
-        expect((post.request.body as Part).parentId).toBe('hoja-nivel-3');
-        post.flush(part('9', 'hoja-nivel-3'));
-      });
+      expect(result).toEqual(part('11', '3'));
     });
 
-    it('sends only machineId, parentId and name: never an id (the server discards it)', () => {
-      subscribe(service.create('1', null, 'Mesa'));
+    it('sends only name and parentId: never an id nor the machine id in the body', () => {
+      expect.assertions(1);
+      subscribe(service.create('1', null, 'Tensor'));
 
-      httpMock.expectOne(`${machinesUrl}/1`).flush(machine);
-      const post = httpMock.expectOne(partsUrl);
-      const body = post.request.body as Record<string, unknown>;
-
-      expect(Object.keys(body).sort()).toEqual(['machineId', 'name', 'parentId']);
-      post.flush(part('7', null));
+      const post = httpMock.expectOne(partsOfMachine1);
+      expect(Object.keys(post.request.body as object).sort()).toEqual(['name', 'parentId']);
+      post.flush({});
     });
 
     it('trims the name', () => {
-      subscribe(service.create('1', null, '  Mesa  '));
+      expect.assertions(1);
+      subscribe(service.create('1', null, '  Tensor  '));
 
-      httpMock.expectOne(`${machinesUrl}/1`).flush(machine);
-      const post = httpMock.expectOne(partsUrl);
-
-      expect((post.request.body as Part).name).toBe('Mesa');
-      post.flush(part('7', null));
+      const post = httpMock.expectOne(partsOfMachine1);
+      expect(post.request.body).toMatchObject({ name: 'Tensor' });
+      post.flush({});
     });
 
-    describe('machine that does not exist', () => {
-      it('fails with MachineNotFoundError and never POSTs nor looks up the parent', () => {
-        subscribe(service.create('999', '5', 'Cinta'));
+    it('fails with MachineNotFoundError on a 404', () => {
+      expect.assertions(2);
+      subscribe(service.create('1', null, 'Tensor'));
 
-        httpMock.expectOne(`${machinesUrl}/999`).flush(null, notFound);
+      httpMock.expectOne(partsOfMachine1).flush({ code: 'NOT_FOUND', message: 'x' }, notFound);
 
-        expect(error).toBeInstanceOf(MachineNotFoundError);
-        expect((error as MachineNotFoundError).machineId).toBe('999');
-        expect(completed).toBe(false);
-        httpMock.expectNone(partsUrl);
-        httpMock.expectNone(`${partsUrl}/5`);
-      });
+      expect(error).toBeInstanceOf(MachineNotFoundError);
+      expect(result).toBeUndefined();
     });
 
-    describe('parent that does not exist', () => {
-      it('fails with ParentPartNotFoundError (missing) and never POSTs', () => {
-        subscribe(service.create('1', '777', 'Huérfana'));
+    it('translates 400 PARENT_PART_NOT_FOUND into ParentPartNotFoundError (missing)', () => {
+      expect.assertions(2);
+      subscribe(service.create('1', '99', 'Tensor'));
 
-        httpMock.expectOne(`${machinesUrl}/1`).flush(machine);
-        httpMock.expectOne(`${partsUrl}/777`).flush(null, notFound);
+      httpMock
+        .expectOne(partsOfMachine1)
+        .flush({ code: 'PARENT_PART_NOT_FOUND', message: 'No existe la parte 99' }, badRequest);
 
-        expect(error).toBeInstanceOf(ParentPartNotFoundError);
-        expect((error as ParentPartNotFoundError).problem).toBe('missing');
-        expect((error as ParentPartNotFoundError).parentId).toBe('777');
-        httpMock.expectNone(partsUrl);
-      });
+      expect(error).toBeInstanceOf(ParentPartNotFoundError);
+      expect(error).toMatchObject({ parentId: '99', problem: 'missing' });
     });
 
-    describe('parent from another machine', () => {
-      it('fails with ParentPartNotFoundError (other-machine) and never POSTs', () => {
-        subscribe(service.create('1', '5', 'Cruzada'));
+    it('translates 400 PARENT_PART_OTHER_MACHINE into ParentPartNotFoundError (other-machine)', () => {
+      expect.assertions(2);
+      subscribe(service.create('1', '8', 'Tensor'));
 
-        httpMock.expectOne(`${machinesUrl}/1`).flush(machine);
-        httpMock.expectOne(`${partsUrl}/5`).flush(part('5', null, '2'));
+      httpMock
+        .expectOne(partsOfMachine1)
+        .flush({ code: 'PARENT_PART_OTHER_MACHINE', message: 'Otra máquina' }, badRequest);
 
-        expect(error).toBeInstanceOf(ParentPartNotFoundError);
-        expect((error as ParentPartNotFoundError).problem).toBe('other-machine');
-        httpMock.expectNone(partsUrl);
-      });
+      expect(error).toBeInstanceOf(ParentPartNotFoundError);
+      expect(error).toMatchObject({ parentId: '8', problem: 'other-machine' });
     });
 
-    // Un error de conexión no es "no existe": si se confundieran, un corte de red parecería
-    // "la máquina fue borrada" y el usuario no sabría que tiene que reintentar.
-    describe('connection errors are never read as "does not exist"', () => {
-      it.each([
-        ['a 500', serverError],
-        ['a 503', { status: 503, statusText: 'Unavailable' }],
-        ['a network failure (status 0)', { status: 0, statusText: 'Unknown Error' }],
-      ])('propagates %s while checking the machine', (_label, status) => {
-        subscribe(service.create('1', '5', 'Cinta'));
+    it.each([
+      ['a server error', serverError],
+      ['a network failure', { status: 0, statusText: 'Unknown Error' }],
+    ])('propagates %s untouched, not as a "does not exist" error', (_label, response) => {
+      expect.assertions(3);
+      subscribe(service.create('1', '3', 'Tensor'));
 
-        httpMock.expectOne(`${machinesUrl}/1`).flush(null, status);
+      httpMock.expectOne(partsOfMachine1).flush('boom', response);
 
-        expect(error).toBeInstanceOf(HttpErrorResponse);
-        expect((error as HttpErrorResponse).status).toBe(status.status);
-        expect(error).not.toBeInstanceOf(MachineNotFoundError);
-        httpMock.expectNone(partsUrl);
-        httpMock.expectNone(`${partsUrl}/5`);
-      });
-
-      it.each([
-        ['a 500', serverError],
-        ['a network failure (status 0)', { status: 0, statusText: 'Unknown Error' }],
-      ])('propagates %s while checking the parent', (_label, status) => {
-        subscribe(service.create('1', '5', 'Cinta'));
-
-        httpMock.expectOne(`${machinesUrl}/1`).flush(machine);
-        httpMock.expectOne(`${partsUrl}/5`).flush(null, status);
-
-        expect(error).toBeInstanceOf(HttpErrorResponse);
-        expect((error as HttpErrorResponse).status).toBe(status.status);
-        expect(error).not.toBeInstanceOf(ParentPartNotFoundError);
-        httpMock.expectNone(partsUrl);
-      });
-
-      it('propagates a failure of the POST itself', () => {
-        subscribe(service.create('1', null, 'Mesa'));
-
-        httpMock.expectOne(`${machinesUrl}/1`).flush(machine);
-        httpMock.expectOne(partsUrl).flush(null, serverError);
-
-        expect((error as HttpErrorResponse).status).toBe(500);
-      });
+      expect(error).toBeInstanceOf(HttpErrorResponse);
+      expect(error).not.toBeInstanceOf(MachineNotFoundError);
+      expect(error).not.toBeInstanceOf(ParentPartNotFoundError);
     });
 
-    describe('invalid input: no request at all', () => {
-      it.each([
-        ['an empty name', '1', null, ''],
-        ['a blank name', '1', null, '   '],
-        ['an empty machineId', '', null, 'Mesa'],
-        ['a blank machineId', '  ', null, 'Mesa'],
-        ['an empty parentId (must be null, not "")', '1', '', 'Mesa'],
-        ['a blank parentId', '1', '  ', 'Mesa'],
-      ])('rejects %s with InvalidPartError', (_label, machineId, parentId, name) => {
-        subscribe(service.create(machineId, parentId, name));
+    it.each([
+      ['a blank machine id', [' ', null, 'Tensor']],
+      ['a blank parent id', ['1', '  ', 'Tensor']],
+      ['a blank name', ['1', null, '   ']],
+      ['an empty name', ['1', '3', '']],
+    ] as const)('fails with InvalidPartError and sends nothing for %s', (_label, args) => {
+      expect.assertions(1);
+      subscribe(service.create(args[0], args[1], args[2]));
 
-        expect(error).toBeInstanceOf(InvalidPartError);
-        expectNoRequest();
-      });
+      expect(error).toBeInstanceOf(InvalidPartError);
+      expectNoRequest();
     });
 
-    it('encodes the ids in the lookup URLs', () => {
-      subscribe(service.create('a/b', '../x', 'Cinta'));
+    it('encodes the machine id in the URL', () => {
+      subscribe(service.create('a/b', null, 'Tensor'));
 
-      httpMock.expectOne(`${machinesUrl}/a%2Fb`).flush(machine);
-      httpMock.expectOne(`${partsUrl}/..%2Fx`).flush(part('..x', null, 'a/b'));
-      httpMock.expectOne(partsUrl).flush(part('9', '..x', 'a/b'));
+      httpMock.expectOne(`${API_BASE_URL}/machines/a%2Fb/parts`).flush({});
     });
   });
 
   describe('update', () => {
-    it('PATCHes exactly { name }: machineId and parentId never travel', () => {
-      subscribe(service.update('2', 'Cinta 1 bis'));
+    it('PATCHes exactly { name } at /parts/{id}: machineId and parentId never travel', () => {
+      expect.assertions(4);
+      subscribe(service.update('5', 'Cinta 2B'));
 
-      const request = httpMock.expectOne(`${partsUrl}/2`);
-      expect(request.request.method).toBe('PATCH');
-      expect(request.request.body).toEqual({ name: 'Cinta 1 bis' });
-      expect(Object.keys(request.request.body as object)).toEqual(['name']);
-      request.flush(part('2', '1', '1', 'Cinta 1 bis'));
+      const patch = httpMock.expectOne(`${partsUrl}/5`);
+      expect(patch.request.method).toBe('PATCH');
+      expect(patch.request.body).toEqual({ name: 'Cinta 2B' });
+      patch.flush({ ...part('5', '1'), name: 'Cinta 2B' });
 
-      expect(result).toEqual(part('2', '1', '1', 'Cinta 1 bis'));
+      expect(result).toMatchObject({ id: '5', name: 'Cinta 2B' });
+      expect(error).toBeUndefined();
     });
 
     it('trims the name', () => {
-      subscribe(service.update('2', '  Cinta  '));
+      expect.assertions(1);
+      subscribe(service.update('5', '  Cinta  '));
 
-      const request = httpMock.expectOne(`${partsUrl}/2`);
-      expect(request.request.body).toEqual({ name: 'Cinta' });
-      request.flush(part('2', '1'));
-    });
-
-    it('does not look up the machine or the parent', () => {
-      subscribe(service.update('2', 'Cinta'));
-
-      httpMock.expectOne(`${partsUrl}/2`).flush(part('2', '1'));
-      httpMock.expectNone(machinesUrl);
-      httpMock.expectNone(partsUrl);
+      const patch = httpMock.expectOne(`${partsUrl}/5`);
+      expect(patch.request.body).toEqual({ name: 'Cinta' });
+      patch.flush({});
     });
 
     it.each([
-      ['an empty name', '2', ''],
-      ['a blank name', '2', '   '],
-      ['an empty id', '', 'Cinta'],
-      ['a blank id', '  ', 'Cinta'],
-    ])('rejects %s with InvalidPartError and sends nothing', (_label, id, name) => {
-      subscribe(service.update(id, name));
+      ['a blank id', [' ', 'Cinta']],
+      ['a blank name', ['5', '   ']],
+    ] as const)('fails with InvalidPartError and sends nothing for %s', (_label, args) => {
+      expect.assertions(1);
+      subscribe(service.update(args[0], args[1]));
 
       expect(error).toBeInstanceOf(InvalidPartError);
       expectNoRequest();
     });
 
     it('propagates a 404 (the part was deleted meanwhile) as the HTTP error', () => {
-      subscribe(service.update('2', 'Cinta'));
+      expect.assertions(2);
+      subscribe(service.update('5', 'Cinta'));
 
-      httpMock.expectOne(`${partsUrl}/2`).flush(null, notFound);
+      httpMock.expectOne(`${partsUrl}/5`).flush('x', notFound);
 
+      expect(error).toBeInstanceOf(HttpErrorResponse);
       expect((error as HttpErrorResponse).status).toBe(404);
     });
 
     it('encodes the id in the URL', () => {
       subscribe(service.update('a/b', 'Cinta'));
 
-      httpMock.expectOne(`${partsUrl}/a%2Fb`).flush(part('a/b', null));
+      httpMock.expectOne(`${partsUrl}/a%2Fb`).flush({});
     });
   });
 
   describe('delete', () => {
-    // Criterio 2 del spec: nunca dejar sub-partes huérfanas.
-    describe('a part with children', () => {
-      const parts = [part('1', null), part('2', '1'), part('3', '1'), part('4', '2')];
+    it('sends a single DELETE /parts/{id}, without asking for the children first', () => {
+      expect.assertions(3);
+      subscribe(service.delete('5'));
 
-      it('is blocked with PartHasChildrenError and DELETE never goes out', () => {
-        subscribe(service.delete('1'));
+      const request = httpMock.expectOne(`${partsUrl}/5`);
+      expect(request.request.method).toBe('DELETE');
+      request.flush(null, { status: 204, statusText: 'No Content' });
 
-        httpMock.expectOne(partsUrl).flush(parts);
-
-        expect(error).toBeInstanceOf(PartHasChildrenError);
-        expect((error as PartHasChildrenError).partId).toBe('1');
-        expect((error as PartHasChildrenError).childCount).toBe(2);
-        expect(completed).toBe(false);
-        httpMock.expectNone(`${partsUrl}/1`);
-      });
-
-      it('is blocked at any depth: a middle node with one child', () => {
-        subscribe(service.delete('2'));
-
-        httpMock.expectOne(partsUrl).flush(parts);
-
-        expect(error).toBeInstanceOf(PartHasChildrenError);
-        expect((error as PartHasChildrenError).childCount).toBe(1);
-        httpMock.expectNone(`${partsUrl}/2`);
-      });
-
-      it('explains what to do, with singular and plural', () => {
-        subscribe(service.delete('1'));
-        httpMock.expectOne(partsUrl).flush(parts);
-        expect((error as Error).message).toContain('2 sub-partes');
-        expect((error as Error).message).toContain('Elimine primero');
-
-        subscribe(service.delete('2'));
-        httpMock.expectOne(partsUrl).flush(parts);
-        expect((error as Error).message).toContain('1 sub-parte.');
-      });
-
-      it('is blocked even if the child belongs to another machine (better than orphaning it)', () => {
-        subscribe(service.delete('1'));
-
-        httpMock.expectOne(partsUrl).flush([part('1', null, '1'), part('2', '1', '2')]);
-
-        expect(error).toBeInstanceOf(PartHasChildrenError);
-        httpMock.expectNone(`${partsUrl}/1`);
-      });
+      expect(completed).toBe(true);
+      expect(error).toBeUndefined();
     });
 
-    describe('a leaf', () => {
-      it('checks the children first and then sends DELETE', () => {
-        subscribe(service.delete('4'));
+    it('translates 409 PART_HAS_CHILDREN into PartHasChildrenError keeping the API message', () => {
+      expect.assertions(3);
+      subscribe(service.delete('1'));
 
-        const check = httpMock.expectOne(partsUrl);
-        expect(check.request.method).toBe('GET');
-        httpMock.expectNone(`${partsUrl}/4`);
-        check.flush([part('1', null), part('2', '1'), part('4', '2')]);
+      httpMock
+        .expectOne(`${partsUrl}/1`)
+        .flush({ code: 'PART_HAS_CHILDREN', message: 'La parte 1 tiene 2 sub-partes' }, conflict);
 
-        const remove = httpMock.expectOne(`${partsUrl}/4`);
-        expect(remove.request.method).toBe('DELETE');
-        remove.flush(part('4', '2'));
-
-        expect(result).toBeUndefined();
-        expect(completed).toBe(true);
-        expect(error).toBeUndefined();
-      });
+      expect(error).toBeInstanceOf(PartHasChildrenError);
+      expect(error).toMatchObject({ partId: '1', message: 'La parte 1 tiene 2 sub-partes' });
+      expect(completed).toBe(false);
     });
 
-    // El chequeo no puede apoyarse en el árbol que la pantalla tiene cargado: se repite cada vez.
-    describe('uses fresh data', () => {
-      it('asks the server again on every call: a child added meanwhile blocks the second delete', () => {
-        // 1) Cuando la pantalla se cargó, la parte "2" era una hoja: el borrado sale.
-        subscribe(service.delete('2'));
-        httpMock.expectOne(partsUrl).flush([part('1', null), part('2', '1')]);
-        httpMock.expectOne(`${partsUrl}/2`).flush(part('2', '1'));
-        expect(error).toBeUndefined();
+    it('falls back to a generic message when the API message is empty', () => {
+      expect.assertions(1);
+      subscribe(service.delete('1'));
 
-        // 2) Otro usuario le agrega una hija a "2". Mismo servicio, misma "pantalla": se bloquea.
-        error = undefined;
-        subscribe(service.delete('2'));
-        httpMock.expectOne(partsUrl).flush([part('1', null), part('2', '1'), part('9', '2')]);
+      httpMock
+        .expectOne(`${partsUrl}/1`)
+        .flush({ code: 'PART_HAS_CHILDREN', message: '' }, conflict);
 
-        expect(error).toBeInstanceOf(PartHasChildrenError);
-        httpMock.expectNone(`${partsUrl}/2`);
-      });
+      expect((error as PartHasChildrenError).message).toContain('sub-partes');
     });
 
-    describe('when the check itself fails', () => {
-      it.each([
-        ['a 500', serverError],
-        ['a network failure (status 0)', { status: 0, statusText: 'Unknown Error' }],
-      ])('does not delete on %s and propagates the HTTP error', (_label, status) => {
-        subscribe(service.delete('4'));
-
-        httpMock.expectOne(partsUrl).flush(null, status);
-
-        expect(error).toBeInstanceOf(HttpErrorResponse);
-        expect((error as HttpErrorResponse).status).toBe(status.status);
-        expect(error).not.toBeInstanceOf(PartHasChildrenError);
-        httpMock.expectNone(`${partsUrl}/4`);
-      });
-    });
-
-    it('propagates a failure of the DELETE itself (e.g. already deleted → 404)', () => {
-      subscribe(service.delete('4'));
-
-      httpMock.expectOne(partsUrl).flush([part('4', null)]);
-      httpMock.expectOne(`${partsUrl}/4`).flush(null, notFound);
-
-      expect((error as HttpErrorResponse).status).toBe(404);
-    });
-
-    it.each([
-      ['an empty id', ''],
-      ['a blank id', '  '],
-    ])('rejects %s with InvalidPartError and sends nothing', (_label, id) => {
+    it.each(['', '   '])('fails with InvalidPartError for the blank id %j, no request', (id) => {
+      expect.assertions(1);
       subscribe(service.delete(id));
 
       expect(error).toBeInstanceOf(InvalidPartError);
       expectNoRequest();
     });
 
+    it.each([
+      ['already deleted (404)', notFound],
+      ['a server error', serverError],
+    ])('propagates %s untouched', (_label, response) => {
+      expect.assertions(2);
+      subscribe(service.delete('5'));
+
+      httpMock.expectOne(`${partsUrl}/5`).flush('x', response);
+
+      expect(error).toBeInstanceOf(HttpErrorResponse);
+      expect(error).not.toBeInstanceOf(PartHasChildrenError);
+    });
+
     it('encodes the id in the URL', () => {
       subscribe(service.delete('a/b'));
 
-      httpMock.expectOne(partsUrl).flush([part('a/b', null)]);
-      httpMock.expectOne(`${partsUrl}/a%2Fb`).flush(part('a/b', null));
+      httpMock.expectOne(`${partsUrl}/a%2Fb`).flush(null);
     });
   });
 });

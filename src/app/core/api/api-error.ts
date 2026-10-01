@@ -65,5 +65,13 @@ export function errorMessage(error: unknown, fallback: string): string {
   const message = record?.['message'];
   const body = readApiError(record?.['error']);
 
-  return body?.message || (typeof message === 'string' && message ? message : fallback);
+  if (body?.message) {
+    return body.message;
+  }
+
+  // Un `AppHttpError` con `code` salió de un cuerpo de la API: su `message` es el de la API. Sin
+  // `code`, el `message` es el genérico del estado (o el de `HttpErrorResponse`): no se muestra.
+  return typeof record?.['code'] === 'string' && typeof message === 'string' && message
+    ? message
+    : fallback;
 }

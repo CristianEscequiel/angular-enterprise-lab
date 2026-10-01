@@ -80,7 +80,7 @@ describe('app routes', () => {
     getById: vi.fn(),
   };
 
-  const machine: Machine = { id: 'srv-1', code: 'ENV-01', name: 'Envasadora' };
+  const machine: Machine = { id: 'srv-1', code: 'ENV-01', name: 'Envasadora', partCount: 0 };
   const machinePart: Part = { id: 'p1', machineId: 'srv-1', parentId: null, name: 'Mesa' };
   const machinesServiceMock = {
     getAll: vi.fn(),

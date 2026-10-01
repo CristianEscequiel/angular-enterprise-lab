@@ -6,7 +6,7 @@ import {
 } from './machine.model';
 
 describe('machine model', () => {
-  const valid: Machine = { id: '1', code: 'ENV-01', name: 'Envasadora línea 1' };
+  const valid: Machine = { id: '1', code: 'ENV-01', name: 'Envasadora línea 1', partCount: 0 };
 
   const without = (field: keyof Machine) =>
     Object.fromEntries(Object.entries(valid).filter(([key]) => key !== field));
