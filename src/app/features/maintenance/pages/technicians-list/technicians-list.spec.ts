@@ -145,6 +145,34 @@ describe('TechniciansList', () => {
     fixture.detectChanges();
   }
 
+  // Spec 014 (REQ-3.1, 3.4): bajo md la fila se muestra como tarjeta. El CSS toma la etiqueta de
+  // cada valor de `data-label`, que tiene que coincidir con el encabezado de su columna.
+  describe('card layout on small screens', () => {
+    it('labels every cell with the header of its column', () => {
+      startAs();
+
+      const headers = Array.from<HTMLElement>(
+        fixture.nativeElement.querySelectorAll('thead th'),
+      ).map((header) => header.textContent?.trim());
+      const cells = Array.from<HTMLElement>(
+        fixture.nativeElement.querySelector('tbody tr').querySelectorAll('td'),
+      );
+
+      expect(cells.map((cell) => cell.getAttribute('data-label'))).toEqual(headers);
+    });
+
+    it('groups every action of the row in a wrapping container', () => {
+      startAs();
+
+      const row: HTMLElement = fixture.nativeElement.querySelector('tbody tr');
+      const buttons = row.querySelectorAll('button');
+
+      expect(buttons.length).toBeGreaterThan(0);
+      expect(row.querySelectorAll('.row-actions button')).toHaveLength(buttons.length);
+      expect(row.querySelector('td.row-actions-cell')).not.toBeNull();
+    });
+  });
+
   describe('listing', () => {
     it('shows legajo, name, specialty and team type of every technician', () => {
       expect.assertions(4);

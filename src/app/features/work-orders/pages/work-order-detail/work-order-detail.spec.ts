@@ -140,6 +140,93 @@ describe('WorkOrderDetail', () => {
     });
   });
 
+  // Spec 014 (REQ-4.4, 4.5): el detalle se lee de arriba abajo en un orden fijo.
+  describe('layout (spec 014)', () => {
+    const text = (): string => (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
+    const order = { ...mockWorkOrder, createdAt: '2026-09-20T10:30:00.000Z' };
+    const note = {
+      comment: 'Se reemplazó el rodamiento delantero.',
+      authorId: '2',
+      authorName: 'Técnico Mecánico de Guardia',
+      at: '2026-09-25T15:00:00.000Z',
+    };
+
+    const precedes = (first: Element, second: Element): boolean =>
+      Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+    it('opens with the order number and its status, then the title, then the facts', async () => {
+      workOrdersServiceMock.getById.mockReturnValue(of(order));
+      await createComponent();
+
+      const summary = fixture.nativeElement.querySelector('.order-detail__summary') as Element;
+      const title = fixture.nativeElement.querySelector('h2.card__header') as Element;
+      const facts = fixture.nativeElement.querySelector('.card__content') as Element;
+
+      expect(summary.textContent).toContain('Orden N.º 1');
+      expect(precedes(summary, title)).toBe(true);
+      expect(precedes(title, facts)).toBe(true);
+    });
+
+    it('lists machine, priority, type, creation date and description in that order', async () => {
+      workOrdersServiceMock.getById.mockReturnValue(of(order));
+      await createComponent();
+
+      const body = text();
+      const positions = [
+        'Máquina / parte:',
+        'Prioridad: Media',
+        'Tipo: Pronto intervención',
+        'Creada: 20/09/2026',
+        order.description,
+      ].map((fragment) => body.indexOf(fragment));
+
+      expect(positions.every((position) => position >= 0)).toBe(true);
+      expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    });
+
+    it.each<[string, string, string]>([
+      ['pending', 'Pendiente', 'badge--warning'],
+      ['in-progress', 'En progreso', 'badge--info'],
+      ['completed', 'Completada', 'badge--success'],
+      ['cancelled', 'Cancelada', 'badge--error'],
+    ])(
+      'shows a %s order as "%s" in a badge, not as the raw status',
+      async (status, label, cssClass) => {
+        workOrdersServiceMock.getById.mockReturnValue(of({ ...order, status }));
+        await createComponent();
+
+        const badge = fixture.nativeElement.querySelector('.order-detail__summary .badge');
+        expect(badge?.textContent?.trim()).toBe(label);
+        expect(badge?.classList).toContain(cssClass);
+        expect(text()).not.toContain(`Estado: ${status}`);
+      },
+    );
+
+    it('shows the closing note as its own labelled block after the order facts', async () => {
+      workOrdersServiceMock.getById.mockReturnValue(
+        of({ ...order, status: 'completed', closingNote: note }),
+      );
+      await createComponent();
+
+      const closing = fixture.nativeElement.querySelector('#closing-note') as HTMLElement;
+      const facts = fixture.nativeElement.querySelector('.card__content') as Element;
+      const title = fixture.nativeElement.querySelector(
+        `#${closing.getAttribute('aria-labelledby')}`,
+      );
+
+      expect(closing.tagName).toBe('SECTION');
+      expect(title?.textContent).toContain('Cierre de la orden');
+      expect(precedes(facts, closing)).toBe(true);
+    });
+
+    it('shows no closing block on an order that was not closed', async () => {
+      workOrdersServiceMock.getById.mockReturnValue(of(order));
+      await createComponent();
+
+      expect(fixture.nativeElement.querySelector('.order-detail__closing')).toBeNull();
+    });
+  });
+
   describe('who took it and how it was closed (spec 013d)', () => {
     const text = (): string => (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
     const taker = { id: '2', name: 'Técnico Mecánico de Guardia', at: '2026-09-25T13:00:00.000Z' };

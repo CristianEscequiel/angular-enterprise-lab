@@ -4,8 +4,24 @@
   box-sizing: border-box;
 }
 
-html {
-  scroll-behavior: smooth;
+// El scroll suave solo si el usuario no pidió menos movimiento (spec 014, REQ-1.4).
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+// Con `reduce` se apagan transiciones y animaciones en toda la app, spinner incluido. El
+// `!important` es deliberado: tiene que ganarle a cualquier regla de componente.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 body {

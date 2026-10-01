@@ -1,35 +1,39 @@
 <form class="form" [formGroup]="workOrderForm" (ngSubmit)="onSubmit()">
-  <label class="form-label" for="title">Título:</label>
-  <input
-    class="form-control"
-    id="title"
-    formControlName="title"
-    required
-    [class.form-control--invalid]="isInvalid('title')"
-    [attr.aria-invalid]="isInvalid('title')"
-    [attr.aria-describedby]="isInvalid('title') ? 'title-error' : null"
-  />
-  @if (isInvalid('title')) {
-    <div class="form-error" id="title-error">
-      El título es obligatorio y debe tener al menos 3 caracteres.
-    </div>
-  }
+  <div class="form-group">
+    <label class="form-label" for="title">Título:</label>
+    <input
+      class="form-control"
+      id="title"
+      formControlName="title"
+      required
+      [class.form-control--invalid]="isInvalid('title')"
+      [attr.aria-invalid]="isInvalid('title')"
+      [attr.aria-describedby]="isInvalid('title') ? 'title-error' : null"
+    />
+    @if (isInvalid('title')) {
+      <div class="form-error" id="title-error">
+        El título es obligatorio y debe tener al menos 3 caracteres.
+      </div>
+    }
+  </div>
 
-  <label class="form-label" for="description">Descripción:</label>
-  <textarea
-    class="form-control"
-    id="description"
-    formControlName="description"
-    required
-    [class.form-control--invalid]="isInvalid('description')"
-    [attr.aria-invalid]="isInvalid('description')"
-    [attr.aria-describedby]="isInvalid('description') ? 'description-error' : null"
-  ></textarea>
-  @if (isInvalid('description')) {
-    <div class="form-error" id="description-error">
-      La descripción es obligatoria y debe tener al menos 10 caracteres.
-    </div>
-  }
+  <div class="form-group">
+    <label class="form-label" for="description">Descripción:</label>
+    <textarea
+      class="form-control"
+      id="description"
+      formControlName="description"
+      required
+      [class.form-control--invalid]="isInvalid('description')"
+      [attr.aria-invalid]="isInvalid('description')"
+      [attr.aria-describedby]="isInvalid('description') ? 'description-error' : null"
+    ></textarea>
+    @if (isInvalid('description')) {
+      <div class="form-error" id="description-error">
+        La descripción es obligatoria y debe tener al menos 10 caracteres.
+      </div>
+    }
+  </div>
 
   @if (lockMachine()) {
     <div class="form-group">
@@ -55,60 +59,71 @@
       <div class="form-error" id="machine-error">Seleccioná una máquina.</div>
     }
 
-    <label class="form-label" for="comment">Comentario de la falla (opcional):</label>
-    <textarea
-      class="form-control"
-      id="comment"
-      formControlName="comment"
-      [attr.maxlength]="commentMaxLength"
-      [class.form-control--invalid]="isInvalid('comment')"
-      [attr.aria-invalid]="isInvalid('comment')"
-      [attr.aria-describedby]="isInvalid('comment') ? 'comment-error' : null"
-    ></textarea>
-    @if (isInvalid('comment')) {
-      <div class="form-error" id="comment-error">
-        El comentario no puede superar los {{ commentMaxLength }} caracteres.
-      </div>
-    }
+    <div class="form-group">
+      <label class="form-label" for="comment">Comentario de la falla (opcional):</label>
+      <textarea
+        class="form-control"
+        id="comment"
+        formControlName="comment"
+        [attr.maxlength]="commentMaxLength"
+        [class.form-control--invalid]="isInvalid('comment')"
+        [attr.aria-invalid]="isInvalid('comment')"
+        [attr.aria-describedby]="isInvalid('comment') ? 'comment-error' : null"
+      ></textarea>
+      @if (isInvalid('comment')) {
+        <div class="form-error" id="comment-error">
+          El comentario no puede superar los {{ commentMaxLength }} caracteres.
+        </div>
+      }
+    </div>
   }
 
-  <label class="form-label" for="type">Tipo de orden:</label>
-  <select
-    class="form-control"
-    id="type"
-    formControlName="type"
-    required
-    [class.form-control--invalid]="isInvalid('type')"
-    [attr.aria-invalid]="isInvalid('type')"
-    [attr.aria-describedby]="isInvalid('type') ? 'type-error' : null"
-  >
-    @for (type of allowedTypes(); track type) {
-      <option [value]="type">{{ typeLabels[type] }}</option>
-    }
-  </select>
-  @if (isInvalid('type')) {
-    <div class="form-error" id="type-error">El tipo de orden es obligatorio.</div>
-  }
+  <!-- Tipo y prioridad van lado a lado desde md (spec 014, REQ-4.1). -->
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="type">Tipo de orden:</label>
+      <select
+        class="form-control"
+        id="type"
+        formControlName="type"
+        required
+        [class.form-control--invalid]="isInvalid('type')"
+        [attr.aria-invalid]="isInvalid('type')"
+        [attr.aria-describedby]="isInvalid('type') ? 'type-error' : null"
+      >
+        @for (type of allowedTypes(); track type) {
+          <option [value]="type">{{ typeLabels[type] }}</option>
+        }
+      </select>
+      @if (isInvalid('type')) {
+        <div class="form-error" id="type-error">El tipo de orden es obligatorio.</div>
+      }
+    </div>
 
-  <label class="form-label" for="priority">Prioridad:</label>
-  <select
-    class="form-control"
-    id="priority"
-    formControlName="priority"
-    required
-    [class.form-control--invalid]="isInvalid('priority')"
-    [attr.aria-invalid]="isInvalid('priority')"
-    [attr.aria-describedby]="isInvalid('priority') ? 'priority-error' : null"
-  >
-    <option value="low">Baja</option>
-    <option value="medium">Media</option>
-    <option value="high">Alta</option>
-  </select>
-  @if (isInvalid('priority')) {
-    <div class="form-error" id="priority-error">La prioridad es obligatoria.</div>
-  }
+    <div class="form-group">
+      <label class="form-label" for="priority">Prioridad:</label>
+      <select
+        class="form-control"
+        id="priority"
+        formControlName="priority"
+        required
+        [class.form-control--invalid]="isInvalid('priority')"
+        [attr.aria-invalid]="isInvalid('priority')"
+        [attr.aria-describedby]="isInvalid('priority') ? 'priority-error' : null"
+      >
+        <option value="low">Baja</option>
+        <option value="medium">Media</option>
+        <option value="high">Alta</option>
+      </select>
+      @if (isInvalid('priority')) {
+        <div class="form-error" id="priority-error">La prioridad es obligatoria.</div>
+      }
+    </div>
+  </div>
 
-  <app-button type="submit" size="full" variant="primary" [disabled]="submitting()">{{
-    submitting() ? 'Guardando...' : 'Guardar orden de trabajo'
-  }}</app-button>
+  <div class="form-actions">
+    <app-button type="submit" variant="primary" [disabled]="submitting()">{{
+      submitting() ? 'Guardando...' : 'Guardar orden de trabajo'
+    }}</app-button>
+  </div>
 </form>

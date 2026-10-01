@@ -1,13 +1,14 @@
-import { Component, computed, DOCUMENT, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { AuthService } from '@core/auth/auth.service';
+import { BottomNav } from '../bottom-nav/bottom-nav';
 import { Header } from '../header/header';
 import { Sidebar } from '../sidebar/sidebar';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, Header, Sidebar],
+  imports: [RouterOutlet, Header, Sidebar, BottomNav],
   templateUrl: './app-shell.html',
   styleUrl: './app-shell.scss',
 })
@@ -16,8 +17,9 @@ export class AppShell {
   private readonly router = inject(Router);
 
   readonly userName = computed(() => this.authService.currentUser()?.displayName ?? null);
+  // Sin sesión (p. ej. /login) no hay navegación: ni sidebar ni barra inferior.
+  readonly isAuthenticated = this.authService.isAuthenticated;
 
-  sidebarOpen = signal(false);
   toastOpen = signal(false);
   toastType = signal<'success' | 'error' | 'warning'>('success');
   toastTitle = signal('');
@@ -32,21 +34,6 @@ export class AppShell {
 
   closeToast(): void {
     this.toastOpen.set(false);
-  }
-  // Mismo patrón que Modal (spec 005): se recuerda quién abrió el panel
-  // para devolverle el foco al cerrarlo, en vez de perderlo en el body.
-  private readonly document = inject(DOCUMENT);
-  private previouslyFocusedElement: HTMLElement | null = null;
-
-  openSidebar() {
-    this.previouslyFocusedElement = this.document.activeElement as HTMLElement | null;
-    this.sidebarOpen.set(true);
-  }
-
-  closeSidebar() {
-    this.sidebarOpen.set(false);
-    this.previouslyFocusedElement?.focus();
-    this.previouslyFocusedElement = null;
   }
 
   // Header solo emite; acá se decide qué implica cerrar sesión.

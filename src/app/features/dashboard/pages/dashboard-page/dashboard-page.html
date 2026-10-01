@@ -1,4 +1,82 @@
-<section>
-  <h1>Dashboard</h1>
-  <p>Resumen general de mantenimiento.</p>
+<section class="shift">
+  <h1>Turno de hoy</h1>
+
+  @if (loading()) {
+    <p class="shift__status" role="status">Cargando el turno…</p>
+  } @else if (error()) {
+    <app-alert
+      title="No pudimos cargar el turno"
+      message="No se pudieron traer las órdenes de trabajo. Intentá nuevamente."
+      variant="error"
+    />
+    <app-button variant="primary" (clicked)="load()"> Reintentar </app-button>
+  } @else {
+    <!-- Tres columnas: las cifras se ven siempre; las listas de órdenes, desde md (REQ-5.9, 5.10). -->
+    <div class="shift__board">
+      <section class="shift__column shift__column--pending" aria-labelledby="shift-pending-title">
+        <h2 class="shift__column-title" id="shift-pending-title">Pendientes</h2>
+        <p class="shift__count u-tabular" id="shift-pending-count">{{ board().pending.length }}</p>
+        <p class="shift__detail" id="shift-pending-high">
+          {{ board().pendingHigh }} de prioridad alta
+        </p>
+        <ul class="shift__list">
+          @for (order of board().pending.slice(0, columnLimit); track order.id) {
+            <li>
+              <a [routerLink]="['/work-orders', order.id]">{{ order.title }}</a>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="shift__column shift__column--progress" aria-labelledby="shift-progress-title">
+        <h2 class="shift__column-title" id="shift-progress-title">En curso</h2>
+        <p class="shift__count u-tabular" id="shift-progress-count">
+          {{ board().inProgress.length }}
+        </p>
+        <p class="shift__detail" id="shift-progress-mine">
+          {{ board().mine.length }} {{ board().mine.length === 1 ? 'es tuya' : 'son tuyas' }}
+        </p>
+        <ul class="shift__list">
+          @for (order of board().inProgress.slice(0, columnLimit); track order.id) {
+            <li>
+              <a [routerLink]="['/work-orders', order.id]">{{ order.title }}</a>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="shift__column shift__column--closed" aria-labelledby="shift-closed-title">
+        <h2 class="shift__column-title" id="shift-closed-title">Cerradas hoy</h2>
+        <p class="shift__count u-tabular" id="shift-closed-count">
+          {{ board().closedToday.length }}
+        </p>
+        <ul class="shift__list">
+          @for (order of board().closedToday.slice(0, columnLimit); track order.id) {
+            <li>
+              <a [routerLink]="['/work-orders', order.id]">{{ order.title }}</a>
+            </li>
+          }
+        </ul>
+      </section>
+    </div>
+
+    <section class="shift__mine" aria-labelledby="shift-mine-title">
+      <h2 id="shift-mine-title">Mis órdenes en curso</h2>
+      @if (board().mine.length > 0) {
+        <ul class="shift__mine-list">
+          @for (order of board().mine; track order.id) {
+            <li>
+              <a class="shift__mine-link" [routerLink]="['/work-orders', order.id]">
+                <span class="shift__mine-title">{{ order.title }}</span>
+                <span class="shift__mine-machine">{{ order.machineRef.breadcrumb }}</span>
+              </a>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="shift__empty" id="shift-mine-empty">No tenés órdenes en curso.</p>
+        <a class="btn btn--primary" routerLink="/work-orders">Ver órdenes pendientes</a>
+      }
+    </section>
+  }
 </section>

@@ -20,36 +20,39 @@ describe('Header', () => {
     expect(component).toBeTruthy();
   });
 
-  function toggleButton(): HTMLButtonElement {
-    const button: HTMLButtonElement | null = fixture.nativeElement.querySelector('button');
-    if (!button) {
-      throw new Error('No se renderizó el botón de menú');
-    }
-    return button;
-  }
-
-  it('exposes aria-expanded reflecting the sidebarOpen input', () => {
-    fixture.detectChanges();
-    expect(toggleButton().getAttribute('aria-expanded')).toBe('false');
-
-    fixture.componentRef.setInput('sidebarOpen', true);
-    fixture.detectChanges();
-    expect(toggleButton().getAttribute('aria-expanded')).toBe('true');
-  });
-
-  it('emits viewSidebar when the toggle is clicked', () => {
-    expect.assertions(1);
-    fixture.detectChanges();
-    component.viewSidebar.subscribe(() => expect(true).toBe(true));
-    toggleButton().click();
-  });
-
   function logoutButton(): HTMLButtonElement | null {
     const buttons: HTMLButtonElement[] = Array.from(
       fixture.nativeElement.querySelectorAll('button'),
     );
     return buttons.find((button) => button.textContent?.includes('Cerrar sesión')) ?? null;
   }
+
+  // Spec 014 (REQ-6.2): cada página tiene su h1; el nombre del sitio no compite con él.
+  describe('site title', () => {
+    it('shows the site name as a paragraph, not as a heading', () => {
+      expect.assertions(3);
+      fixture.detectChanges();
+
+      const title = fixture.nativeElement.querySelector('.header__title');
+      expect(title?.tagName).toBe('P');
+      expect(title?.textContent).toContain('Centro de Gestión de Mantenimiento');
+      expect(fixture.nativeElement.querySelector('h1, h2, h3, h4, h5, h6')).toBeNull();
+    });
+  });
+
+  // El menú dejó de ser un drawer: la navegación es el sidebar (>= md) o la barra inferior (mobile).
+  describe('navigation', () => {
+    it('has no menu toggle, with or without a session', () => {
+      expect.assertions(3);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('button')).toBeNull();
+
+      fixture.componentRef.setInput('userName', 'Administrador');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[aria-controls]')).toBeNull();
+      expect(fixture.nativeElement.querySelector('[aria-expanded]')).toBeNull();
+    });
+  });
 
   describe('session area', () => {
     it('shows neither the user name nor the logout button without a session', () => {
@@ -85,13 +88,6 @@ describe('Header', () => {
       component.logout.subscribe(() => expect(true).toBe(true));
 
       logoutButton()?.click();
-    });
-
-    it('keeps the sidebar toggle as the first button', () => {
-      fixture.componentRef.setInput('userName', 'Administrador');
-      fixture.detectChanges();
-
-      expect(toggleButton().getAttribute('aria-controls')).toBe('app-sidebar');
     });
   });
 });

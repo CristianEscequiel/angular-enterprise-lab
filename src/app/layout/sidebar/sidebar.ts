@@ -1,13 +1,11 @@
-import { Component, computed, inject, output } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 
-import { AuthService } from '@core/auth/auth.service';
-import { canManageMachines } from '@features/machines/models/machines.permissions';
-import {
-  canManageTeams,
-  canViewTechnicians,
-} from '@features/maintenance/models/maintenance.permissions';
+import { injectNavItems } from '../nav-items';
 
+// Navegación de escritorio (>= md): siempre visible, sin toggle. En mobile la reemplaza la barra
+// inferior; cuál de las dos se ve lo decide el CSS. Las secciones visibles (y los permisos que las
+// filtran) viven en nav-items, compartidas con la barra inferior.
 @Component({
   selector: 'app-sidebar',
   imports: [RouterLink, RouterLinkActive],
@@ -15,18 +13,5 @@ import {
   styleUrl: './sidebar.scss',
 })
 export class Sidebar {
-  private readonly authService = inject(AuthService);
-
-  closed = output<void>();
-
-  // Solo se ofrecen las secciones que la política le permite al rol. Es UX: el permiso real lo
-  // exige el guard de cada ruta (un link oculto no protege nada).
-  readonly showTechnicians = computed(() => canViewTechnicians(this.authService.currentUser()));
-  readonly showTeams = computed(() => canManageTeams(this.authService.currentUser()));
-  // Máquinas y su árbol de partes: Administrador y TeamLeader, con el mismo nivel de permiso.
-  readonly showMachines = computed(() => canManageMachines(this.authService.currentUser()));
-
-  closeSidebar(): void {
-    this.closed.emit();
-  }
+  readonly navItems = injectNavItems();
 }

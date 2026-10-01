@@ -1,55 +1,12 @@
-<aside id="app-sidebar" class="sidebar-layout__sidebar sidebar">
-  <button
-    #closeButton
-    class="btn btn--close"
-    type="button"
-    aria-label="Cerrar menú de navegación"
-    (click)="closeSidebar()"
-  >
-    ✕
-  </button>
-  <p class="u-text-muted pb-md">Menú</p>
-
+<aside class="sidebar">
   <nav class="sidebar__nav" aria-label="Navegación principal">
-    <a
-      class="sidebar__link"
-      routerLink="/dashboard"
-      routerLinkActive="sidebar__link--active"
-      ariaCurrentWhenActive="page"
-      >Inicio</a
-    >
-    <a
-      class="sidebar__link"
-      routerLink="/work-orders"
-      routerLinkActive="sidebar__link--active"
-      ariaCurrentWhenActive="page"
-      >Órdenes</a
-    >
-    @if (showTechnicians()) {
+    @for (item of navItems(); track item.path) {
       <a
         class="sidebar__link"
-        routerLink="/maintenance/technicians"
+        [routerLink]="item.path"
         routerLinkActive="sidebar__link--active"
         ariaCurrentWhenActive="page"
-        >Técnicos</a
-      >
-    }
-    @if (showTeams()) {
-      <a
-        class="sidebar__link"
-        routerLink="/maintenance/teams"
-        routerLinkActive="sidebar__link--active"
-        ariaCurrentWhenActive="page"
-        >Equipos</a
-      >
-    }
-    @if (showMachines()) {
-      <a
-        class="sidebar__link"
-        routerLink="/machines"
-        routerLinkActive="sidebar__link--active"
-        ariaCurrentWhenActive="page"
-        >Máquinas</a
+        >{{ item.label }}</a
       >
     }
   </nav>

@@ -3,9 +3,9 @@
 
   <p class="u-sr-only" aria-live="polite" role="status">{{ resultsAnnouncement() }}</p>
 
-  <div class="d-flex flex-wrap justify-between gap-md py-lg">
+  <div class="list-toolbar">
     <input
-      class="form-control"
+      class="form-control list-toolbar__search"
       type="search"
       [formControl]="searchControl"
       placeholder="Buscar por legajo o nombre"
@@ -49,32 +49,34 @@
         <tbody>
           @for (technician of visibleTechnicians(); track technician.id) {
             <tr>
-              <td>{{ technician.legajo }}</td>
-              <td>{{ fullName(technician) }}</td>
-              <td>{{ specialtyLabels[technician.specialty] }}</td>
-              <td>{{ teamTypeLabels[technician.teamType] }}</td>
+              <td data-label="Legajo">{{ technician.legajo }}</td>
+              <td data-label="Nombre">{{ fullName(technician) }}</td>
+              <td data-label="Especialidad">{{ specialtyLabels[technician.specialty] }}</td>
+              <td data-label="Tipo de equipo">{{ teamTypeLabels[technician.teamType] }}</td>
               @if (canEdit() || canDelete()) {
-                <td class="d-flex justify-center gap-sm">
-                  @if (canEdit()) {
-                    <app-button
-                      size="sm"
-                      variant="secondary"
-                      [ariaLabel]="'Editar ' + fullName(technician)"
-                      (clicked)="editTechnician(technician.legajo)"
-                    >
-                      Editar
-                    </app-button>
-                  }
-                  @if (canDelete()) {
-                    <app-button
-                      size="sm"
-                      variant="danger"
-                      [ariaLabel]="'Eliminar ' + fullName(technician)"
-                      (clicked)="openDeleteModal(technician)"
-                    >
-                      Eliminar
-                    </app-button>
-                  }
+                <td class="row-actions-cell" data-label="Acciones">
+                  <div class="row-actions">
+                    @if (canEdit()) {
+                      <app-button
+                        size="sm"
+                        variant="secondary"
+                        [ariaLabel]="'Editar ' + fullName(technician)"
+                        (clicked)="editTechnician(technician.legajo)"
+                      >
+                        Editar
+                      </app-button>
+                    }
+                    @if (canDelete()) {
+                      <app-button
+                        size="sm"
+                        variant="danger"
+                        [ariaLabel]="'Eliminar ' + fullName(technician)"
+                        (clicked)="openDeleteModal(technician)"
+                      >
+                        Eliminar
+                      </app-button>
+                    }
+                  </div>
                 </td>
               }
             </tr>

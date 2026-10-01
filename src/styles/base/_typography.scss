@@ -11,6 +11,11 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+// Códigos de orden y conteos: dígitos de ancho fijo alinean columnas y evitan saltos.
+.u-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
 h1,
 h2,
 h3,

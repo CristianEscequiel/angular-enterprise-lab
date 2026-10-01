@@ -1,76 +1,50 @@
 @use '../abstracts' as a;
 
+// Sidebar de escritorio (>= md). Siempre visible: sin toggle, sin backdrop, sin animación de
+// entrada. El shell decide cuándo se muestra (`.shell__sidebar`); acá solo cómo se ve.
 .sidebar {
-  padding: a.$spacing-lg;
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: a.$radius-lg;
   position: sticky;
   top: 0;
-  height: 100%;
-  animation: sidebar-slide-in 0.5s ease;
-}
 
-@include a.respond-below(a.$breakpoint-md) {
-  .sidebar {
-    position: fixed;
-    inset: 0 auto 0 0;
-    z-index: a.$z-index-modal;
+  height: 100dvh;
+  padding: a.$spacing-md;
+  overflow-y: auto;
 
-    width: min(20rem, 85vw);
-    height: 100dvh;
-
-    border-radius: 0;
-    box-shadow: a.$shadow-lg;
-  }
-
-  .sidebar-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: calc(a.$z-index-modal - 1);
-
-    background-color: var(--color-overlay);
-  }
-}
-
-@include a.respond-above(a.$breakpoint-md) {
-  .sidebar-backdrop {
-    display: none;
-  }
+  color: #ffffff;
+  background-color: var(--color-chrome);
 }
 
 .sidebar__nav {
   display: flex;
   flex-direction: column;
-  gap: a.$spacing-sm;
+  gap: a.$spacing-xs;
 }
 
 .sidebar__link {
+  display: flex;
+  align-items: center;
+
+  min-height: 2.75rem;
   padding: a.$spacing-sm a.$spacing-md;
+
+  color: #ffffff;
+  // La sección activa se marca con una barra de señal y con peso, no solo con color.
+  border-left: 4px solid transparent;
   border-radius: a.$radius-md;
-  color: var(--color-text);
   text-decoration: none;
 
-  @include a.focus-visible;
-
   &:hover {
-    background-color: var(--color-surface-hover);
+    background-color: rgb(255 255 255 / 10%);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-signal);
+    outline-offset: 2px;
   }
 
   &--active {
-    color: var(--color-primary);
-    background-color: var(--color-primary-subtle);
-  }
-}
-
-@keyframes sidebar-slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(-100%);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
+    background-color: rgb(255 255 255 / 14%);
+    border-left-color: var(--color-signal);
+    font-weight: a.$font-weight-bold;
   }
 }

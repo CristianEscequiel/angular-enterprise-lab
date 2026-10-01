@@ -1,0 +1,48 @@
+@use '../abstracts' as a;
+
+// Barra de navegación inferior (mobile, < md): fija al pie, al alcance del pulgar. Desde md la
+// reemplaza el sidebar. Cada destino ocupa el alto completo de la barra (64px), por encima del
+// objetivo táctil de 44px.
+.bottom-nav {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: a.$z-index-header;
+
+  display: flex;
+
+  height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+
+  background-color: var(--color-chrome);
+
+  @include a.respond-above(a.$breakpoint-md) {
+    display: none;
+  }
+}
+
+.bottom-nav__link {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 0;
+  padding-inline: 2px;
+
+  color: #ffffff;
+  // La sección activa se marca con una franja de señal arriba y con peso, no solo con color.
+  border-top: 4px solid transparent;
+  font-size: 0.8125rem;
+  text-align: center;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-signal);
+    outline-offset: -4px;
+  }
+
+  &--active {
+    background-color: rgb(255 255 255 / 14%);
+    border-top-color: var(--color-signal);
+    font-weight: a.$font-weight-bold;
+  }
+}

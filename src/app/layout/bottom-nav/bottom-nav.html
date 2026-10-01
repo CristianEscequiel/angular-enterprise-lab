@@ -1,0 +1,11 @@
+<nav class="bottom-nav" aria-label="Navegación principal">
+  @for (item of navItems(); track item.path) {
+    <a
+      class="bottom-nav__link"
+      [routerLink]="item.path"
+      routerLinkActive="bottom-nav__link--active"
+      ariaCurrentWhenActive="page"
+      >{{ item.label }}</a
+    >
+  }
+</nav>

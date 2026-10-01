@@ -32,45 +32,32 @@ describe('AppShell', () => {
     expect(component).toBeTruthy();
   });
 
-  it('returns focus to the header toggle after closing the sidebar', async () => {
+  // REQ-6.3: el skip link apunta al contenido y sigue existiendo con la navegación presente.
+  it('keeps the skip link pointing at the main content', () => {
+    expect.assertions(2);
     fixture.detectChanges();
 
-    const toggle: HTMLButtonElement | null = fixture.nativeElement.querySelector('header button');
-    if (!toggle) throw new Error('No se renderizó el botón de menú');
-
-    toggle.focus();
-    toggle.click();
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    const closeButton: HTMLButtonElement | null =
-      fixture.nativeElement.querySelector('.btn--close');
-    if (!closeButton) throw new Error('No se renderizó el botón de cerrar el sidebar');
-
-    closeButton.click();
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    expect(document.activeElement).toBe(toggle);
+    expect(fixture.nativeElement.querySelector('a.skip-link')?.getAttribute('href')).toBe(
+      '#main-content',
+    );
+    expect(fixture.nativeElement.querySelector('main#main-content')).not.toBeNull();
   });
 
-  it('closes the sidebar drawer when the backdrop is clicked', async () => {
+  // REQ-2.8: sin sesión no hay navegación.
+  it('renders neither the sidebar nor the bottom bar while there is no session', () => {
+    expect.assertions(4);
     fixture.detectChanges();
 
-    const toggle: HTMLButtonElement | null = fixture.nativeElement.querySelector('header button');
-    toggle?.click();
+    expect(fixture.nativeElement.querySelector('app-sidebar')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-bottom-nav')).toBeNull();
+    expect(fixture.nativeElement.querySelector('nav')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.shell--with-nav')).toBeNull();
+  });
+
+  it('has no menu toggle in the header, with or without a session', () => {
     fixture.detectChanges();
-    await fixture.whenStable();
 
-    expect(fixture.nativeElement.querySelector('.sidebar-backdrop')).toBeTruthy();
-
-    const backdrop: HTMLElement | null = fixture.nativeElement.querySelector('.sidebar-backdrop');
-    backdrop?.click();
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    expect(component.sidebarOpen()).toBe(false);
-    expect(fixture.nativeElement.querySelector('.sidebar-backdrop')).toBeNull();
+    expect(fixture.nativeElement.querySelector('header [aria-controls]')).toBeNull();
   });
 
   describe('session', () => {
@@ -120,6 +107,45 @@ describe('AppShell', () => {
       );
       return buttons.find((button) => button.textContent?.includes('Cerrar sesión')) ?? null;
     }
+
+    const navLabels = (selector: string): string[] =>
+      Array.from<HTMLAnchorElement>(
+        fixture.nativeElement.querySelectorAll(`${selector} nav a`),
+      ).map((anchor) => anchor.textContent?.trim() ?? '');
+
+    it('renders the sidebar and the bottom bar with the same sections once there is a session', () => {
+      expect.assertions(3);
+      fixture.detectChanges();
+
+      loginAs(admin);
+
+      expect(fixture.nativeElement.querySelector('.shell--with-nav')).not.toBeNull();
+      expect(navLabels('app-sidebar')).toEqual(['Inicio', 'Órdenes', 'Técnicos', 'Máquinas']);
+      expect(navLabels('app-bottom-nav')).toEqual(navLabels('app-sidebar'));
+    });
+
+    it('offers each role only its own sections in both navigations', () => {
+      expect.assertions(2);
+      fixture.detectChanges();
+
+      loginAs(tecnico);
+
+      expect(navLabels('app-sidebar')).toEqual(['Inicio', 'Órdenes']);
+      expect(navLabels('app-bottom-nav')).toEqual(['Inicio', 'Órdenes']);
+    });
+
+    it('removes both navigations when the session ends', () => {
+      expect.assertions(2);
+      vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      fixture.detectChanges();
+      loginAs(admin);
+
+      logoutButton()?.click();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('app-sidebar')).toBeNull();
+      expect(fixture.nativeElement.querySelector('app-bottom-nav')).toBeNull();
+    });
 
     it('shows no logout button while there is no session', () => {
       fixture.detectChanges();

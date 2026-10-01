@@ -700,6 +700,60 @@ describe('WorkOrdersList search and pagination', () => {
     });
   });
 
+  // Spec 014 (REQ-3.1, 3.3, 3.4): bajo md la fila se muestra como tarjeta. El CSS toma la etiqueta
+  // de cada valor de `data-label`, que tiene que coincidir con el encabezado de su columna.
+  describe('card layout on small screens', () => {
+    it('labels every cell with the header of its column', () => {
+      start();
+
+      const headers = Array.from<HTMLElement>(
+        fixture.nativeElement.querySelectorAll('thead th'),
+      ).map((header) => header.textContent?.trim());
+      const cells = Array.from<HTMLElement>(rowAt(0).querySelectorAll('td'));
+
+      expect(cells.map((cell) => cell.getAttribute('data-label'))).toEqual(headers);
+    });
+
+    it.each<[WorkOrderStatus, string]>([
+      ['pending', 'Pendiente'],
+      ['in-progress', 'En progreso'],
+      ['completed', 'Completada'],
+      ['cancelled', 'Cancelada'],
+    ])('stripes a %s order with its status class and keeps the badge text', (status, label) => {
+      service.search.mockReturnValueOnce(of(response(1, [{ ...order, status }])));
+      start();
+
+      expect(rowAt(0).classList).toContain(`row--${status}`);
+      expect(rowBadges(rowAt(0)).status.textContent?.trim()).toBe(label);
+    });
+
+    it('gives each order only the stripe of its own status', () => {
+      service.search.mockReturnValueOnce(
+        of(
+          response(1, [
+            { ...order, id: '1', status: 'pending' },
+            { ...order, id: '2', status: 'completed' },
+          ]),
+        ),
+      );
+      start();
+
+      expect(rowAt(0).classList).not.toContain('row--completed');
+      expect(rowAt(1).classList).toContain('row--completed');
+      expect(rowAt(1).classList).not.toContain('row--pending');
+    });
+
+    it('groups every action of the row in a wrapping container', () => {
+      start();
+
+      const buttons = rowAt(0).querySelectorAll('button');
+
+      expect(buttons.length).toBeGreaterThan(0);
+      expect(rowAt(0).querySelectorAll('.row-actions button')).toHaveLength(buttons.length);
+      expect(rowAt(0).querySelector('td.row-actions-cell')).not.toBeNull();
+    });
+  });
+
   describe('status and priority badges', () => {
     it.each<[WorkOrderStatus, string, string]>([
       ['pending', 'badge--warning', 'Pendiente'],

@@ -47,6 +47,8 @@ describe('app routes', () => {
   };
 
   const workOrdersServiceMock = {
+    // El dashboard (destino de las redirecciones por falta de permiso) carga las órdenes (spec 014).
+    getAll: vi.fn().mockReturnValue(of([order])),
     getById: vi.fn().mockReturnValue(of(order)),
     search: vi
       .fn()

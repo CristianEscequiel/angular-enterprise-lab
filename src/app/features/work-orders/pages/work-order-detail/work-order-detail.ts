@@ -3,13 +3,19 @@ import { Component, inject, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { WorkOrderLoader } from '../../data-access/work-order-loader';
-import { TYPE_LABELS } from '../../models/work-order.display';
+import {
+  PRIORITY_LABELS,
+  STATUS_BADGE,
+  STATUS_LABELS,
+  TYPE_LABELS,
+} from '../../models/work-order.display';
 import { Alert } from '@shared/components/alert/alert';
+import { Badge } from '@shared/components/badge/badge';
 import { Button } from '@shared/components/button/button';
 
 @Component({
   selector: 'app-work-order-detail',
-  imports: [Alert, Button, DatePipe],
+  imports: [Alert, Badge, Button, DatePipe],
   templateUrl: './work-order-detail.html',
   styleUrl: './work-order-detail.scss',
   providers: [WorkOrderLoader],
@@ -22,6 +28,9 @@ export class WorkOrderDetail implements OnInit {
   readonly workOrderDetail = this.loader.workOrder;
   readonly loadError = this.loader.error;
   readonly typeLabels = TYPE_LABELS;
+  readonly priorityLabels = PRIORITY_LABELS;
+  readonly statusLabels = STATUS_LABELS;
+  readonly statusBadge = STATUS_BADGE;
 
   ngOnInit() {
     const id = this.activatedRoute.snapshot.paramMap.get('id');
