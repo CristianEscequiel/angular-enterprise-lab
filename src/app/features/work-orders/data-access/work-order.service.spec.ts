@@ -18,7 +18,9 @@ import {
 import {
   InvalidClosingNoteError,
   WorkOrderLoadError,
+  WorkOrderMachineRefError,
   WorkOrderStateError,
+  WorkOrderValidationError,
   WorkOrdersCriteria,
   WorkOrdersService,
 } from './work-order.service';
@@ -195,98 +197,241 @@ describe('WorkOrdersService', () => {
     expect(result?.totalItems).toBe(250);
   });
 
-  it('update issues PUT /work-orders/:id with the whole order', () => {
-    let result: WorkOrder | undefined;
-    service.update('1', order).subscribe((value) => (result = value));
+  describe('update', () => {
+    const changes = {
+      title: 'Nuevo título',
+      description: 'Nueva descripción larga',
+      priority: 'high',
+    } as const;
 
-    const request = httpMock.expectOne(`${apiUrl}/1`);
-    expect(request.request.method).toBe('PUT');
-    expect(request.request.body).toEqual(order);
-    request.flush(order);
+    it('issues PUT /work-orders/:id with only title, description and priority', () => {
+      expect.assertions(4);
+      let result: WorkOrder | undefined;
+      service.update('1', changes).subscribe((value) => (result = value));
 
-    expect(result).toEqual(order);
+      const request = httpMock.expectOne(`${apiUrl}/1`);
+      expect(request.request.method).toBe('PUT');
+      expect(request.request.body).toEqual(changes);
+      request.flush({ ...order, ...changes });
+
+      expect(result).toMatchObject(changes);
+      expect(result?.id).toBe('1');
+    });
+
+    it('drops anything else the caller passes (type, machine, status, owner)', () => {
+      expect.assertions(1);
+      service
+        .update('1', { ...changes, ...order, status: 'completed', takenBy: null } as never)
+        .subscribe();
+
+      const request = httpMock.expectOne(`${apiUrl}/1`);
+      expect(Object.keys(request.request.body as object).sort()).toEqual([
+        'description',
+        'priority',
+        'title',
+      ]);
+      request.flush(order);
+    });
+
+    it('translates a 404 into WorkOrderLoadError "not-found"', () => {
+      expect.assertions(2);
+      let error: unknown;
+      service.update('1', changes).subscribe({ error: (e: unknown) => (error = e) });
+
+      httpMock
+        .expectOne(`${apiUrl}/1`)
+        .flush(
+          { code: 'NOT_FOUND', message: 'No existe' },
+          { status: 404, statusText: 'Not Found' },
+        );
+
+      expect(error).toBeInstanceOf(WorkOrderLoadError);
+      expect(error).toMatchObject({ kind: 'not-found' });
+    });
+
+    it('translates a 400 VALIDATION_ERROR into a WorkOrderValidationError with one message per field', () => {
+      expect.assertions(2);
+      let error: unknown;
+      service.update('1', changes).subscribe({ error: (e: unknown) => (error = e) });
+
+      httpMock.expectOne(`${apiUrl}/1`).flush(
+        {
+          code: 'VALIDATION_ERROR',
+          message: 'Datos inválidos',
+          details: { title: 'Debe tener entre 3 y 150 caracteres', priority: 7 },
+        },
+        { status: 400, statusText: 'Bad Request' },
+      );
+
+      expect(error).toBeInstanceOf(WorkOrderValidationError);
+      // Solo los mensajes de texto: un valor que no lo es se descarta.
+      expect((error as WorkOrderValidationError).fieldErrors).toEqual({
+        title: 'Debe tener entre 3 y 150 caracteres',
+      });
+    });
+
+    it('lets a 403 through untouched', () => {
+      expect.assertions(1);
+      let error: unknown;
+      service.update('1', changes).subscribe({ error: (e: unknown) => (error = e) });
+
+      httpMock.expectOne(`${apiUrl}/1`).flush(null, { status: 403, statusText: 'Forbidden' });
+
+      expect(error).toMatchObject({ status: 403 });
+    });
   });
 
-  it('delete issues DELETE /work-orders/:id', () => {
-    let completed = false;
-    service.delete('7').subscribe({ complete: () => (completed = true) });
+  describe('delete', () => {
+    it('issues DELETE /work-orders/:id', () => {
+      let completed = false;
+      service.delete('7').subscribe({ complete: () => (completed = true) });
 
-    const request = httpMock.expectOne(`${apiUrl}/7`);
-    expect(request.request.method).toBe('DELETE');
-    request.flush(null);
+      const request = httpMock.expectOne(`${apiUrl}/7`);
+      expect(request.request.method).toBe('DELETE');
+      request.flush(null);
 
-    expect(completed).toBe(true);
+      expect(completed).toBe(true);
+    });
+
+    it('translates a 404 into WorkOrderLoadError "not-found"', () => {
+      expect.assertions(1);
+      let error: unknown;
+      service.delete('7').subscribe({ error: (e: unknown) => (error = e) });
+
+      httpMock
+        .expectOne(`${apiUrl}/7`)
+        .flush({ code: 'NOT_FOUND', message: 'x' }, { status: 404, statusText: 'Not Found' });
+
+      expect(error).toBeInstanceOf(WorkOrderLoadError);
+    });
+
+    it('lets a 403 through untouched', () => {
+      expect.assertions(1);
+      let error: unknown;
+      service.delete('7').subscribe({ error: (e: unknown) => (error = e) });
+
+      httpMock.expectOne(`${apiUrl}/7`).flush(null, { status: 403, statusText: 'Forbidden' });
+
+      expect(error).toMatchObject({ status: 403 });
+    });
   });
-  it('create issues POST /work-orders carrying the order type together with pending status', () => {
-    expect.assertions(6);
+
+  describe('create', () => {
     const payload: WorkOrderCreateRequest = {
       title: 'Falla en cinta',
       description: 'La cinta transportadora se detuvo por completo.',
-      machineRef: MACHINE_REF_FIXTURE,
+      machineRef: { machineId: '1', partId: '3', comment: 'Vibración en el arranque' },
       type: 'pronto-intervencion',
       priority: 'high',
     };
-    let result: WorkOrder | undefined;
-    service.create(payload).subscribe((value) => (result = value));
 
-    const request = httpMock.expectOne(apiUrl);
-    const body = request.request.body as Record<string, unknown>;
-    expect(request.request.method).toBe('POST');
-    expect(body['type']).toBe('pronto-intervencion');
-    expect(body['status']).toBe('pending');
-    expect(body['title']).toBe(payload.title);
-    expect(typeof body['createdAt']).toBe('string');
-    request.flush({ ...order, ...payload });
-
-    expect(result?.type).toBe('pronto-intervencion');
-  });
-
-  it('create sends the machineRef intact, with breadcrumb and comment as separate fields', () => {
-    expect.assertions(4);
-    const machineRef = {
-      machineId: '1',
-      partId: '3',
-      breadcrumb: 'Envasadora línea 1 > Mesa de transporte > Cinta 1 > Motor de cinta',
-      comment: 'Vibración en el arranque',
-    };
-
-    service
-      .create({
-        title: 'Orden',
-        description: 'Descripción suficiente',
-        machineRef,
-        type: 'correctivo',
-        priority: 'low',
-      })
-      .subscribe();
-
-    const request = httpMock.expectOne(apiUrl);
-    const body = request.request.body as { machineRef: typeof machineRef };
-    expect(body.machineRef).toEqual(machineRef);
-    expect(body.machineRef.breadcrumb).not.toContain('Vibración');
-    expect(Object.keys(body)).not.toContain('asset');
-    expect(Object.keys(body)).not.toContain('comment');
-    request.flush({ ...order, machineRef });
-  });
-
-  it.each(['preventivo', 'correctivo', 'pronto-intervencion'] as const)(
-    'create keeps the %s type untouched in the request body',
-    (type) => {
-      service
-        .create({
-          title: 'Orden',
-          description: 'Descripción suficiente',
-          machineRef: MACHINE_REF_FIXTURE,
-          type,
-          priority: 'low',
-        })
-        .subscribe();
+    it('issues POST /work-orders with exactly what the user chose', () => {
+      expect.assertions(4);
+      let result: WorkOrder | undefined;
+      service.create(payload).subscribe((value) => (result = value));
 
       const request = httpMock.expectOne(apiUrl);
-      expect((request.request.body as { type: string }).type).toBe(type);
-      request.flush({ ...order, type });
-    },
-  );
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual(payload);
+      request.flush({
+        ...order,
+        ...payload,
+        machineRef: { ...MACHINE_REF_FIXTURE, ...payload.machineRef },
+      });
+
+      expect(result?.type).toBe('pronto-intervencion');
+      expect(result?.machineRef.breadcrumb).toBe(MACHINE_REF_FIXTURE.breadcrumb);
+    });
+
+    it('does not send status, createdAt nor breadcrumb: the server sets them', () => {
+      expect.assertions(3);
+      service.create(payload).subscribe();
+
+      const request = httpMock.expectOne(apiUrl);
+      const body = request.request.body as Record<string, unknown>;
+      expect(body).not.toHaveProperty('status');
+      expect(body).not.toHaveProperty('createdAt');
+      expect(body['machineRef']).not.toHaveProperty('breadcrumb');
+      request.flush(order);
+    });
+
+    it('keeps the failure comment as its own field, apart from the breadcrumb', () => {
+      expect.assertions(3);
+      service.create(payload).subscribe();
+
+      const request = httpMock.expectOne(apiUrl);
+      const body = request.request.body as { machineRef: Record<string, unknown> };
+      expect(body.machineRef['comment']).toBe('Vibración en el arranque');
+      expect(Object.keys(body)).not.toContain('comment');
+      expect(Object.keys(body)).not.toContain('asset');
+      request.flush(order);
+    });
+
+    it.each(['preventivo', 'correctivo', 'pronto-intervencion'] as const)(
+      'keeps the %s type untouched in the request body',
+      (type) => {
+        service.create({ ...payload, type }).subscribe();
+
+        const request = httpMock.expectOne(apiUrl);
+        expect((request.request.body as { type: string }).type).toBe(type);
+        request.flush({ ...order, type });
+      },
+    );
+
+    it.each(['MACHINE_NOT_FOUND', 'PART_NOT_FOUND', 'PART_OTHER_MACHINE'])(
+      'translates 400 %s into WorkOrderMachineRefError keeping the API message',
+      (code) => {
+        expect.assertions(3);
+        let error: unknown;
+        service.create(payload).subscribe({ error: (e: unknown) => (error = e) });
+
+        httpMock
+          .expectOne(apiUrl)
+          .flush(
+            { code, message: 'La parte 3 no existe' },
+            { status: 400, statusText: 'Bad Request' },
+          );
+
+        expect(error).toBeInstanceOf(WorkOrderMachineRefError);
+        expect(error).toMatchObject({ code, message: 'La parte 3 no existe' });
+        expect(error).not.toBeInstanceOf(WorkOrderValidationError);
+      },
+    );
+
+    it('translates 400 VALIDATION_ERROR into WorkOrderValidationError', () => {
+      expect.assertions(2);
+      let error: unknown;
+      service.create(payload).subscribe({ error: (e: unknown) => (error = e) });
+
+      httpMock.expectOne(apiUrl).flush(
+        {
+          code: 'VALIDATION_ERROR',
+          message: 'Datos inválidos',
+          details: { description: 'Debe tener entre 10 y 2000 caracteres' },
+        },
+        { status: 400, statusText: 'Bad Request' },
+      );
+
+      expect(error).toBeInstanceOf(WorkOrderValidationError);
+      expect((error as WorkOrderValidationError).fieldErrors).toEqual({
+        description: 'Debe tener entre 10 y 2000 caracteres',
+      });
+    });
+
+    it.each([
+      [403, 'Forbidden'],
+      [500, 'Server Error'],
+    ])('lets a %i through untouched', (status, statusText) => {
+      expect.assertions(2);
+      let error: unknown;
+      service.create(payload).subscribe({ error: (e: unknown) => (error = e) });
+
+      httpMock.expectOne(apiUrl).flush('x', { status, statusText });
+
+      expect(error).toMatchObject({ status });
+      expect(error).not.toBeInstanceOf(WorkOrderMachineRefError);
+    });
+  });
 
   // Tomar, cerrar y liberar (spec 013d). Toda transición LEE la orden fresca y solo después escribe.
   describe('state transitions', () => {

@@ -87,7 +87,8 @@ export function isWorkOrderClosingNote(value: unknown): value is WorkOrderClosin
   );
 }
 
-// Referencia de la orden al maestro de máquinas y partes (spec 013a). `breadcrumb` es un SNAPSHOT de
+// Referencia de la orden al maestro de máquinas y partes (spec 013a). `breadcrumb` lo arma el servidor
+// como un SNAPSHOT de
 // los nombres al crear la orden (máquina > nivel 1 > … > parte): no se recalcula, así que la orden
 // conserva el nombre que tenía la parte aunque luego se renombre en el maestro. `comment` describe la
 // falla en ese punto y va SEPARADO, nunca dentro del breadcrumb. `partId` en `null` es una
@@ -135,11 +136,26 @@ export interface WorkOrder {
   closingNote?: WorkOrderClosingNote;
 }
 
+// Lo que el cliente manda de la referencia al crear: el servidor resuelve la máquina y la parte y fija
+// el `breadcrumb`, así que no viaja.
+export type WorkOrderMachineRefInput = Pick<
+  WorkOrderMachineRef,
+  'machineId' | 'partId' | 'comment'
+>;
+
 export interface WorkOrderCreateRequest {
   title: string;
   description: string;
-  machineRef: WorkOrderMachineRef;
+  machineRef: WorkOrderMachineRefInput;
   type: WorkOrderType;
+  priority: WorkOrderPriority;
+}
+
+// Lo único editable de una orden ya creada: el tipo y la máquina/parte no cambian (la API rechaza el
+// intento) y el estado y el dueño cambian solo por tomar, cerrar y liberar.
+export interface WorkOrderUpdateRequest {
+  title: string;
+  description: string;
   priority: WorkOrderPriority;
 }
 

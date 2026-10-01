@@ -9,6 +9,7 @@ import { AuthService } from '@core/auth/auth.service';
 import { LocalStorageService } from '@core/services/localStorage.service';
 import { MessageService } from '@core/services/message.service';
 import {
+  WorkOrderLoadError,
   WorkOrdersCriteria,
   WorkOrdersService,
   WorkOrderStateError,
@@ -531,6 +532,37 @@ describe('WorkOrdersList search and pagination', () => {
       title: 'Error',
       message: 'Error al eliminar la orden.',
     });
+  });
+
+  it('warns and reloads the list when the order to delete no longer exists (404)', () => {
+    expect.assertions(3);
+    start();
+    const messageService = TestBed.inject(MessageService);
+    service.delete.mockReturnValueOnce(
+      throwError(() => new WorkOrderLoadError('not-found', 'La orden de trabajo no existe.')),
+    );
+    const searchesBefore = service.search.mock.calls.length;
+
+    component.deleteWorkOrder('1');
+
+    expect(messageService.message()).toMatchObject({
+      variant: 'warning',
+      message: 'La orden ya no existe.',
+    });
+    expect(messageService.message()?.variant).not.toBe('error');
+    expect(service.search.mock.calls.length).toBeGreaterThan(searchesBefore);
+  });
+
+  it('adds no message of its own when deleting is forbidden (403): the interceptor already said it', () => {
+    expect.assertions(2);
+    start();
+    const messageService = TestBed.inject(MessageService);
+    service.delete.mockReturnValueOnce(throwError(() => ({ status: 403 })));
+
+    component.deleteWorkOrder('1');
+
+    expect(messageService.message()).toBeNull();
+    expect(service.delete).toHaveBeenCalledWith('1');
   });
 
   describe('status and priority filters', () => {

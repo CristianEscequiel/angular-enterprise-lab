@@ -5,6 +5,7 @@ import { PartNode } from '@features/machines/models/part.model';
 import { TYPE_LABELS } from '../../models/work-order.display';
 import {
   WORK_ORDER_TYPES,
+  WorkOrder,
   WorkOrderCreateRequest,
   WorkOrderPriority,
   WorkOrderType,
@@ -12,11 +13,18 @@ import {
 import { MachinePartPicker } from '../machine-part-picker/machine-part-picker';
 import { Button } from '@shared/components/button/button';
 
+// Lo que el formulario necesita para precargarse al editar una orden existente. Una `WorkOrder`
+// completa sirve: el formulario ignora el resto de sus campos.
+export type WorkOrderFormInput = Pick<
+  WorkOrder,
+  'title' | 'description' | 'type' | 'priority' | 'machineRef'
+>;
+
 // Un comentario de falla es "corto" (spec 013d).
 export const MACHINE_COMMENT_MAX_LENGTH = 200;
 
-// Lo que emite el formulario. NO lleva el `breadcrumb`: la ruta de la parte la arma la página al
-// crear la orden (CLAUDE.md: la lógica de negocio vive en las páginas), con las partes que cargó.
+// Lo que emite el formulario. NO lleva el `breadcrumb`: la ruta de la parte la arma el servidor al
+// crear la orden (la página solo manda la máquina, la parte y el comentario que se eligieron).
 export type WorkOrderFormValue = Omit<WorkOrderCreateRequest, 'machineRef'> & {
   machineId: string;
   partId: string | null;
@@ -31,8 +39,10 @@ export type WorkOrderFormValue = Omit<WorkOrderCreateRequest, 'machineRef'> & {
 })
 export class Form implements OnInit {
   private readonly fb = inject(FormBuilder);
-  inputData = input<WorkOrderCreateRequest>();
+  inputData = input<WorkOrderFormInput>();
   submitting = input<boolean>(false);
+  // Errores por campo que devolvió la API (`400 VALIDATION_ERROR`), para mostrarlos junto al campo.
+  serverErrors = input<Readonly<Record<string, string>>>({});
   // La página decide qué tipos puede elegir el usuario; el formulario solo los muestra.
   allowedTypes = input<readonly WorkOrderType[]>(WORK_ORDER_TYPES);
   // En edición el tipo no se cambia: el select se deshabilita pero su valor se sigue emitiendo.

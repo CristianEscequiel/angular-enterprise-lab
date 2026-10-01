@@ -83,7 +83,7 @@ T3, T4 y T5 son independientes entre sí. T6→T7 comparten `WorkOrdersService`,
     T5 y T8 el tablero no funciona contra la API real (el listado ya viene paginado); es
     aceptable porque nada se despliega hasta T11 y los tests no dependen de eso.
 
-- [ ] **T6 — Órdenes: alta, edición y baja** · REQ-9 · depende de: T5
+- [x] **T6 — Órdenes: alta, edición y baja** · REQ-9 · depende de: T5
   - `WorkOrderMachineRefInput`, `WorkOrderUpdateRequest`; `create` sin `status`/`createdAt`;
     `update(id, request)`; página de edición envía `{title, description, priority}`;
     errores `MACHINE_NOT_FOUND`/`PART_NOT_FOUND`/`PART_OTHER_MACHINE` en el selector y

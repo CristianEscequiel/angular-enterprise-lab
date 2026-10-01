@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { catchError, Observable, of, switchMap, throwError } from 'rxjs';
 
+import { errorCode, errorDetails, errorMessage, errorStatus } from '@core/api/api-error';
 import { API_BASE_URL } from '@core/config/api.config';
 import {
   ClosedWorkOrderStatus,
@@ -11,6 +12,7 @@ import {
   WorkOrder,
   WorkOrderClosingNote,
   WorkOrderCreateRequest,
+  WorkOrderUpdateRequest,
   WorkOrderPriority,
   WorkOrderStatus,
   WorkOrderTaker,
@@ -40,6 +42,39 @@ export class WorkOrderLoadError extends Error {
 }
 
 // El comentario de cierre no cumple la regla (50 a 500 caracteres, sin contar los bordes), falta el
+
+// Códigos de `400` que dicen que la máquina o la parte elegida no sirve (`POST /work-orders`).
+const MACHINE_REF_ERROR_CODES: readonly string[] = [
+  'MACHINE_NOT_FOUND',
+  'PART_NOT_FOUND',
+  'PART_OTHER_MACHINE',
+];
+
+export class WorkOrderMachineRefError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'WorkOrderMachineRefError';
+  }
+}
+
+// `400 VALIDATION_ERROR`: un mensaje por campo (`title`, `description`, `priority`, …).
+export class WorkOrderValidationError extends Error {
+  constructor(readonly fieldErrors: Readonly<Record<string, string>>) {
+    super('Los datos de la orden no son válidos.');
+    this.name = 'WorkOrderValidationError';
+  }
+}
+
+function fieldErrors(details: Record<string, unknown> | null): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(details ?? {}).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string',
+    ),
+  );
+}
 // autor o el estado de destino no es un estado cerrado. No sale ningún request.
 export class InvalidClosingNoteError extends Error {
   constructor(message = 'El comentario de cierre no es válido.') {
@@ -113,17 +148,26 @@ export class WorkOrdersService {
     );
   }
 
+  // El servidor fija el estado inicial (`pending`), el `createdAt` y el `breadcrumb`: el cliente solo
+  // manda lo que el usuario eligió. Los `400` de referencia y de validación se traducen a errores
+  // tipados para que la página los muestre en su lugar.
   create(workOrder: WorkOrderCreateRequest): Observable<WorkOrder> {
-    const payload = {
-      ...workOrder,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-    };
-    return this.http.post<WorkOrder>(this.apiUrl, payload);
+    return this.http
+      .post<WorkOrder>(this.apiUrl, workOrder)
+      .pipe(catchError((error: unknown) => throwError(() => this.translateWriteError(error))));
   }
 
-  update(id: string, workOrder: WorkOrder): Observable<WorkOrder> {
-    return this.http.put<WorkOrder>(`${this.apiUrl}/${id}`, workOrder);
+  // Solo título, descripción y prioridad: el tipo y la máquina no cambian.
+  update(id: string, changes: WorkOrderUpdateRequest): Observable<WorkOrder> {
+    const body: WorkOrderUpdateRequest = {
+      title: changes.title,
+      description: changes.description,
+      priority: changes.priority,
+    };
+
+    return this.http
+      .put<WorkOrder>(this.url(id), body)
+      .pipe(catchError((error: unknown) => throwError(() => this.translateWriteError(error))));
   }
 
   // Las tres transiciones de estado (spec 013d). Todas leen la orden FRESCA antes de escribir (la
@@ -201,7 +245,32 @@ export class WorkOrdersService {
   }
 
   delete(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/${id}`);
+    return this.http
+      .delete<void>(this.url(id))
+      .pipe(catchError((error: unknown) => throwError(() => this.translateWriteError(error))));
+  }
+
+  // `404` → la orden ya no existe; `400` de referencia o de validación → errores tipados; el resto
+  // (incluido `403`, que el interceptor ya avisó) se propaga tal cual.
+  private translateWriteError(error: unknown): unknown {
+    const code = errorCode(error);
+
+    if (errorStatus(error) === 404) {
+      return new WorkOrderLoadError('not-found', 'La orden de trabajo no existe.');
+    }
+
+    if (code !== null && MACHINE_REF_ERROR_CODES.includes(code)) {
+      return new WorkOrderMachineRefError(
+        code,
+        errorMessage(error, 'La máquina o la parte no es válida.'),
+      );
+    }
+
+    if (code === 'VALIDATION_ERROR') {
+      return new WorkOrderValidationError(fieldErrors(errorDetails(error)));
+    }
+
+    return error;
   }
 
   private url(id: string): string {
