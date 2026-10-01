@@ -5,13 +5,14 @@ import {
   TechnicianProfile,
 } from '@core/auth/auth.model';
 
-// Maestro de técnicos (`/tecnicos`): entidad independiente del usuario de login. Existe sin que el
+// Maestro de técnicos (`/technicians`): entidad independiente del usuario de login. Existe sin que el
 // técnico tenga acceso al sistema; se vincula con `users` solo por `legajo`. Especialidad y tipo
 // de equipo se reutilizan de `auth.model.ts` (`TechnicianProfile`) para no duplicar los valores.
 //
-// `id` lo genera el servidor y es opaco: NO es el legajo (json-server descarta el `id` que manda el
-// cliente al crear). El identificador de negocio es `legajo`: es único (lo garantiza el servicio) y
-// no se puede editar, porque es el vínculo con `users` y `equipos`. Se busca con `TechnicianDirectory`.
+// `id` lo genera el servidor y es opaco: NO es el legajo (la API ignora el `id` que manda el
+// cliente al crear). El identificador de negocio es `legajo`: es único (lo garantiza la API) y
+// no se puede editar, porque es el vínculo con el usuario de login y con los equipos. Se busca con
+// `GET /technicians/{legajo}`.
 export interface Technician extends TechnicianProfile {
   id: string;
   legajo: string;

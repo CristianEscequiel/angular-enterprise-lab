@@ -72,7 +72,7 @@ describe('technician model', () => {
       expect(isTechnicianRecord({ ...valid, ...override })).toBe(false);
     });
 
-    // json-server descarta el `id` que manda el cliente al crear y genera uno propio: exigir
+    // La API ignora el `id` que manda el cliente al crear y asigna uno propio: exigir
     // `id === legajo` rechazaría todo técnico creado desde la app.
     it('accepts a record whose id differs from its legajo (the server assigns the id)', () => {
       expect(isTechnicianRecord({ ...valid, id: 'fRMxqKL-ODo' })).toBe(true);

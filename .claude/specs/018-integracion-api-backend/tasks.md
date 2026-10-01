@@ -113,7 +113,7 @@ T3, T4 y T5 son independientes entre sí. T6→T7 comparten `WorkOrdersService`,
     no; `averageResolutionMinutes: null` → "Sin datos"; truncado con `totalItems > data.length`;
     fallo de cualquier lectura → error con "Reintentar"); `shift-board.spec` sin cambios.
 
-- [ ] **T9 — Retiro del mock** · REQ-12.1–12.5 · depende de: T3, T4, T7, T8
+- [x] **T9 — Retiro del mock** · REQ-12.1–12.5 · depende de: T3, T4, T7, T8
   - Borrar `mock-api.interceptor.ts`, `mock-delay.interceptor.ts` (y su entrada en
     `app.config.ts`), `work-order.mock.ts`, `in-memory-api(.spec).ts`, `db.json`,
     `db.seed.spec.ts`; quitar el script `api` y `json-server` del `package.json` y

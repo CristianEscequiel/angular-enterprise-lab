@@ -56,7 +56,7 @@ export class TeamsService {
     );
   }
 
-  // El `id` lo genera json-server. Los miembros se persisten sin repetidos.
+  // El `id` lo asigna la API. Los miembros se persisten sin repetidos.
   create(draft: TeamDraft): Observable<Team> {
     const invalid = this.invalidMembers(draft);
 
@@ -105,7 +105,7 @@ export class TeamsService {
     };
   }
 
-  // Un miembro que no es un legajo válido no se persiste: json-server aceptaría cualquier cosa.
+  // Un miembro que no es un legajo válido no se envía: ni siquiera se arma el request.
   private invalidMembers(draft: TeamDraft): Observable<never> | null {
     return draft.memberLegajos.every(isLegajo)
       ? null

@@ -1,6 +1,6 @@
 import { isLegajo, isTechnicianTeamType, TechnicianTeamType } from '@core/auth/auth.model';
 
-// Equipo (`/equipos`): agrupación gestionable de técnicos. Los miembros se guardan como lista de
+// Equipo (`/teams`): agrupación gestionable de técnicos. Los miembros se guardan como lista de
 // legajos dentro del propio equipo (no en una colección de unión), así un solo `PUT` guarda el
 // equipo y sus miembros. El `type` usa los mismos valores que el `teamType` del técnico, pero no se
 // exige que coincidan (spec 013c: no se valida la coherencia entre ambos).
@@ -11,7 +11,7 @@ export interface Team {
   memberLegajos: string[];
 }
 
-// Lo que se ingresa al crear o editar un equipo (el `id` lo genera json-server).
+// Lo que se ingresa al crear o editar un equipo (el `id` lo asigna la API).
 export type TeamDraft = Omit<Team, 'id'>;
 
 export interface AddMemberResult {
