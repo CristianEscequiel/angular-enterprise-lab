@@ -37,7 +37,7 @@ export const errorInterceptor: HttpInterceptorFn = (request, next) => {
           authService.logout();
           messageService.showError('Tu sesión expiró. Iniciá sesión nuevamente.');
           void router.navigateByUrl(authService.loginUrlFor(returnUrl));
-        } else if (!isHandledByCaller(appError)) {
+        } else if (!isHandledByCaller(request.url, appError)) {
           messageService.showError(appError.message);
         }
 
@@ -63,9 +63,14 @@ function isExpiredSession(url: string, error: AppHttpError, authService: AuthSer
 }
 
 // Un 409 y un 400 con detalle por campo los traduce el servicio a un error de dominio y la página
-// muestra su propio mensaje: un toast además duplicaría el aviso.
-function isHandledByCaller(error: AppHttpError): boolean {
-  return error.status === 409 || (error.status === 400 && error.details !== null);
+// muestra su propio mensaje: un toast además duplicaría el aviso. Igual el 401 del login y de
+// `/auth/me`, que tienen su propia salida (mensaje inline o descarte silencioso de la sesión).
+function isHandledByCaller(url: string, error: AppHttpError): boolean {
+  return (
+    error.status === 409 ||
+    (error.status === 400 && error.details !== null) ||
+    (error.status === 401 && AUTH_ENDPOINTS.includes(url))
+  );
 }
 
 function mapHttpError(error: HttpErrorResponse): AppHttpError {

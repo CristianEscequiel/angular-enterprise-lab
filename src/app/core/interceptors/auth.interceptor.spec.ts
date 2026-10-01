@@ -16,18 +16,16 @@ describe('authInterceptor', () => {
 
   function login(): void {
     authService.login({ username: 'admin', password: 'admin123' }).subscribe();
-    httpMock
-      .expectOne((req) => req.url === `${API_BASE_URL}/users`)
-      .flush([
-        {
-          id: '1',
-          username: 'admin',
-          password: 'admin123',
-          displayName: 'Administrador',
-          email: 'admin@enterprise-lab.dev',
-          role: 'administrador',
-        },
-      ]);
+    httpMock.expectOne(`${API_BASE_URL}/auth/login`).flush({
+      token: 'jwt.admin',
+      user: {
+        id: '1',
+        username: 'admin',
+        displayName: 'Administrador',
+        email: 'admin@enterprise-lab.dev',
+        role: 'administrador',
+      },
+    });
   }
 
   beforeEach(() => {

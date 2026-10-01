@@ -1,20 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router, UrlTree } from '@angular/router';
-import { map, Observable, of, switchMap, tap, throwError } from 'rxjs';
+import { catchError, map, Observable, of, tap, throwError } from 'rxjs';
 
 import { API_BASE_URL } from '../config/api.config';
 import { LocalStorageService } from '../services/localStorage.service';
-import {
-  AuthSession,
-  AuthUser,
-  isAuthSession,
-  isLegajo,
-  LoginCredentials,
-  toAuthUser,
-  UserRecord,
-} from './auth.model';
-import { TechnicianDirectory } from './technician-directory';
+import { AuthSession, isAuthSession, isAuthUser, LoginCredentials } from './auth.model';
 
 export const AUTH_STORAGE_KEY = 'auth.session';
 
@@ -25,14 +16,21 @@ export class InvalidCredentialsError extends Error {
   }
 }
 
-// El registro existe y las credenciales coinciden, pero su perfil no es válido (p. ej. un técnico
-// sin legajo o cuyo legajo ya no existe en el maestro de técnicos). No es un error de credenciales
-// ni de conexión: se distingue para no mostrarlo como "usuario o contraseña incorrectos".
+// Las credenciales son correctas pero el usuario que devuelve la API no es un perfil válido (p. ej.
+// un técnico sin legajo, especialidad o tipo de equipo). No es un error de credenciales ni de
+// conexión: se distingue para no mostrarlo como "usuario o contraseña incorrectos".
 export class InvalidUserRecordError extends Error {
   constructor() {
     super('El perfil de este usuario está incompleto. Contacte al administrador.');
     this.name = 'InvalidUserRecordError';
   }
+}
+
+// El `errorInterceptor` ya convirtió el `HttpErrorResponse` en un `AppHttpError` con el mismo `status`.
+function isUnauthorized(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && (error as { status?: unknown }).status === 401
+  );
 }
 
 @Injectable({
@@ -42,7 +40,6 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly storage = inject(LocalStorageService);
-  private readonly technicianDirectory = inject(TechnicianDirectory);
 
   private readonly sessionState = signal<AuthSession | null>(this.restoreSession());
 
@@ -51,42 +48,52 @@ export class AuthService {
   readonly currentUser = computed(() => this.sessionState()?.user ?? null);
   readonly token = computed(() => this.sessionState()?.token ?? null);
 
-  // Hoy valida contra la colección `users` de JSON Server. En spec 018 solo cambia esta
-  // llamada (POST /auth/login devolviendo { token, user }); el resto del contrato se mantiene.
-  // Un usuario técnico solo guarda su `legajo`: el perfil (especialidad y tipo de equipo) se
-  // resuelve contra el maestro de técnicos, que es su única fuente de verdad.
+  // Un `401` es "usuario o contraseña incorrectos" (la API responde `INVALID_CREDENTIALS`); la
+  // conexión caída o un `5xx` se propagan tal cual para no presentarlos como credenciales malas.
+  // El `user` que devuelve la API ya trae el perfil del técnico (`legajo`, `specialty`,
+  // `teamType`): se valida su forma, pero no se completa ni se consulta nada más.
   login(credentials: LoginCredentials): Observable<AuthSession> {
-    return this.http
-      .get<UserRecord[]>(`${API_BASE_URL}/users`, {
-        params: { username: credentials.username, password: credentials.password },
-      })
-      .pipe(
-        switchMap((users) => {
-          const record = users[0];
+    return this.http.post<unknown>(`${API_BASE_URL}/auth/login`, credentials).pipe(
+      catchError((error: unknown) =>
+        throwError(() => (isUnauthorized(error) ? new InvalidCredentialsError() : error)),
+      ),
+      map((body) => {
+        if (!isAuthSession(body)) {
+          throw new InvalidUserRecordError();
+        }
 
-          if (
-            !record ||
-            record.username !== credentials.username ||
-            record.password !== credentials.password
-          ) {
-            return throwError(() => new InvalidCredentialsError());
-          }
+        return { token: body.token, user: body.user } satisfies AuthSession;
+      }),
+      tap((session) => this.saveSession(session)),
+    );
+  }
 
-          return this.resolveUser(record).pipe(
-            map((user) => {
-              if (!user) {
-                throw new InvalidUserRecordError();
-              }
+  // Contrasta la sesión guardada con el servidor (`GET /auth/me`): el rol o el perfil pueden haber
+  // cambiado y el token pudo vencer. Solo un `401` o un `user` inválido descartan la sesión; sin
+  // conexión (o con `5xx`) se conserva, porque no se sabe si dejó de ser válida. Nunca falla.
+  revalidate(): Observable<void> {
+    const current = this.sessionState();
 
-              return { token: `mock-token.${record.id}.${Date.now()}`, user } satisfies AuthSession;
-            }),
-          );
-        }),
-        tap((session) => {
-          this.sessionState.set(session);
-          this.storage.set(AUTH_STORAGE_KEY, session);
-        }),
-      );
+    if (!current) {
+      return of(undefined);
+    }
+
+    return this.http.get<unknown>(`${API_BASE_URL}/auth/me`).pipe(
+      map((user) => {
+        if (isAuthUser(user)) {
+          this.saveSession({ token: current.token, user });
+        } else {
+          this.logout();
+        }
+      }),
+      catchError((error: unknown) => {
+        if (isUnauthorized(error)) {
+          this.logout();
+        }
+
+        return of(undefined);
+      }),
+    );
   }
 
   logout(): void {
@@ -98,21 +105,9 @@ export class AuthService {
     return this.router.createUrlTree(['/login'], { queryParams: { returnUrl } });
   }
 
-  private resolveUser(record: UserRecord): Observable<AuthUser | null> {
-    if (record.role !== 'tecnico') {
-      return of(toAuthUser(record));
-    }
-
-    // Sin legajo válido no hay maestro que consultar: no se arma ningún request.
-    if (!isLegajo(record.legajo)) {
-      return of(null);
-    }
-
-    // Sin técnico en el maestro (el login existe pero su técnico no) no hay sesión. Un error de red
-    // o 5xx se propaga tal cual y no se presenta como un dato inválido.
-    return this.technicianDirectory
-      .find(record.legajo)
-      .pipe(map((profile) => (profile ? toAuthUser(record, profile) : null)));
+  private saveSession(session: AuthSession): void {
+    this.sessionState.set(session);
+    this.storage.set(AUTH_STORAGE_KEY, session);
   }
 
   private restoreSession(): AuthSession | null {

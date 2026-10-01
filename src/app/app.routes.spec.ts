@@ -6,7 +6,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { of } from 'rxjs';
 
 import { routes } from './app.routes';
-import { AuthSession, UserRecord } from './core/auth/auth.model';
+import { AuthSession, AuthUser } from './core/auth/auth.model';
 import { AUTH_STORAGE_KEY, AuthService } from './core/auth/auth.service';
 import { API_BASE_URL } from './core/config/api.config';
 import { MessageService } from './core/services/message.service';
@@ -143,6 +143,14 @@ describe('app routes', () => {
     return router.parseUrl(router.url).queryParamMap.get('returnUrl');
   }
 
+  type TestUser = AuthUser & { password: string };
+
+  // La API responde `{ token, user }` y el usuario nunca lleva la contraseña.
+  function sessionFor(record: TestUser): AuthSession {
+    const user = Object.fromEntries(Object.entries(record).filter(([key]) => key !== 'password'));
+    return { token: `jwt.${record.id}`, user: user as unknown as AuthUser };
+  }
+
   const users = {
     admin: {
       id: '1',
@@ -176,23 +184,16 @@ describe('app routes', () => {
       email: 'tecnico@enterprise-lab.dev',
       role: 'tecnico',
       legajo: '1001',
+      specialty: 'mecanico',
+      teamType: 'guardia',
     },
-  } satisfies Record<string, UserRecord>;
+  } satisfies Record<string, TestUser>;
 
   // Reemplaza la sesión del beforeEach por la de otro usuario, por el mismo camino que el login real.
-  function loginAs(record: UserRecord): void {
+  function loginAs(record: TestUser): void {
     authService.logout();
     authService.login({ username: record.username, password: record.password }).subscribe();
-    httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([record]);
-
-    // El técnico completa su perfil buscando su legajo en el maestro (`GET /tecnicos`).
-    if (record.role === 'tecnico') {
-      httpMock
-        .expectOne(`${API_BASE_URL}/tecnicos`)
-        .flush([
-          { id: 'srv-1', legajo: record.legajo, specialty: 'mecanico', teamType: 'guardia' },
-        ]);
-    }
+    httpMock.expectOne(`${API_BASE_URL}/auth/login`).flush(sessionFor(record));
   }
 
   describe('with an active session', () => {
@@ -356,18 +357,7 @@ describe('app routes', () => {
       password.dispatchEvent(new Event('input'));
       page.querySelector('form')?.dispatchEvent(new Event('submit'));
 
-      httpMock
-        .expectOne((req) => req.url === `${API_BASE_URL}/users`)
-        .flush([
-          {
-            id: '1',
-            username: 'admin',
-            password: 'admin123',
-            displayName: 'Administrador',
-            email: 'admin@enterprise-lab.dev',
-            role: 'administrador',
-          },
-        ]);
+      httpMock.expectOne(`${API_BASE_URL}/auth/login`).flush(sessionFor(users.admin));
       await harness.fixture.whenStable();
 
       expect(authService.isAuthenticated()).toBe(true);
@@ -555,7 +545,7 @@ describe('app routes', () => {
       password.dispatchEvent(new Event('input'));
       page.querySelector('form')?.dispatchEvent(new Event('submit'));
 
-      httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([users.produccion]);
+      httpMock.expectOne(`${API_BASE_URL}/auth/login`).flush(sessionFor(users.produccion));
       await harness.fixture.whenStable();
 
       expect(router.url).toBe('/work-orders/new');
@@ -775,7 +765,7 @@ describe('app routes', () => {
         password.dispatchEvent(new Event('input'));
         login.querySelector('form')?.dispatchEvent(new Event('submit'));
 
-        httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([users.teamLeader]);
+        httpMock.expectOne(`${API_BASE_URL}/auth/login`).flush(sessionFor(users.teamLeader));
         await harness.fixture.whenStable();
 
         expect(router.url).toBe('/maintenance/teams');
@@ -983,7 +973,7 @@ describe('app routes', () => {
         password.dispatchEvent(new Event('input'));
         login.querySelector('form')?.dispatchEvent(new Event('submit'));
 
-        httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([users.teamLeader]);
+        httpMock.expectOne(`${API_BASE_URL}/auth/login`).flush(sessionFor(users.teamLeader));
         await harness.fixture.whenStable();
 
         expect(router.url).toBe('/machines/srv-1/parts');

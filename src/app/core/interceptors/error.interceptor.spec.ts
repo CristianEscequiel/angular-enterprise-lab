@@ -289,19 +289,25 @@ describe('errorInterceptor', () => {
       expect(messageService.message()?.message).toBe('Tu sesión expiró. Iniciá sesión nuevamente.');
     });
 
-    it.each(['/auth/login', '/auth/me'])('leaves the session alone for a 401 on %s', (path) => {
-      expect.assertions(3);
-      const { router, auth } = configureWithSession();
-      http.get(`${API_BASE_URL}${path}`).subscribe({ error: () => undefined });
+    it.each(['/auth/login', '/auth/me'])(
+      'leaves the session and the toast alone for a 401 on %s',
+      (path) => {
+        expect.assertions(3);
+        const { router, auth } = configureWithSession();
+        http.get(`${API_BASE_URL}${path}`).subscribe({ error: () => undefined });
 
-      httpMock
-        .expectOne(`${API_BASE_URL}${path}`)
-        .flush({ code: 'UNAUTHORIZED', message: 'x' }, { status: 401, statusText: 'Unauthorized' });
+        httpMock
+          .expectOne(`${API_BASE_URL}${path}`)
+          .flush(
+            { code: 'UNAUTHORIZED', message: 'x' },
+            { status: 401, statusText: 'Unauthorized' },
+          );
 
-      expect(auth.isAuthenticated()).toBe(true);
-      expect(router.navigateByUrl).not.toHaveBeenCalled();
-      expect(messageService.message()?.message).toBe('x');
-    });
+        expect(auth.isAuthenticated()).toBe(true);
+        expect(router.navigateByUrl).not.toHaveBeenCalled();
+        expect(messageService.message()).toBeNull();
+      },
+    );
 
     it('does not touch the session for a 401 from a URL outside the API', () => {
       expect.assertions(2);

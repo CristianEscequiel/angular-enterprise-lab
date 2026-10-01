@@ -36,7 +36,7 @@ T3, T4 y T5 son independientes entre sí. T6→T7 comparten `WorkOrdersService`,
     login/me, sin cuerpo con `0`/`502`, no-HTTP); `auth.interceptor.spec.ts` (URL ajena no
     recibe header); `api-error.spec.ts` (shape inválido → `null`).
 
-- [ ] **T2 — Sesión con JWT** · REQ-3 · depende de: T1
+- [x] **T2 — Sesión con JWT** · REQ-3 · depende de: T1
   - `AuthService.login()` con `POST /auth/login` y `isAuthSession`; `401` →
     `InvalidCredentialsError`; perfil inválido → `InvalidUserRecordError`.
   - `revalidate()` (`GET /auth/me`: `200` reemplaza el `user`, `401` descarta, conexión/`5xx`
