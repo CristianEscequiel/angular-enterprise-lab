@@ -4,17 +4,9 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { HttpErrorResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-import {
-  ClosedWorkOrderStatus,
-  PaginatedResponse,
-  WorkOrder,
-  WorkOrderClosingNote,
-  WorkOrderCreateRequest,
-  WorkOrderTaker,
-} from '../models/work-order.model';
+import { PaginatedResponse, WorkOrder, WorkOrderCreateRequest } from '../models/work-order.model';
 import {
   InvalidClosingNoteError,
   WorkOrderLoadError,
@@ -433,22 +425,18 @@ describe('WorkOrdersService', () => {
     });
   });
 
-  // Tomar, cerrar y liberar (spec 013d). Toda transición LEE la orden fresca y solo después escribe.
+  // Tomar, cerrar y liberar (spec 013d, contrato de la API). Cada transición es un solo `POST` sin
+  // lectura previa: el dueño sale del token y el servidor valida y responde `409` si no corresponde.
   describe('state transitions', () => {
     const url = `${apiUrl}/1`;
-    const taker: WorkOrderTaker = {
-      id: '2',
-      name: 'Técnico Mecánico de Guardia',
-      at: '2026-09-25T10:00:00.000Z',
+    const owner = { id: '5', name: 'Técnico Electricista' };
+    const comment = 'Se reemplazó el rodamiento delantero y se verificó el giro sin vibración.';
+    const taken: WorkOrder = {
+      ...order,
+      status: 'in-progress',
+      takenBy: { id: '2', name: 'Técnico Mecánico de Guardia', at: '2026-09-25T10:00:00.000Z' },
     };
-    const otherTaker: WorkOrderTaker = { id: '5', name: 'Técnico Electricista', at: taker.at };
-    const note: WorkOrderClosingNote = {
-      comment: 'Se reemplazó el rodamiento delantero y se verificó el giro sin vibración.',
-      authorId: taker.id,
-      authorName: taker.name,
-      at: '2026-09-25T15:00:00.000Z',
-    };
-    const inProgress: WorkOrder = { ...order, status: 'in-progress', takenBy: taker };
+    const conflict = { status: 409, statusText: 'Conflict' };
 
     interface Outcome<T> {
       value?: T;
@@ -467,277 +455,277 @@ describe('WorkOrdersService', () => {
         },
         complete: () => (outcome.done = true),
       });
+
       return outcome;
     }
 
-    const flushGet = (body: WorkOrder) => {
-      const request = httpMock.expectOne(url);
-      expect(request.request.method).toBe('GET');
-      request.flush(body);
-    };
-    const noWrites = () => httpMock.expectNone((request) => request.method !== 'GET');
-    const noRequestAtAll = () => httpMock.expectNone(() => true);
-    const stateError = (outcome: Outcome<unknown>): WorkOrderStateError => {
-      expect(outcome.error).toBeInstanceOf(WorkOrderStateError);
-      return outcome.error as WorkOrderStateError;
-    };
+    const stateError = (outcome: Outcome<unknown>): WorkOrderStateError =>
+      outcome.error as WorkOrderStateError;
 
-    describe('close', () => {
-      it.each<[string, string]>([
-        ['an empty comment', ''],
-        ['a 49-character comment', 'x'.repeat(49)],
-        ['a comment of only spaces', ' '.repeat(80)],
-        ['a comment that is long only because of its edge spaces', ' '.repeat(60) + 'x'.repeat(10)],
-        ['a comment over 500 characters', 'x'.repeat(501)],
-      ])('rejects %s without sending any request', (_label, comment) => {
-        const outcome = run(service.close('1', 'completed', { ...note, comment }));
+    describe('take', () => {
+      it('sends a single POST /work-orders/{id}/take without a body, and returns the order', () => {
+        expect.assertions(4);
+        const outcome = run(service.take('1'));
 
-        expect(outcome.error).toBeInstanceOf(InvalidClosingNoteError);
-        noRequestAtAll();
-      });
+        const request = httpMock.expectOne(`${url}/take`);
+        expect(request.request.method).toBe('POST');
+        expect(request.request.body).toBeNull();
+        request.flush(taken);
 
-      it('rejects a note without an author, without any request', () => {
-        const outcome = run(service.close('1', 'completed', { ...note, authorId: '' }));
-
-        expect(outcome.error).toBeInstanceOf(InvalidClosingNoteError);
-        noRequestAtAll();
-      });
-
-      it('rejects a destination that is not a closed status, without any request', () => {
-        const outcome = run(service.close('1', 'in-progress' as ClosedWorkOrderStatus, note));
-
-        expect(outcome.error).toBeInstanceOf(InvalidClosingNoteError);
-        noRequestAtAll();
-      });
-
-      it.each<ClosedWorkOrderStatus>(['completed', 'cancelled'])(
-        'reads the order and then PATCHes exactly { status: %s, closingNote }',
-        (outcome) => {
-          const result = run(service.close('1', outcome, note));
-          flushGet(inProgress);
-
-          const patch = httpMock.expectOne(url);
-          expect(patch.request.method).toBe('PATCH');
-          expect(patch.request.body).toEqual({ status: outcome, closingNote: note });
-          const closed = { ...inProgress, status: outcome, closingNote: note };
-          patch.flush(closed);
-
-          expect(result.value).toEqual(closed);
-        },
-      );
-
-      it('stores the trimmed comment', () => {
-        run(service.close('1', 'completed', { ...note, comment: `   ${note.comment}   ` }));
-        flushGet(inProgress);
-
-        const patch = httpMock.expectOne(url);
-        expect(
-          (patch.request.body as { closingNote: WorkOrderClosingNote }).closingNote.comment,
-        ).toBe(note.comment);
-        patch.flush(inProgress);
-      });
-
-      it.each<[string, WorkOrder]>([
-        ['a pending order', order],
-        ['a released order', { ...order, takenBy: null }],
-      ])('refuses to close %s: not-in-progress and no write', (_label, current) => {
-        const outcome = run(service.close('1', 'completed', note));
-        flushGet(current);
-
-        expect(stateError(outcome).reason).toBe('not-in-progress');
+        expect(outcome.value).toEqual(taken);
         expect(outcome.done).toBe(true);
-        noWrites();
       });
 
-      it.each<ClosedWorkOrderStatus>(['completed', 'cancelled'])(
-        'refuses to close an order that is already %s',
-        (status) => {
-          const outcome = run(service.close('1', 'completed', note));
-          flushGet({ ...inProgress, status, closingNote: note });
+      it('never sends the owner: it comes from the token', () => {
+        expect.assertions(1);
+        run(service.take('1'));
 
-          const error = stateError(outcome);
-          expect(error.reason).toBe('not-in-progress');
-          expect(error.message).toBe('La orden ya fue cerrada.');
-          noWrites();
+        const request = httpMock.expectOne(`${url}/take`);
+        expect(request.request.body).toBeNull();
+        request.flush(taken);
+      });
+
+      it('translates 409 WORK_ORDER_NOT_PENDING with the real status and the owner', () => {
+        expect.assertions(5);
+        const outcome = run(service.take('1'));
+
+        httpMock.expectOne(`${url}/take`).flush(
+          {
+            code: 'WORK_ORDER_NOT_PENDING',
+            message: 'La orden 1 no está pendiente',
+            details: { status: 'in-progress', takenById: '5', takenByName: owner.name },
+          },
+          conflict,
+        );
+
+        expect(outcome.error).toBeInstanceOf(WorkOrderStateError);
+        expect(stateError(outcome).reason).toBe('not-pending');
+        expect(stateError(outcome).status).toBe('in-progress');
+        expect(stateError(outcome).takenBy).toEqual(owner);
+        expect(stateError(outcome).message).toBe(
+          `La orden está siendo ejecutada por ${owner.name}.`,
+        );
+      });
+
+      it.each(['completed', 'cancelled'] as const)(
+        'translates 409 on a %s order as "already closed", never reopening it',
+        (status) => {
+          expect.assertions(2);
+          const outcome = run(service.take('1'));
+
+          httpMock
+            .expectOne(`${url}/take`)
+            .flush({ code: 'WORK_ORDER_NOT_PENDING', message: 'x', details: { status } }, conflict);
+
+          expect(stateError(outcome).message).toBe('La orden ya fue cerrada.');
+          expect(stateError(outcome).takenBy).toBeNull();
         },
       );
 
-      it('refuses to let another technician close an order taken by someone else', () => {
-        const outcome = run(service.close('1', 'completed', note));
-        flushGet({ ...inProgress, takenBy: otherTaker });
+      it('translates a 409 without owner details into an error that names nobody', () => {
+        expect.assertions(2);
+        const outcome = run(service.take('1'));
 
-        const error = stateError(outcome);
-        expect(error.reason).toBe('taken-by-other');
-        expect(error.takenBy).toEqual(otherTaker);
-        expect(error.message).toBe('La orden está siendo ejecutada por Técnico Electricista.');
-        noWrites();
+        httpMock
+          .expectOne(`${url}/take`)
+          .flush(
+            { code: 'WORK_ORDER_NOT_PENDING', message: 'x', details: { status: 'in-progress' } },
+            conflict,
+          );
+
+        expect(stateError(outcome).takenBy).toBeNull();
+        expect(stateError(outcome).message).toBe('La orden ya no está pendiente.');
       });
 
-      it('propagates a failure of the fresh read as an HTTP error, without writing', () => {
-        const outcome = run(service.close('1', 'completed', note));
+      it('lets a 403 (team that does not attend this type) through untouched', () => {
+        expect.assertions(2);
+        const outcome = run(service.take('1'));
 
-        httpMock.expectOne(url).flush('boom', { status: 500, statusText: 'Server Error' });
+        httpMock
+          .expectOne(`${url}/take`)
+          .flush({ code: 'FORBIDDEN', message: 'x' }, { status: 403, statusText: 'Forbidden' });
 
-        expect(outcome.error).toBeInstanceOf(HttpErrorResponse);
         expect(outcome.error).not.toBeInstanceOf(WorkOrderStateError);
-        noWrites();
+        expect(outcome.error).toMatchObject({ status: 403 });
+      });
+
+      it('lets a network failure through untouched', () => {
+        expect.assertions(1);
+        const outcome = run(service.take('1'));
+
+        httpMock.expectOne(`${url}/take`).error(new ProgressEvent('error'));
+
+        expect(outcome.error).not.toBeInstanceOf(WorkOrderStateError);
+      });
+
+      it('encodes the id in the URL', () => {
+        run(service.take('a/b'));
+
+        httpMock.expectOne(`${apiUrl}/a%2Fb/take`).flush(taken);
       });
     });
 
-    describe('take', () => {
-      it('reads the order, PATCHes { status: in-progress, takenBy } and reads it again', () => {
-        const result = run(service.take('1', taker));
-        flushGet(order);
+    describe('close', () => {
+      it('sends a single POST /work-orders/{id}/close with { outcome, comment } and nothing else', () => {
+        expect.assertions(4);
+        const outcome = run(service.close('1', 'completed', comment));
 
-        const patch = httpMock.expectOne(url);
-        expect(patch.request.method).toBe('PATCH');
-        expect(patch.request.body).toEqual({ status: 'in-progress', takenBy: taker });
-        patch.flush(inProgress);
+        const request = httpMock.expectOne(`${url}/close`);
+        expect(request.request.method).toBe('POST');
+        expect(request.request.body).toEqual({ outcome: 'completed', comment });
+        request.flush({ ...taken, status: 'completed' });
 
-        flushGet(inProgress);
-        expect(result.value).toEqual(inProgress);
-        expect(result.done).toBe(true);
-      });
-
-      it('takes a released order (takenBy null) like a pending one', () => {
-        const result = run(service.take('1', taker));
-        flushGet({ ...order, takenBy: null });
-        httpMock.expectOne(url).flush(inProgress);
-        flushGet(inProgress);
-
-        expect(result.value?.takenBy).toEqual(taker);
-      });
-
-      it('refuses an order that another technician is running: names them and does not write', () => {
-        const outcome = run(service.take('1', taker));
-        flushGet({ ...inProgress, takenBy: otherTaker });
-
-        const error = stateError(outcome);
-        expect(error.reason).toBe('not-pending');
-        expect(error.takenBy).toEqual(otherTaker);
-        expect(error.message).toBe('La orden está siendo ejecutada por Técnico Electricista.');
+        expect((outcome.value as WorkOrder).status).toBe('completed');
         expect(outcome.done).toBe(true);
-        noWrites();
       });
 
-      it.each<ClosedWorkOrderStatus>(['completed', 'cancelled'])(
-        'never reopens an order that is %s: not-pending and no write',
-        (status) => {
-          const outcome = run(service.take('1', taker));
-          flushGet({ ...inProgress, status, closingNote: note });
+      it.each(['completed', 'cancelled'] as const)('closes with the outcome %s', (result) => {
+        run(service.close('1', result, comment));
 
-          const error = stateError(outcome);
-          expect(error.reason).toBe('not-pending');
-          expect(error.message).toBe('La orden ya fue cerrada.');
-          noWrites();
+        const request = httpMock.expectOne(`${url}/close`);
+        expect(request.request.body).toMatchObject({ outcome: result });
+        request.flush({ ...taken, status: result });
+      });
+
+      it('trims the comment before sending', () => {
+        expect.assertions(1);
+        run(service.close('1', 'completed', `   ${comment}  `));
+
+        const request = httpMock.expectOne(`${url}/close`);
+        expect((request.request.body as { comment: string }).comment).toBe(comment);
+        request.flush(taken);
+      });
+
+      it('never sends the author: it comes from the token', () => {
+        expect.assertions(1);
+        run(service.close('1', 'completed', comment));
+
+        const request = httpMock.expectOne(`${url}/close`);
+        expect(Object.keys(request.request.body as object).sort()).toEqual(['comment', 'outcome']);
+        request.flush(taken);
+      });
+
+      it.each([
+        ['an empty comment', ''],
+        ['a blank comment', '   '],
+        ['49 characters', 'x'.repeat(49)],
+        ['501 characters', 'x'.repeat(501)],
+        ['49 characters plus edge spaces', `  ${'x'.repeat(49)}  `],
+      ])('refuses %s with InvalidClosingNoteError and sends nothing', (_label, text) => {
+        expect.assertions(1);
+        const outcome = run(service.close('1', 'completed', text));
+
+        expect(outcome.error).toBeInstanceOf(InvalidClosingNoteError);
+        httpMock.expectNone(() => true);
+      });
+
+      it.each(['50 characters', '500 characters'])('accepts the boundary of %s', (label) => {
+        const text = 'x'.repeat(label.startsWith('50 ') ? 50 : 500);
+        const outcome = run(service.close('1', 'cancelled', text));
+
+        httpMock.expectOne(`${url}/close`).flush({ ...taken, status: 'cancelled' });
+
+        expect(outcome.error).toBeUndefined();
+      });
+
+      it.each(['pending', 'in-progress', 'bogus'])(
+        'refuses %s as an outcome with InvalidClosingNoteError and sends nothing',
+        (value) => {
+          expect.assertions(1);
+          const outcome = run(service.close('1', value as 'completed', comment));
+
+          expect(outcome.error).toBeInstanceOf(InvalidClosingNoteError);
+          httpMock.expectNone(() => true);
         },
       );
 
-      it('tells the caller when somebody else wrote in between (the re-read shows another owner)', () => {
-        const outcome = run(service.take('1', taker));
-        flushGet(order);
-        httpMock.expectOne(url).flush(inProgress);
-        flushGet({ ...inProgress, takenBy: otherTaker });
+      it.each([
+        ['WORK_ORDER_NOT_IN_PROGRESS', 'not-in-progress'],
+        ['WORK_ORDER_TAKEN_BY_OTHER', 'taken-by-other'],
+      ] as const)('translates 409 %s into reason %s', (code, reason) => {
+        expect.assertions(3);
+        const outcome = run(service.close('1', 'completed', comment));
 
-        const error = stateError(outcome);
-        expect(error.reason).toBe('taken-by-other');
-        expect(error.takenBy).toEqual(otherTaker);
+        httpMock.expectOne(`${url}/close`).flush(
+          {
+            code,
+            message: 'x',
+            details: { status: 'in-progress', takenById: '5', takenByName: owner.name },
+          },
+          conflict,
+        );
+
+        expect(outcome.error).toBeInstanceOf(WorkOrderStateError);
+        expect(stateError(outcome).reason).toBe(reason);
+        expect(stateError(outcome).takenBy).toEqual(owner);
       });
 
-      it('propagates a failure of the fresh read as an HTTP error, without writing', () => {
-        const outcome = run(service.take('1', taker));
+      it('lets a 400 validation error through untouched', () => {
+        expect.assertions(2);
+        const outcome = run(service.close('1', 'completed', comment));
 
-        httpMock.expectOne(url).flush('boom', { status: 500, statusText: 'Server Error' });
+        httpMock
+          .expectOne(`${url}/close`)
+          .flush(
+            { code: 'VALIDATION_ERROR', message: 'x', details: { comment: 'corto' } },
+            { status: 400, statusText: 'Bad Request' },
+          );
 
-        expect(outcome.error).toBeInstanceOf(HttpErrorResponse);
         expect(outcome.error).not.toBeInstanceOf(WorkOrderStateError);
-        noWrites();
+        expect(outcome.error).toMatchObject({ status: 400 });
       });
     });
 
     describe('release', () => {
-      it('PATCHes { status: pending, takenBy: null } on an in-progress order', () => {
-        const result = run(service.release('1'));
-        flushGet(inProgress);
-
-        const patch = httpMock.expectOne(url);
-        expect(patch.request.method).toBe('PATCH');
-        expect(patch.request.body).toEqual({ status: 'pending', takenBy: null });
-        const released = { ...order, takenBy: null };
-        patch.flush(released);
-
-        expect(result.value).toEqual(released);
-        expect(result.done).toBe(true);
-      });
-
-      it.each<[string, WorkOrder]>([
-        ['a pending order', order],
-        ['a completed order', { ...inProgress, status: 'completed', closingNote: note }],
-        ['a cancelled order', { ...inProgress, status: 'cancelled', closingNote: note }],
-      ])(
-        'refuses to release %s: not-in-progress and no write (a closed order is never reopened)',
-        (_label, current) => {
-          const outcome = run(service.release('1'));
-          flushGet(current);
-
-          expect(stateError(outcome).reason).toBe('not-in-progress');
-          noWrites();
-        },
-      );
-
-      it('propagates a failure of the fresh read as an HTTP error, without writing', () => {
+      it('sends a single POST /work-orders/{id}/release without a body', () => {
+        expect.assertions(4);
         const outcome = run(service.release('1'));
 
-        httpMock.expectOne(url).flush('boom', { status: 500, statusText: 'Server Error' });
+        const request = httpMock.expectOne(`${url}/release`);
+        expect(request.request.method).toBe('POST');
+        expect(request.request.body).toBeNull();
+        request.flush({ ...order, takenBy: null });
 
-        expect(outcome.error).toBeInstanceOf(HttpErrorResponse);
-        noWrites();
+        expect((outcome.value as WorkOrder).status).toBe('pending');
+        expect(outcome.done).toBe(true);
+      });
+
+      it('translates 409 WORK_ORDER_NOT_IN_PROGRESS (a closed order is never reopened)', () => {
+        expect.assertions(3);
+        const outcome = run(service.release('1'));
+
+        httpMock.expectOne(`${url}/release`).flush(
+          {
+            code: 'WORK_ORDER_NOT_IN_PROGRESS',
+            message: 'x',
+            details: { status: 'completed' },
+          },
+          conflict,
+        );
+
+        expect(stateError(outcome).reason).toBe('not-in-progress');
+        expect(stateError(outcome).status).toBe('completed');
+        expect(stateError(outcome).message).toBe('La orden ya fue cerrada.');
+      });
+
+      it('lets a 403 through untouched', () => {
+        expect.assertions(1);
+        const outcome = run(service.release('1'));
+
+        httpMock.expectOne(`${url}/release`).flush(null, { status: 403, statusText: 'Forbidden' });
+
+        expect(outcome.error).toMatchObject({ status: 403 });
       });
     });
 
-    describe('orders that carry no owner (data written before spec 013d)', () => {
-      const legacyInProgress: WorkOrder = { ...order, status: 'in-progress' };
+    describe('409 with an unknown code', () => {
+      it('is not turned into a WorkOrderStateError', () => {
+        expect.assertions(1);
+        const outcome = run(service.take('1'));
 
-      it('take on an in-progress order with no owner recorded is refused as not pending, naming nobody', () => {
-        const outcome = run(service.take('1', taker));
-        flushGet(legacyInProgress);
+        httpMock.expectOne(`${url}/take`).flush({ code: 'SOMETHING_ELSE', message: 'x' }, conflict);
 
-        const error = stateError(outcome);
-        expect(error.reason).toBe('not-pending');
-        expect(error.takenBy).toBeNull();
-        expect(error.message).toBe('La orden ya no está pendiente.');
-        noWrites();
-      });
-
-      it('take reports taken-by-other, without a name, when the re-read shows no owner at all', () => {
-        const outcome = run(service.take('1', taker));
-        flushGet(order);
-        httpMock.expectOne(url).flush(legacyInProgress);
-        flushGet(legacyInProgress);
-
-        const error = stateError(outcome);
-        expect(error.reason).toBe('taken-by-other');
-        expect(error.takenBy).toBeNull();
-      });
-
-      it('close refuses an in-progress order with no owner: nobody can prove it is theirs', () => {
-        const outcome = run(service.close('1', 'completed', note));
-        flushGet(legacyInProgress);
-
-        const error = stateError(outcome);
-        expect(error.reason).toBe('taken-by-other');
-        expect(error.takenBy).toBeNull();
-        noWrites();
-      });
-
-      it('release works on an in-progress order with no owner recorded', () => {
-        const result = run(service.release('1'));
-        flushGet(legacyInProgress);
-
-        const patchRequest = httpMock.expectOne(url);
-        expect(patchRequest.request.body).toEqual({ status: 'pending', takenBy: null });
-        patchRequest.flush({ ...order, takenBy: null });
-        expect(result.done).toBe(true);
+        expect(outcome.error).not.toBeInstanceOf(WorkOrderStateError);
       });
     });
 
@@ -755,12 +743,12 @@ describe('WorkOrdersService', () => {
         ],
         [
           'someone runs it',
-          new WorkOrderStateError('not-pending', otherTaker, 'in-progress'),
+          new WorkOrderStateError('not-pending', owner, 'in-progress'),
           'La orden está siendo ejecutada por Técnico Electricista.',
         ],
         [
           'it is closed, even with an owner',
-          new WorkOrderStateError('not-pending', otherTaker, 'completed'),
+          new WorkOrderStateError('not-pending', owner, 'completed'),
           'La orden ya fue cerrada.',
         ],
       ])('%s', (_label, error, message) => {

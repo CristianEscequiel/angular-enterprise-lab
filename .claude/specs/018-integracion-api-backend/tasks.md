@@ -93,7 +93,7 @@ T3, T4 y T5 son independientes entre sí. T6→T7 comparten `WorkOrdersService`,
     `work-order-create.spec`, `work-order-edit.spec`, `work-order-detail.spec` (baja);
     `work-order-create.integration.spec.ts` reescrito sin emulador.
 
-- [ ] **T7 — Órdenes: tomar, cerrar, liberar** · REQ-10 · depende de: T6
+- [x] **T7 — Órdenes: tomar, cerrar, liberar** · REQ-10 · depende de: T6
   - `take`/`close`/`release` por `POST` sin dueño ni autor en el cuerpo; retiro de
     `readFresh`; traducción de `409` a `WorkOrderStateError` con
     `takenBy: Pick<WorkOrderTaker,'id'|'name'>`; `close` valida 50–500 y recorta antes de
@@ -148,3 +148,4 @@ T3, T4 y T5 son independientes entre sí. T6→T7 comparten `WorkOrdersService`,
 - **T3:** se eliminó `db.seed.spec.ts` (T9 lo borraba igual) porque dependía de `toAuthUser`, retirado en T3.
 - **T4:** se eliminó `machines-tree.integration.spec.ts` (ida y vuelta contra el emulador; el contrato queda cubierto por los specs de `MachinesService` y `PartsService` con `HttpTestingController`). `machine-parts.spec.ts` conserva su estilo de página + servicios reales sobre `features/machines/testing/machines-api.fake.ts`, un servidor en memoria que cumple **el contrato de la API** (no el de JSON Server), porque reescribir 1000 líneas con mocks perdería los escenarios de "otro usuario cambió algo".
 - **T4:** se eliminó `work-order-create.integration.spec.ts` (dependía del emulador y de rutas retiradas); se reescribe en T6 sobre el contrato nuevo.
+- **T6/T7:** se eliminaron `mock-api.interceptor.ts` y `mock-delay.interceptor.ts` (código muerto, sin referencias en `app.config.ts`; T9 los borraba igual) y `work-order-closure.integration.spec.ts` (dependía del emulador; el contrato de take/close/release queda cubierto en `work-order.service.spec.ts`). La integración de alta se reescribió en `work-order-create.integration.spec.ts` con `HttpTestingController`.

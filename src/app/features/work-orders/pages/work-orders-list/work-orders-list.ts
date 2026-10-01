@@ -33,7 +33,6 @@ import {
   WorkOrder,
   WorkOrderPriority,
   WorkOrderStatus,
-  WorkOrderTaker,
 } from '../../models/work-order.model';
 import {
   canDeleteWorkOrder,
@@ -255,15 +254,9 @@ export class WorkOrdersList implements OnInit {
       return;
     }
 
-    const taker: WorkOrderTaker = {
-      id: user.id,
-      name: user.displayName,
-      at: new Date().toISOString(),
-    };
-
     this.setBusy(order.id, true);
     this.workOrdersService
-      .take(order.id, taker)
+      .take(order.id)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.setBusy(order.id, false)),
@@ -315,6 +308,8 @@ export class WorkOrdersList implements OnInit {
             return;
           }
 
+          if (errorStatus(error) === 403) return;
+
           this.messageService.showError('No se pudo liberar la orden.');
         },
       });
@@ -332,6 +327,9 @@ export class WorkOrdersList implements OnInit {
       this.loadWorkOrders();
       return;
     }
+
+    // Un 403 (equipo no habilitado para ese tipo) ya lo avisó el interceptor.
+    if (errorStatus(error) === 403) return;
 
     this.messageService.showError('No se pudo tomar la orden.');
   }

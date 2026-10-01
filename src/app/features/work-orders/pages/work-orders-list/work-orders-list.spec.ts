@@ -19,7 +19,6 @@ import {
   WorkOrder,
   WorkOrderPriority,
   WorkOrderStatus,
-  WorkOrderTaker,
 } from '../../models/work-order.model';
 import { WorkOrdersList } from './work-orders-list';
 
@@ -59,7 +58,7 @@ describe('WorkOrdersList search and pagination', () => {
 
   const service = {
     search: vi.fn<(criteria: WorkOrdersCriteria) => Observable<PaginatedResponse<WorkOrder>>>(),
-    take: vi.fn<(id: string, taker: WorkOrderTaker) => Observable<WorkOrder>>(),
+    take: vi.fn<(id: string) => Observable<WorkOrder>>(),
     release: vi.fn<(id: string) => Observable<WorkOrder>>(),
     delete: vi.fn<(...args: string[]) => Observable<void>>(),
   };
@@ -947,10 +946,7 @@ describe('WorkOrdersList search and pagination', () => {
 
         click('Tomar orden Falla en cinta');
 
-        expect(service.take).toHaveBeenCalledExactlyOnceWith(
-          '10',
-          expect.objectContaining({ id: '2', name: tecnico.displayName }),
-        );
+        expect(service.take).toHaveBeenCalledExactlyOnceWith('10');
         // Todavía no terminó de tomarla: no se abre la página de cierre.
         expect(navigate).not.toHaveBeenCalled();
 
@@ -1028,6 +1024,16 @@ describe('WorkOrdersList search and pagination', () => {
         click('Tomar orden Falla en cinta');
 
         expect(message()?.message).toBe('La orden ya fue cerrada.');
+        expect(navigate).not.toHaveBeenCalled();
+      });
+
+      it('a 403 (the team does not attend this type) adds no message of its own and does not navigate', () => {
+        service.take.mockReturnValue(throwError(() => ({ status: 403 })));
+        startAs(tecnico, [pending]);
+
+        click('Tomar orden Falla en cinta');
+
+        expect(message()).toBeNull();
         expect(navigate).not.toHaveBeenCalled();
       });
 
