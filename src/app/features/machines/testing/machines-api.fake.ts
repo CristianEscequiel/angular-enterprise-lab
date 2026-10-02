@@ -71,13 +71,19 @@ export function createMachinesApi(seed: {
     of(new HttpResponse({ status, body: structuredClone(body) }));
 
   const interceptor: HttpInterceptorFn = (request) => {
-    const url = new URL(request.url);
-    const path = url.pathname;
+    // API_BASE_URL puede ser relativa ('/api'): se resuelve contra un origen ficticio.
+    const origin = 'http://localhost';
+    const base = new URL(API_BASE_URL, origin);
+    const url = new URL(request.url, origin);
     const method = request.method;
 
-    if (url.origin !== new URL(API_BASE_URL).origin) {
+    if (
+      url.origin !== base.origin ||
+      !url.pathname.startsWith(base.pathname.replace(/\/$/, '') + '/')
+    ) {
       throw new Error(`machines-api: URL fuera de API_BASE_URL: ${request.url}`);
     }
+    const path = url.pathname.slice(base.pathname.replace(/\/$/, '').length);
 
     requests.push({ method, path, body: structuredClone(request.body) });
 
