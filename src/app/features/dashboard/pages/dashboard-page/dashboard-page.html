@@ -6,11 +6,38 @@
   } @else if (error()) {
     <app-alert
       title="No pudimos cargar el turno"
-      message="No se pudieron traer las órdenes de trabajo. Intentá nuevamente."
+      message="No se pudieron traer los datos del turno. Intentá nuevamente."
       variant="error"
     />
     <app-button variant="primary" (clicked)="load()"> Reintentar </app-button>
   } @else {
+    @if (summary(); as figures) {
+      <!-- Resumen calculado por la API: total y abiertas sobre todas las órdenes; cerradas y promedio, del período. -->
+      <section class="shift__summary" aria-labelledby="shift-summary-title">
+        <h2 id="shift-summary-title" class="shift__summary-title">Resumen</h2>
+        <dl class="shift__summary-list">
+          <div class="shift__summary-item">
+            <dt>Órdenes en total</dt>
+            <dd class="u-tabular" id="summary-total">{{ figures.total }}</dd>
+          </div>
+          <div class="shift__summary-item">
+            <dt>Abiertas</dt>
+            <dd class="u-tabular" id="summary-open">{{ figures.open }}</dd>
+          </div>
+          <div class="shift__summary-item">
+            <dt>Cerradas del {{ figures.period.from }} al {{ figures.period.to }}</dt>
+            <dd class="u-tabular" id="summary-closed">{{ figures.closedInPeriod.total }}</dd>
+          </div>
+          <div class="shift__summary-item">
+            <dt>Tiempo promedio de resolución</dt>
+            <dd class="u-tabular" id="summary-average">
+              {{ formatDuration(figures.averageResolutionMinutes) }}
+            </dd>
+          </div>
+        </dl>
+      </section>
+    }
+
     <!-- Tres columnas: las cifras se ven siempre; las listas de órdenes, desde md (REQ-5.9, 5.10). -->
     <div class="shift__board">
       <section class="shift__column shift__column--pending" aria-labelledby="shift-pending-title">
@@ -19,6 +46,11 @@
         <p class="shift__detail" id="shift-pending-high">
           {{ board().pendingHigh }} de prioridad alta
         </p>
+        @if (pendingTruncation(); as cut) {
+          <p class="shift__detail" id="shift-pending-truncated">
+            Mostrando las primeras {{ cut.shown }} de {{ cut.total }}
+          </p>
+        }
         <ul class="shift__list">
           @for (order of board().pending.slice(0, columnLimit); track order.id) {
             <li>
@@ -36,6 +68,11 @@
         <p class="shift__detail" id="shift-progress-mine">
           {{ board().mine.length }} {{ board().mine.length === 1 ? 'es tuya' : 'son tuyas' }}
         </p>
+        @if (inProgressTruncation(); as cut) {
+          <p class="shift__detail" id="shift-progress-truncated">
+            Mostrando las primeras {{ cut.shown }} de {{ cut.total }}
+          </p>
+        }
         <ul class="shift__list">
           @for (order of board().inProgress.slice(0, columnLimit); track order.id) {
             <li>
@@ -50,6 +87,11 @@
         <p class="shift__count u-tabular" id="shift-closed-count">
           {{ board().closedToday.length }}
         </p>
+        @if (closedTruncation(); as cut) {
+          <p class="shift__detail" id="shift-closed-truncated">
+            Mostrando las primeras {{ cut.shown }} de {{ cut.total }}
+          </p>
+        }
         <ul class="shift__list">
           @for (order of board().closedToday.slice(0, columnLimit); track order.id) {
             <li>
@@ -78,5 +120,23 @@
         <a class="btn btn--primary" routerLink="/work-orders">Ver órdenes pendientes</a>
       }
     </section>
+
+    @if (showWorkload()) {
+      <section class="shift__workload" aria-labelledby="shift-workload-title">
+        <h2 id="shift-workload-title">Carga de trabajo</h2>
+        @if (workload().length > 0) {
+          <ul class="shift__workload-list" id="workload-list">
+            @for (item of workload(); track item.takenById) {
+              <li>
+                <span class="shift__workload-name">{{ item.takenByName }}</span>
+                <span class="shift__workload-count u-tabular">{{ item.inProgress }}</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="shift__empty" id="workload-empty">Ningún técnico tiene órdenes en curso.</p>
+        }
+      </section>
+    }
   }
 </section>

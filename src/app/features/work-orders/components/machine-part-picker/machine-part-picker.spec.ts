@@ -8,8 +8,8 @@ import { buildPartTree, Part, PartNode } from '@features/machines/models/part.mo
 import { MachinePartPicker } from './machine-part-picker';
 
 const MACHINES: Machine[] = [
-  { id: 'm1', code: 'ENV-01', name: 'Envasadora línea 1' },
-  { id: 'm2', code: 'ROT-03', name: 'Rotuladora' },
+  { id: 'm1', code: 'ENV-01', name: 'Envasadora línea 1', partCount: 0 },
+  { id: 'm2', code: 'ROT-03', name: 'Rotuladora', partCount: 0 },
 ];
 
 const part = (id: string, parentId: string | null, name: string): Part => ({

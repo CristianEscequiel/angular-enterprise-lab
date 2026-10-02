@@ -1,7 +1,7 @@
 import { WorkOrderMachineRef } from '../models/work-order.model';
 
 // Referencia de máquina válida para los tests de órdenes (spec 013d): antes cada spec declaraba su
-// propio texto libre de "activo". Apunta a la máquina 1 del seed (`db.json`), hasta "Motor de cinta".
+// propio texto libre de "activo". Apunta a la máquina 1 del seed de la API (perfil `dev`), hasta "Motor de cinta".
 export const MACHINE_REF_FIXTURE: WorkOrderMachineRef = {
   machineId: '1',
   partId: '3',

@@ -222,18 +222,17 @@ describe('WorkOrderResolve', () => {
       expect(workOrdersServiceMock.close).toHaveBeenCalledTimes(1);
     });
 
-    it('closes with the chosen result and a note carrying the trimmed comment, author and date', async () => {
+    it('closes with the chosen result and the trimmed comment; the author is never sent', async () => {
       await create();
       fill('cancelled', `  ${VALID_COMMENT}  `);
 
       submitForm();
 
-      expect(workOrdersServiceMock.close).toHaveBeenCalledExactlyOnceWith('7', 'cancelled', {
-        comment: VALID_COMMENT,
-        authorId: guardia.id,
-        authorName: guardia.displayName,
-        at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
-      });
+      expect(workOrdersServiceMock.close).toHaveBeenCalledExactlyOnceWith(
+        '7',
+        'cancelled',
+        VALID_COMMENT,
+      );
     });
 
     it('confirms and goes back to the list on success', async () => {
@@ -300,6 +299,18 @@ describe('WorkOrderResolve', () => {
       component.submit();
 
       expect(workOrdersServiceMock.close).not.toHaveBeenCalled();
+    });
+
+    it('a 403 adds no message of its own and the form stays as it is', async () => {
+      await create();
+      workOrdersServiceMock.close.mockReturnValue(throwError(() => ({ status: 403 })));
+      fill('completed', VALID_COMMENT);
+
+      submitForm();
+
+      expect(message()).toBeNull();
+      expect(routerMock.navigate).not.toHaveBeenCalled();
+      expect(form()).not.toBeNull();
     });
 
     it.each(['not-in-progress', 'taken-by-other'] as const)(

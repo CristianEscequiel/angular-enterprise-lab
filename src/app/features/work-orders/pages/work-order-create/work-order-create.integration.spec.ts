@@ -1,32 +1,21 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { By } from '@angular/platform-browser';
-import { Router } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { provideRouter, Router } from '@angular/router';
 
 import { AuthUser } from '@core/auth/auth.model';
 import { AuthService } from '@core/auth/auth.service';
-import { createInMemoryApi, InMemoryApi, provideInMemoryApi } from '@core/testing/in-memory-api';
-import { PartsService } from '@features/machines/data-access/parts.service';
-import { Form } from '../../components/form/form';
-import { WorkOrdersService } from '../../data-access/work-order.service';
-import db from '../../data-access/db.json';
-import { WorkOrder } from '../../models/work-order.model';
+import { API_BASE_URL } from '@core/config/api.config';
+import { MessageService } from '@core/services/message.service';
 import { WorkOrderCreate } from './work-order-create';
 
-// Especificación ejecutable de los criterios de aceptación de 013d (máquina y parte en la orden). La
-// página `WorkOrderCreate` REAL, con `MachinesService`, `PartsService` y `WorkOrdersService` reales,
-// contra un emulador fiel de JSON Server sembrado con las máquinas y partes de `db.json`. La máquina
-// y la parte se eligen en el DOM (selector y árbol), como lo haría una persona; el resto del
-// formulario se completa por sus controles.
-//
-// Seed (máquina 1, "Envasadora línea 1"):
-//   Mesa de transporte ─ Cinta 1 ─ Motor de cinta ─ Rodamiento delantero
-describe('work order machine reference, end to end against an in-memory JSON Server', () => {
-  let api: InMemoryApi;
-  let fixture: ComponentFixture<WorkOrderCreate>;
-  let orders: WorkOrdersService;
-  let parts: PartsService;
+// La página de alta con los servicios REALES (máquinas, partes, órdenes) y las respuestas de la API
+// simuladas: fija qué pedidos salen, con qué cuerpo, y qué se muestra de cada respuesta.
+describe('work order creation against the API contract', () => {
+  const machinesUrl = `${API_BASE_URL}/machines`;
+  const partsUrl = `${API_BASE_URL}/machines/1/parts`;
+  const ordersUrl = `${API_BASE_URL}/work-orders`;
 
   const teamLeader: AuthUser = {
     id: '3',
@@ -35,175 +24,159 @@ describe('work order machine reference, end to end against an in-memory JSON Ser
     email: 'teamleader@enterprise-lab.dev',
     role: 'team-leader-mantenimiento',
   };
+  const machines = [
+    { id: '1', code: 'ENV-01', name: 'Envasadora línea 1', partCount: 3 },
+    { id: '2', code: 'SEL-02', name: 'Selladora', partCount: 0 },
+  ];
+  const parts = [
+    { id: '1', machineId: '1', parentId: null, name: 'Mesa de transporte' },
+    { id: '2', machineId: '1', parentId: '1', name: 'Cinta 1' },
+    { id: '3', machineId: '1', parentId: '2', name: 'Motor de cinta' },
+  ];
 
-  const seed = {
-    maquinas: db.maquinas,
-    partes: db.partes,
-    'work-orders': [],
-  } as unknown as Parameters<typeof createInMemoryApi>[0];
+  let fixture: ComponentFixture<WorkOrderCreate>;
+  let httpMock: HttpTestingController;
+  let navigate: ReturnType<typeof vi.spyOn>;
 
-  beforeEach(async () => {
-    api = createInMemoryApi(seed);
-
-    await TestBed.configureTestingModule({
+  beforeEach(() => {
+    TestBed.configureTestingModule({
       imports: [WorkOrderCreate],
       providers: [
-        provideInMemoryApi(api),
-        { provide: Router, useValue: { navigate: vi.fn() } },
-        { provide: AuthService, useValue: { currentUser: signal<AuthUser | null>(teamLeader) } },
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: AuthService, useValue: { currentUser: signal(teamLeader).asReadonly() } },
       ],
-    }).compileComponents();
-
-    orders = TestBed.inject(WorkOrdersService);
-    parts = TestBed.inject(PartsService);
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     fixture = TestBed.createComponent(WorkOrderCreate);
     fixture.detectChanges();
-    await fixture.whenStable();
+    httpMock.expectOne(machinesUrl).flush(machines);
+    fixture.detectChanges();
   });
 
-  const host = (): HTMLElement => fixture.nativeElement;
-  const form = (): Form => fixture.debugElement.query(By.directive(Form)).componentInstance;
+  afterEach(() => httpMock.verify());
+
+  const text = (): string => fixture.nativeElement.textContent ?? '';
+
+  function type(selector: string, value: string): void {
+    const input = fixture.nativeElement.querySelector(selector) as HTMLInputElement;
+    input.value = value;
+    input.dispatchEvent(new Event('input'));
+  }
 
   function chooseMachine(id: string): void {
-    const select = host().querySelector('#machine-select') as HTMLSelectElement;
-
+    const select = fixture.nativeElement.querySelector('#machine-select') as HTMLSelectElement;
     select.value = id;
     select.dispatchEvent(new Event('change'));
     fixture.detectChanges();
   }
 
-  function choosePart(name: string): void {
-    const button = Array.from(host().querySelectorAll<HTMLButtonElement>('.part-tree__name')).find(
-      (candidate) => candidate.textContent?.trim() === name,
-    );
-
-    if (!button) throw new Error(`No hay la parte "${name}" en el árbol`);
-    button.click();
+  function fillAndSubmit(): void {
+    type('#title', 'Revisar motor');
+    type('#description', 'Vibración fuera de rango en el arranque');
+    fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
     fixture.detectChanges();
   }
 
-  function fillRest(comment = ''): void {
-    form().workOrderForm.patchValue({
+  it('asks the parts of the chosen machine through its own route, not a global listing', () => {
+    expect.assertions(2);
+    chooseMachine('1');
+
+    const request = httpMock.expectOne(partsUrl);
+    expect(request.request.method).toBe('GET');
+    request.flush(parts);
+    fixture.detectChanges();
+
+    expect(text()).toContain('Motor de cinta');
+  });
+
+  it('stopping at the machine posts partId null and no breadcrumb, then goes back to the list', () => {
+    expect.assertions(4);
+    chooseMachine('2');
+    httpMock.expectOne(`${API_BASE_URL}/machines/2/parts`).flush([]);
+
+    fillAndSubmit();
+    const post = httpMock.expectOne({ method: 'POST', url: ordersUrl });
+    expect(post.request.body).toEqual({
       title: 'Revisar motor',
-      description: 'Revisar temperatura del motor',
-      comment,
-      type: 'correctivo',
-      priority: 'medium',
+      description: 'Vibración fuera de rango en el arranque',
+      type: 'preventivo',
+      priority: 'low',
+      machineRef: { machineId: '2', partId: null, comment: '' },
     });
-  }
+    expect(post.request.body.machineRef).not.toHaveProperty('breadcrumb');
+    post.flush({ id: '33', status: 'pending' });
 
-  const posts = () => api.requestsTo('POST', '/work-orders');
-  const storedOrders = (): WorkOrder[] => api.db['work-orders'] as unknown as WorkOrder[];
-
-  async function submit(): Promise<void> {
-    form().onSubmit();
-    fixture.detectChanges();
-    await fixture.whenStable();
-  }
-
-  it('blocks the submit without a machine: no request reaches the server', async () => {
-    expect.assertions(2);
-    fillRest();
-
-    await submit();
-
-    expect(posts()).toHaveLength(0);
-    expect(storedOrders()).toHaveLength(0);
+    expect(navigate).toHaveBeenCalledWith(['/work-orders']);
+    expect(TestBed.inject(MessageService).message()?.variant).toBe('success');
   });
 
-  it('stopping at the machine stores partId null and the machine name as breadcrumb', async () => {
-    expect.assertions(2);
-    fillRest();
-    chooseMachine('1');
-
-    await submit();
-
-    expect(storedOrders()).toHaveLength(1);
-    expect(storedOrders()[0]?.machineRef).toEqual({
-      machineId: '1',
-      partId: null,
-      breadcrumb: 'Envasadora línea 1',
-      comment: '',
-    });
-  });
-
-  it('a level-3 part stores the full chain of ancestors, in order', async () => {
+  it('a part of the tree travels as its id, with the comment apart', () => {
     expect.assertions(1);
-    fillRest();
     chooseMachine('1');
-    choosePart('Motor de cinta');
+    httpMock.expectOne(partsUrl).flush(parts);
+    fixture.detectChanges();
+    const motor = Array.from<HTMLElement>(
+      fixture.nativeElement.querySelectorAll('.part-tree__name'),
+    ).find((element) => element.textContent?.trim() === 'Motor de cinta');
+    motor?.click();
+    fixture.detectChanges();
+    type('#comment', '  Hace ruido  ');
 
-    await submit();
+    fillAndSubmit();
 
-    expect(storedOrders()[0]?.machineRef).toMatchObject({
+    const post = httpMock.expectOne({ method: 'POST', url: ordersUrl });
+    expect(post.request.body.machineRef).toEqual({
       machineId: '1',
       partId: '3',
-      breadcrumb: 'Envasadora línea 1 > Mesa de transporte > Cinta 1 > Motor de cinta',
+      comment: 'Hace ruido',
     });
+    post.flush({ id: '33' });
   });
 
-  it('a level-4 leaf stores the four levels', async () => {
-    expect.assertions(1);
-    fillRest();
-    chooseMachine('1');
-    choosePart('Rodamiento delantero');
+  it('shows the API reason, keeps the form and does not leave when the part is rejected (400)', () => {
+    expect.assertions(4);
+    chooseMachine('2');
+    httpMock.expectOne(`${API_BASE_URL}/machines/2/parts`).flush([]);
 
-    await submit();
-
-    expect(storedOrders()[0]?.machineRef.breadcrumb).toBe(
-      'Envasadora línea 1 > Mesa de transporte > Cinta 1 > Motor de cinta > Rodamiento delantero',
-    );
-  });
-
-  it('after picking a part, "Usar solo la máquina" goes back to the machine level', async () => {
-    expect.assertions(1);
-    fillRest();
-    chooseMachine('1');
-    choosePart('Motor de cinta');
-    const onlyMachine = Array.from(host().querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.includes('Usar solo la máquina'),
-    );
-    onlyMachine?.click();
+    fillAndSubmit();
+    httpMock
+      .expectOne({ method: 'POST', url: ordersUrl })
+      .flush(
+        { code: 'PART_NOT_FOUND', message: 'No existe la parte 9' },
+        { status: 400, statusText: 'Bad Request' },
+      );
     fixture.detectChanges();
 
-    await submit();
-
-    expect(storedOrders()[0]?.machineRef).toMatchObject({ partId: null });
+    expect(text()).toContain('No existe la parte 9');
+    expect(fixture.nativeElement.querySelector('#title')).not.toBeNull();
+    expect((fixture.nativeElement.querySelector('#title') as HTMLInputElement).value).toBe(
+      'Revisar motor',
+    );
+    expect(navigate).not.toHaveBeenCalled();
   });
 
-  it('keeps the failure comment as its own field, never inside the stored breadcrumb', async () => {
-    expect.assertions(3);
-    fillRest('Vibración en el arranque');
-    chooseMachine('1');
-    choosePart('Motor de cinta');
+  it('shows each field error returned by a 400 VALIDATION_ERROR next to its field', () => {
+    expect.assertions(2);
+    chooseMachine('2');
+    httpMock.expectOne(`${API_BASE_URL}/machines/2/parts`).flush([]);
 
-    await submit();
+    fillAndSubmit();
+    httpMock.expectOne({ method: 'POST', url: ordersUrl }).flush(
+      {
+        code: 'VALIDATION_ERROR',
+        message: 'Datos inválidos',
+        details: { description: 'Debe tener entre 10 y 2000 caracteres' },
+      },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    fixture.detectChanges();
 
-    const { machineRef } = storedOrders()[0] as WorkOrder;
-    expect(machineRef.comment).toBe('Vibración en el arranque');
-    expect(machineRef.breadcrumb).not.toContain('Vibración');
-    expect(Object.keys(storedOrders()[0] as object)).not.toContain('comment');
-  });
-
-  it('an order already created keeps the original breadcrumb after the part is renamed in the master', async () => {
-    expect.assertions(4);
-    fillRest();
-    chooseMachine('1');
-    choosePart('Motor de cinta');
-    await submit();
-    const original = 'Envasadora línea 1 > Mesa de transporte > Cinta 1 > Motor de cinta';
-    const id = (storedOrders()[0] as WorkOrder).id;
-
-    // Se renombra la parte elegida y también uno de sus ancestros.
-    await firstValueFrom(parts.update('3', 'Motor de cinta (reemplazado)'));
-    await firstValueFrom(parts.update('2', 'Cinta principal'));
-
-    const reread = await firstValueFrom(orders.getById(id));
-    expect(reread.machineRef.breadcrumb).toBe(original);
-    expect(reread.machineRef.partId).toBe('3');
-    // El maestro sí cambió: el snapshot no depende de él.
-    const renamed = (api.db['partes'] ?? []).find((part) => part.id === '3');
-    expect(renamed?.['name']).toBe('Motor de cinta (reemplazado)');
-    expect((await firstValueFrom(orders.getAll()))[0]?.machineRef.breadcrumb).toBe(original);
+    expect(fixture.nativeElement.querySelector('#description-server-error')?.textContent).toContain(
+      'entre 10 y 2000',
+    );
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

@@ -8,9 +8,7 @@ import { AuthUser, TechnicianUser, USER_ROLES, UserRole } from '@core/auth/auth.
 import { AuthService } from '@core/auth/auth.service';
 import { MessageService } from '@core/services/message.service';
 import { MachineHasPartsError, MachinesService } from '../../data-access/machines.service';
-import { PartsService } from '../../data-access/parts.service';
 import { Machine } from '../../models/machine.model';
-import { Part } from '../../models/part.model';
 import { MachinesList } from './machines-list';
 
 describe('MachinesList', () => {
@@ -18,30 +16,13 @@ describe('MachinesList', () => {
   let component: MachinesList;
   let navigate: ReturnType<typeof vi.spyOn>;
 
-  const envasadora: Machine = { id: 'm1', code: 'ENV-01', name: 'Envasadora' };
-  const selladora: Machine = { id: 'm2', code: 'SEL-02', name: 'Selladora' };
-  const rotuladora: Machine = { id: 'm3', code: 'ROT-03', name: 'Rotuladora' };
-  const part = (id: string, machineId: string): Part => ({
-    id,
-    machineId,
-    parentId: null,
-    name: `Parte ${id}`,
-  });
-  // Envasadora: 3 partes, Selladora: 1, Rotuladora: ninguna, y una parte de una máquina que no está.
-  const allParts = [
-    part('p1', 'm1'),
-    part('p2', 'm1'),
-    part('p3', 'm1'),
-    part('p4', 'm2'),
-    part('p9', 'no-listada'),
-  ];
+  const envasadora: Machine = { id: 'm1', code: 'ENV-01', name: 'Envasadora', partCount: 3 };
+  const selladora: Machine = { id: 'm2', code: 'SEL-02', name: 'Selladora', partCount: 1 };
+  const rotuladora: Machine = { id: 'm3', code: 'ROT-03', name: 'Rotuladora', partCount: 0 };
 
   const machines = {
     getAll: vi.fn<() => Observable<Machine[]>>(),
     delete: vi.fn<(id: string) => Observable<void>>(),
-  };
-  const parts = {
-    getAll: vi.fn<() => Observable<Part[]>>(),
   };
 
   const userWithRole = (role: UserRole): AuthUser => {
@@ -73,7 +54,6 @@ describe('MachinesList', () => {
   beforeEach(async () => {
     machines.getAll.mockReset().mockReturnValue(of([envasadora, selladora, rotuladora]));
     machines.delete.mockReset().mockReturnValue(of(undefined));
-    parts.getAll.mockReset().mockReturnValue(of(allParts));
     currentUser.set(teamLeader);
 
     await TestBed.configureTestingModule({
@@ -81,7 +61,6 @@ describe('MachinesList', () => {
       providers: [
         provideRouter([]),
         { provide: MachinesService, useValue: machines },
-        { provide: PartsService, useValue: parts },
         { provide: AuthService, useValue: { currentUser: currentUser.asReadonly() } },
       ],
     }).compileComponents();
@@ -178,23 +157,14 @@ describe('MachinesList', () => {
       ]);
     });
 
-    it('counts the parts with a single request for the whole collection', () => {
+    it('takes the part counts from the machines themselves: one request, no parts listing', () => {
       startAs();
 
       expect(machines.getAll).toHaveBeenCalledTimes(1);
-      expect(parts.getAll).toHaveBeenCalledTimes(1);
-    });
-
-    it('ignores the parts of a machine that is not listed', () => {
-      startAs();
-
-      expect(text()).not.toContain('no-listada');
-      expect(rows()).toHaveLength(3);
     });
 
     it('shows an empty state when there are no machines', () => {
       machines.getAll.mockReturnValue(of([]));
-      parts.getAll.mockReturnValue(of([]));
       startAs();
 
       expect(text()).toContain('No existen máquinas registradas.');
@@ -231,14 +201,6 @@ describe('MachinesList', () => {
         expect(machines.getAll).toHaveBeenCalledTimes(2);
         expect(rows()).toHaveLength(3);
         expect(text()).not.toContain('No se pudieron cargar');
-      });
-
-      it('shows the error, not a list without counts, when the parts cannot be loaded', () => {
-        parts.getAll.mockReturnValueOnce(throwError(() => new Error('down')));
-        startAs();
-
-        expect(text()).toContain('No se pudieron cargar las máquinas');
-        expect(fixture.nativeElement.querySelector('table')).toBeNull();
       });
 
       it('does not announce results while there is an error', () => {
@@ -373,7 +335,15 @@ describe('MachinesList', () => {
 
     describe('a machine that has parts (blocked by the service)', () => {
       beforeEach(() => {
-        machines.delete.mockReturnValue(throwError(() => new MachineHasPartsError('m1', 3)));
+        machines.delete.mockReturnValue(
+          throwError(
+            () =>
+              new MachineHasPartsError(
+                'm1',
+                'La máquina m1 tiene 3 partes. Elimine primero sus partes.',
+              ),
+          ),
+        );
         confirmDeletion(envasadora);
       });
 
@@ -392,7 +362,6 @@ describe('MachinesList', () => {
 
       it('reloads the list, since the part counts on screen may be stale', () => {
         expect(machines.getAll).toHaveBeenCalledTimes(2);
-        expect(parts.getAll).toHaveBeenCalledTimes(2);
       });
     });
 

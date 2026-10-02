@@ -9,6 +9,7 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
 
+import { errorStatus } from '@core/api/api-error';
 import { AuthService } from '@core/auth/auth.service';
 import { MessageService } from '@core/services/message.service';
 import { Alert } from '@shared/components/alert/alert';
@@ -27,7 +28,6 @@ import {
   ClosedWorkOrderStatus,
   isClosedStatus,
   isValidClosingComment,
-  WorkOrderClosingNote,
 } from '../../models/work-order.model';
 import { canResolveWorkOrder, canTakeWorkOrder } from '../../models/work-order.permissions';
 
@@ -156,16 +156,9 @@ export class WorkOrderResolve implements OnInit {
       return;
     }
 
-    const note: WorkOrderClosingNote = {
-      comment: comment.trim(),
-      authorId: user.id,
-      authorName: user.displayName,
-      at: new Date().toISOString(),
-    };
-
     this.isSubmitting.set(true);
     this.workOrdersService
-      .close(order.id, outcome, note)
+      .close(order.id, outcome, comment.trim())
       .pipe(finalize(() => this.isSubmitting.set(false)))
       .subscribe({
         next: () => {
@@ -180,6 +173,9 @@ export class WorkOrderResolve implements OnInit {
             this.loader.retry();
             return;
           }
+
+          // Un 403 ya lo avisó el interceptor ("no tenés permisos").
+          if (errorStatus(error) === 403) return;
 
           this.messageService.showError(
             error instanceof InvalidClosingNoteError

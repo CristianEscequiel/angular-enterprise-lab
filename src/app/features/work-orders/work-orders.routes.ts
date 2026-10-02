@@ -4,8 +4,8 @@ import { isTechnician } from '@core/auth/auth.model';
 import { requireUser } from '@core/auth/auth.guard';
 import { canEditWorkOrder, creatableTypes } from './models/work-order.permissions';
 
-// Los ids de work order son strings numéricos simples (ver db.json,
-// generados por json-server). Un segmento que no matchee este formato
+// Los ids de work order son strings numéricos simples (la API los asigna
+// desde una secuencia). Un segmento que no matchee este formato
 // no es una orden reconocible por la app: debe caer en el wildcard 404
 // de app.routes.ts, no en WorkOrderDetail/WorkOrderEdit.
 const ID_PATTERN = /^\d+$/;

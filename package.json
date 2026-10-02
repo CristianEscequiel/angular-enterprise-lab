@@ -9,8 +9,7 @@
     "test": "ng test",
     "test:coverage": "ng test --configuration coverage",
     "lint": "ng lint",
-    "prepare": "husky",
-    "api": "json-server src/app/features/work-orders/data-access/db.json --port 3000"
+    "prepare": "husky"
   },
   "private": true,
   "packageManager": "pnpm@11.11.0",
@@ -36,7 +35,6 @@
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "jsdom": "^28.0.0",
-    "json-server": "1.0.0-beta.15",
     "lint-staged": "^17.2.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",

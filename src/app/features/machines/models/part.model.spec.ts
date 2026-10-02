@@ -361,7 +361,7 @@ describe('part model', () => {
 });
 
 describe('buildBreadcrumb', () => {
-  const machine: Machine = { id: 'm1', code: 'ENV-01', name: 'Envasadora línea 1' };
+  const machine: Machine = { id: 'm1', code: 'ENV-01', name: 'Envasadora línea 1', partCount: 0 };
 
   it('is just the machine name when no part is selected', () => {
     expect(buildBreadcrumb(machine, null, ordered)).toBe('Envasadora línea 1');

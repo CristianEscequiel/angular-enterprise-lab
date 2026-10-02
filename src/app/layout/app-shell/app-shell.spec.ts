@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 
-import { AuthSession, UserRecord } from '@core/auth/auth.model';
+import { AuthSession, AuthUser } from '@core/auth/auth.model';
 import { AUTH_STORAGE_KEY, AuthService } from '@core/auth/auth.service';
 import { API_BASE_URL } from '@core/config/api.config';
 import { AppShell } from './app-shell';
@@ -61,7 +61,7 @@ describe('AppShell', () => {
   });
 
   describe('session', () => {
-    const admin: UserRecord = {
+    const admin: AuthUser & { password: string } = {
       id: '1',
       username: 'admin',
       password: 'admin123',
@@ -69,7 +69,7 @@ describe('AppShell', () => {
       email: 'admin@enterprise-lab.dev',
       role: 'administrador',
     };
-    const tecnico: UserRecord = {
+    const tecnico: AuthUser & { password: string } = {
       id: '2',
       username: 'tecnico',
       password: 'tecnico123',
@@ -77,9 +77,11 @@ describe('AppShell', () => {
       email: 'tecnico@enterprise-lab.dev',
       role: 'tecnico',
       legajo: '1001',
+      specialty: 'mecanico',
+      teamType: 'guardia',
     };
 
-    function loginAs(user: UserRecord): AuthSession {
+    function loginAs(user: AuthUser & { password: string }): AuthSession {
       const authService = TestBed.inject(AuthService);
       const httpMock = TestBed.inject(HttpTestingController);
       let result: AuthSession | undefined;
@@ -87,14 +89,10 @@ describe('AppShell', () => {
       authService
         .login({ username: user.username, password: user.password })
         .subscribe((session) => (result = session));
-      httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([user]);
-      if (user.role === 'tecnico') {
-        httpMock
-          .expectOne(`${API_BASE_URL}/tecnicos`)
-          .flush([
-            { id: 'srv-1', legajo: user.legajo, specialty: 'mecanico', teamType: 'guardia' },
-          ]);
-      }
+      httpMock.expectOne(`${API_BASE_URL}/auth/login`).flush({
+        token: `jwt.${user.id}`,
+        user: Object.fromEntries(Object.entries(user).filter(([key]) => key !== 'password')),
+      });
       fixture.detectChanges();
 
       if (!result) throw new Error('login did not emit a session');

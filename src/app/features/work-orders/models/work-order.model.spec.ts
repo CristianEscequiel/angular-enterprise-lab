@@ -15,7 +15,7 @@ import {
 } from './work-order.model';
 
 describe('work order model guards', () => {
-  it('exposes exactly the statuses and priorities stored in db.json', () => {
+  it('exposes exactly the statuses and priorities the API accepts', () => {
     expect([...WORK_ORDER_STATUSES]).toEqual(['pending', 'in-progress', 'completed', 'cancelled']);
     expect([...WORK_ORDER_PRIORITIES]).toEqual(['low', 'medium', 'high']);
   });

@@ -4,7 +4,7 @@ Laboratorio de arquitectura Angular aplicado a un sistema de gestión de órdene
 
 El proyecto busca construir una aplicación pequeña y mantenible que sirva como referencia técnica, base de aprendizaje y material para explicar decisiones de desarrollo. El foco está en la separación de responsabilidades, la reutilización, el manejo de estado, las pruebas y la documentación.
 
-**Estado:** en desarrollo. El flujo CRUD está implementado y la búsqueda con paginación está en proceso de estabilización. La autenticación simulada, los roles y la gestión de técnicos y equipos ya están implementados (specs 010, 011, 013b y 013c), igual que el maestro de máquinas con su árbol de partes (spec 013a) y, sobre él, la máquina y parte de cada orden con el flujo de tomar, cerrar y liberar una orden (spec 013d); el resumen del dashboard (spec 014) ya está, pero los indicadores más allá de él y la asignación de una orden a un técnico concreto (más allá de quien la toma) forman parte del roadmap.
+**Estado:** en desarrollo. El frontend ya consume la API real (Spring Boot + JWT + PostgreSQL, spec 018): JSON Server y los mocks se retiraron. El flujo CRUD está implementado y la búsqueda con paginación está en proceso de estabilización. La autenticación, los roles y la gestión de técnicos y equipos ya están implementados (specs 010, 011, 013b y 013c), igual que el maestro de máquinas con su árbol de partes (spec 013a) y, sobre él, la máquina y parte de cada orden con el flujo de tomar, cerrar y liberar una orden (spec 013d); el resumen del dashboard (spec 014) ya está, pero los indicadores más allá de él y la asignación de una orden a un técnico concreto (más allá de quien la toma) forman parte del roadmap.
 
 ## Metodología de desarrollo
 
@@ -23,19 +23,19 @@ en `.claude/specs/` y quedan versionados junto al código. La sección
 
 ## Stack
 
-| Tecnología                | Uso                                             |
-| ------------------------- | ----------------------------------------------- |
-| Angular 22 y TypeScript 6 | Aplicación con componentes standalone           |
-| Angular Router            | Navegación y carga diferida                     |
-| Signals                   | Estado local y valores derivados                |
-| RxJS 7 y HttpClient       | Peticiones HTTP y búsqueda reactiva             |
-| Reactive Forms            | Formulario compartido para creación y edición   |
-| SCSS                      | Tokens, estilos globales y componentes visuales |
-| JSON Server               | API REST local de desarrollo                    |
-| Vitest                    | Pruebas mediante la integración de Angular      |
-| ESLint y Prettier         | Análisis estático y formato                     |
-| Husky y lint-staged       | Hook de validación previo al commit             |
-| pnpm                      | Gestión de dependencias y ejecución de scripts  |
+| Tecnología                | Uso                                                     |
+| ------------------------- | ------------------------------------------------------- |
+| Angular 22 y TypeScript 6 | Aplicación con componentes standalone                   |
+| Angular Router            | Navegación y carga diferida                             |
+| Signals                   | Estado local y valores derivados                        |
+| RxJS 7 y HttpClient       | Peticiones HTTP y búsqueda reactiva                     |
+| Reactive Forms            | Formulario compartido para creación y edición           |
+| SCSS                      | Tokens, estilos globales y componentes visuales         |
+| API Spring Boot + JWT     | Backend real (repositorio `angular-enterprise-lab-api`) |
+| Vitest                    | Pruebas mediante la integración de Angular              |
+| ESLint y Prettier         | Análisis estático y formato                             |
+| Husky y lint-staged       | Hook de validación previo al commit                     |
+| pnpm                      | Gestión de dependencias y ejecución de scripts          |
 
 Las versiones concretas de las dependencias se registran en `package.json` y `pnpm-lock.yaml`.
 
@@ -47,7 +47,7 @@ Las versiones concretas de las dependencias se registran en `package.json` y `pn
 - **pnpm 11.11.0**, declarado en el campo `packageManager`.
 - Git.
 
-No es necesario instalar Angular CLI ni JSON Server globalmente.
+No es necesario instalar Angular CLI globalmente. Para ejecutar la aplicación completa también hacen falta JDK 21 y Docker (ver "Ejecutar la aplicación").
 
 ### Instalación
 
@@ -59,46 +59,57 @@ pnpm install --frozen-lockfile
 
 ### Ejecutar la aplicación
 
-Ejecutá los siguientes comandos desde la raíz del repositorio y mantené ambas terminales abiertas.
+El frontend consume la API real del repositorio hermano [`angular-enterprise-lab-api`](../angular-enterprise-lab-api) (Java 21, Spring Boot 3, PostgreSQL). Ya no existe un JSON Server de desarrollo. Mantené las tres terminales abiertas.
 
-**Terminal 1 — API de desarrollo:**
+**Terminal 1 — Base de datos** (en `angular-enterprise-lab-api`; requiere Docker):
 
 ```bash
-pnpm api
+docker compose up -d
+docker compose ps   # el servicio postgres debe figurar como "healthy"
 ```
 
-**Terminal 2 — Angular:**
+**Terminal 2 — API** (en `angular-enterprise-lab-api`; requiere JDK 21):
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=dev'
+```
+
+El perfil `dev` aplica las migraciones, siembra usuarios, técnicos, equipos, máquinas, partes y las 32 órdenes de prueba, y usa un secreto JWT por defecto solo para desarrollo. Sin el perfil `dev` hay que definir `JWT_SECRET` (mínimo 32 bytes).
+
+**Terminal 3 — Angular** (en este repositorio):
 
 ```bash
 pnpm start
 ```
 
-| Servicio             | Dirección                                                       |
-| -------------------- | --------------------------------------------------------------- |
-| Aplicación           | [localhost:4200](http://localhost:4200)                         |
-| Colección de órdenes | [localhost:3000/work-orders](http://localhost:3000/work-orders) |
+| Servicio         | Dirección                                                               |
+| ---------------- | ----------------------------------------------------------------------- |
+| Aplicación       | [localhost:4200](http://localhost:4200)                                 |
+| API (salud)      | [localhost:8080/actuator/health](http://localhost:8080/actuator/health) |
+| API (Swagger UI) | [localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) |
 
-Levantar Angular no inicia la API automáticamente. Si JSON Server no está disponible, las operaciones sobre órdenes no podrán completarse.
+Levantar Angular no inicia la API. Sin ella el login y todas las pantallas muestran el error de conexión. La API solo acepta peticiones desde `http://localhost:4200` (CORS).
 
-### Datos y configuración de la API
+Las pruebas (`pnpm test`) **no** necesitan la API ni la base de datos: usan `HttpTestingController`.
 
-Los datos de desarrollo se encuentran en:
+### Configuración de la API
 
-```text
-src/app/features/work-orders/data-access/db.json
-```
+La URL base está en un único lugar, `src/app/core/config/api.config.ts` (`API_BASE_URL`, `http://localhost:8080`), y todos los servicios derivan sus rutas de ella. El `authInterceptor` solo envía el token (`Authorization: Bearer …`) a URLs que empiezan por esa base.
 
-JSON Server utiliza ese archivo como almacenamiento local; las operaciones de escritura pueden modificarlo. Revisá los cambios de datos antes de incluirlos en un commit.
+| Recurso           | Rutas                                                                                                                                |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Sesión            | `POST /auth/login` → `{ token, user }`; `GET /auth/me`                                                                               |
+| Técnicos          | `/technicians` y `/technicians/{legajo}` (el legajo identifica al técnico)                                                           |
+| Equipos           | `/teams` y `/teams/{id}`                                                                                                             |
+| Máquinas y partes | `/machines`, `/machines/{id}/parts` y `/parts/{id}`                                                                                  |
+| Órdenes           | `/work-orders` (`page`, `size`, `title`, `status`, `priority`), `/work-orders/{id}` y `/work-orders/{id}/take`, `/close`, `/release` |
+| Dashboard         | `/dashboard/summary` y `/dashboard/workload`                                                                                         |
 
-`db.json` tiene seis colecciones: `work-orders`, `users` (usuarios de login), `tecnicos` (maestro de técnicos), `equipos` (spec 013c), `maquinas` y `partes` (spec 013a). Un JSON Server en ejecución reescribe el archivo cada vez que se guarda algo desde la interfaz (y le quita el salto de línea final), así que las pruebas manuales dejan cambios que conviene descartar antes de commitear. `db.seed.spec.ts` comprueba la integridad de los datos de prueba (legajos únicos, referencias que existen, un usuario por rol y, para máquinas y partes, ids y códigos únicos, padres que existen en la misma máquina, árboles sin huérfanas y uno de 4 niveles). Las órdenes de prueba (spec 013d) apuntan a una máquina y, si corresponde, a una parte, con el breadcrumb del maestro; las que están en progreso tienen dueño y las cerradas (completadas o canceladas) dueño y comentario de cierre, y `db.seed.spec.ts` verifica esos invariantes.
-
-Actualmente, la URL `http://localhost:3000/work-orders` se define en `WorkOrdersService`. Su extracción a una configuración central está pendiente. Si cambiás el puerto del servidor, debés mantener coherente la URL utilizada por el frontend.
-
-La integración utiliza `_page`, `_per_page`, `title:contains` y los filtros por igualdad `status` y `priority` (los parámetros vacíos no se envían, porque `?status=` filtra por cadena vacía). El cambio de estado usa `PATCH /work-orders/:id` con `{ status }`. La versión de JSON Server elegida debe soportar esos parámetros y devolver el formato paginado esperado por `PaginatedResponse<T>`. Consultá la [documentación de JSON Server](https://github.com/typicode/json-server#query-params) al cambiar de versión.
+La API devuelve errores como `{ code, message, timestamp, path }` (con `details` en los `400` de validación y en los `409` de las transiciones de una orden). El `errorInterceptor` los expone como `AppHttpError` con `code` y `details`, y cada servicio traduce los códigos de negocio (`DUPLICATE_MACHINE_CODE`, `PART_HAS_CHILDREN`, `WORK_ORDER_NOT_PENDING`, …) a errores tipados que las páginas muestran. Un `401` con sesión abierta cierra la sesión y lleva a `/login`; un `403` muestra el aviso de permisos y conserva la pantalla. Detalle del contrato en `.claude/specs/018-integracion-api-backend/`.
 
 ### Usuarios de prueba
 
-La autenticación es simulada: el login consulta la colección `users` de `db.json` (spec 010). Cada usuario tiene un rol y, si es técnico, un `legajo` que lo vincula con el maestro de técnicos (`tecnicos`): de ahí el login toma su especialidad y su tipo de equipo (specs 013b y 013c):
+El login es `POST /auth/login` contra la API (spec 018): devuelve un JWT (60 minutos de vida) y el usuario completo. Al abrir la app con una sesión guardada se contrasta con `GET /auth/me`: un `401` la descarta y una caída de conexión la conserva. Estos usuarios existen solo con el perfil `dev` de la API; para un técnico, la respuesta trae también su `legajo`, `specialty` y `teamType` (del maestro de técnicos):
 
 | Usuario        | Contraseña        | Rol                         | Legajo → especialidad / tipo de equipo            |
 | -------------- | ----------------- | --------------------------- | ------------------------------------------------- |
@@ -152,7 +163,7 @@ El **maestro de máquinas** (`maquinas`) guarda `code` (único, en mayúsculas, 
 - Tipo de orden (`preventivo`, `correctivo`, `pronto-intervencion`): se elige al crear, no se cambia al editar y se muestra en el listado y el detalle.
 - Cada orden apunta a una máquina y, opcionalmente, a una parte de su árbol (spec 013d): se elige al crear (obligatorio para todos los tipos, en cualquier nivel), con un comentario corto de la falla; no se cambia al editar. La ruta se guarda como texto ("Envasadora línea 1 > Mesa de transporte > Cinta 1") y no se recalcula si luego se renombra la parte.
 - Tomar, cerrar y liberar órdenes (spec 013d): el técnico habilitado toma una orden pendiente y queda como su dueño; la cierra (completada o cancelada) desde una página propia con un comentario obligatorio de 50 a 500 caracteres; otro técnico no puede tomarla ni cerrarla (se le advierte quién la ejecuta); administrador y team leader pueden liberar una orden en progreso.
-- Autenticación simulada con cuatro roles: crear, editar y eliminar órdenes dependen del rol (ver "Usuarios de prueba").
+- Autenticación con JWT contra la API y cuatro roles: crear, editar y eliminar órdenes dependen del rol (ver "Usuarios de prueba").
 - Gestión de técnicos (listado con búsqueda, alta, edición y baja) y de equipos (listado, alta, edición y baja), según el rol (ver "Técnicos y equipos").
 - Alta de miembros de un equipo por legajo, con validación en tiempo real: muestra si el técnico existe, si ya es miembro o si el legajo no es válido antes de confirmar.
 - Gestión de máquinas (listado con la cantidad de partes, alta, edición y baja) y de su árbol de partes de profundidad variable (agregar sub-partes, renombrar y eliminar, con bloqueo si hay sub-partes), según el rol (ver "Máquinas y árbol de partes").
@@ -162,7 +173,7 @@ El **maestro de máquinas** (`maquinas`) guarda `code` (único, en mayúsculas, 
 - Mensajes globales de éxito, advertencia y error.
 - Layout mobile-first: bajo 768px una barra de navegación inferior fija; desde 768px un sidebar siempre visible. Sin sesión (p. ej. en `/login`) no hay navegación.
 - Listados que son tarjetas bajo 1024px y tabla desde ahí, con una franja de color por estado en las órdenes.
-- Dashboard "Turno de hoy": pendientes (y cuántas de prioridad alta), en curso (y cuántas son del usuario), cerradas hoy, y la lista de las propias (spec 014).
+- Dashboard "Turno de hoy": pendientes (y cuántas de prioridad alta), en curso (y cuántas son del usuario), cerradas hoy, la lista de las propias (spec 014), el resumen que calcula la API (total, abiertas, cerradas del período y tiempo promedio de resolución) y, para administrador y team leader, la carga de trabajo por técnico (spec 018).
 
 La búsqueda, la paginación y la recarga después de eliminar requieren completar su coordinación. También están pendientes mejoras de recuperación ante errores y protección durante el envío de formularios.
 
@@ -232,13 +243,13 @@ Las páginas de detalle y edición consultan la orden por el identificador de la
 
 **Máquina y parte (spec 013d).** `WorkOrder.machineRef` (`machineId`, `partId`, `breadcrumb`, `comment`) reemplaza al antiguo texto libre "activo" (`asset`). `MachinePartPicker` (presentacional, en `features/work-orders`) combina un selector de máquina con el `PartTree` de la spec 013a (`showActions=false`); `Form` no arma la ruta, solo emite `machineId`, `partId` y `comment`, y `WorkOrderCreate` arma el `breadcrumb` una sola vez, al enviar, con `buildBreadcrumb` (`machines/models/part.model.ts`). `buildBreadcrumb` sube por `parentId` y devuelve `null` —la orden no se crea— si la cadena no se puede resolver. En edición la referencia es de solo lectura: el `PUT` conserva la guardada.
 
-**Tomar, cerrar y liberar.** Una orden pasa `pending` → `in-progress` (la toma un técnico, que queda en `takenBy`) → `completed` o `cancelled` (con un `closingNote`: comentario, autor y fecha). Una orden cerrada no se reabre. `WorkOrdersService.take`, `close` y `release` leen la orden fresca antes de escribir y no escriben si no se cumple la condición (la lista o la página puede estar desactualizada), y `take` vuelve a leer después de escribir por si otro técnico se adelantó; JSON Server no valida nada de esto, así que lo garantiza el cliente (con el backend real pasa a ser una actualización condicional). La política (`canTakeWorkOrder`, `canResolveWorkOrder`, `canReleaseWorkOrder`) vive en `work-order.permissions.ts`. La página `/work-orders/:id/resolve` (solo técnicos) muestra la orden en solo lectura con dos controles, el resultado y el comentario, y vuelve a comprobar contra la orden cargada que sea de ese técnico. Liberar no deja historial de quién lo hizo. Detalle de las decisiones y las limitaciones en `.claude/specs/013d-maquina-en-orden/notes.md`.
+**Tomar, cerrar y liberar.** Una orden pasa `pending` → `in-progress` (la toma un técnico, que queda en `takenBy`) → `completed` o `cancelled` (con un `closingNote`: comentario, autor y fecha). Una orden cerrada no se reabre. `WorkOrdersService.take`, `close` y `release` son un solo `POST` cada uno (`/work-orders/{id}/take`, `/close`, `/release`): el dueño y el autor del cierre salen del token y la API valida y hace atómica la transición. Si la lista o la página estaba desactualizada responde `409` (`WORK_ORDER_NOT_PENDING`, `WORK_ORDER_NOT_IN_PROGRESS` o `WORK_ORDER_TAKEN_BY_OTHER`) con el estado real y quién es el dueño en `details`; el servicio lo traduce a `WorkOrderStateError` y la página avisa y recarga. Un `403` en `take` significa que el equipo del técnico no atiende ese tipo. El cliente solo valida el comentario (50 a 500 caracteres) antes de enviar. La política (`canTakeWorkOrder`, `canResolveWorkOrder`, `canReleaseWorkOrder`) vive en `work-order.permissions.ts` y decide qué botones se muestran. La página `/work-orders/:id/resolve` (solo técnicos) muestra la orden en solo lectura con dos controles, el resultado y el comentario. Liberar no deja historial de quién lo hizo. Detalle de las decisiones y las limitaciones en `.claude/specs/013d-maquina-en-orden/notes.md`.
 
 ### Técnicos y equipos
 
-La feature `maintenance` agrupa técnicos y equipos (una sola feature porque borrar un técnico exige mirar equipos y armar un equipo exige mirar técnicos). `TechniciansService` y `TeamsService` encapsulan el HTTP; las páginas (`technicians-list`, `technician-form`, `teams-list`, `team-form`) coordinan y deciden. El listado de técnicos, antes de eliminar, consulta usuarios y equipos y bloquea con un aviso si hay referencias.
+La feature `maintenance` agrupa técnicos y equipos (una sola feature porque armar un equipo exige mirar técnicos). `TechniciansService` y `TeamsService` encapsulan el HTTP; las páginas (`technicians-list`, `technician-form`, `teams-list`, `team-form`) coordinan y deciden. Eliminar un técnico es un único `DELETE /technicians/{legajo}`: si tiene usuario de acceso o es miembro de un equipo, la API responde `409 TECHNICIAN_IN_USE` con el motivo y el listado lo muestra como aviso sin quitar la fila.
 
-El maestro y el usuario de login se mantienen separados: `core/auth` no importa de `features`, así que el login, `UsersService` y `TechniciansService` buscan al técnico por legajo con `TechnicianDirectory` (`core/auth`), que devuelve un tipo mínimo (`TechnicianProfile`); el modelo completo (`Technician`) vive en la feature. En `tecnicos`, el `id` lo asigna el servidor (JSON Server descarta el `id` que manda el cliente al crear) y **no es el legajo**; el identificador de negocio es el `legajo`, que no se edita. JSON Server no valida unicidad ni tiene integridad referencial, y convierte a número los valores numéricos del query string (`?legajo=100` no encuentra `"100"`): por eso el maestro se pide completo y se filtra en el cliente, y la unicidad y las referencias se validan en el cliente. Con el backend real pasan a ser una FK y un índice único.
+El maestro y el usuario de login se mantienen separados. La API identifica al técnico por su `legajo` en la URL (`/technicians/{legajo}`); el `id` lo asigna el servidor y **no es el legajo**. El legajo es único (`409 DUPLICATE_LEGAJO`, que el formulario muestra en el campo) y no se edita. El perfil del técnico (especialidad y tipo de equipo) llega ya dentro del `user` del login, así que el frontend no consulta el maestro para armar la sesión. Un equipo con un legajo de miembro inexistente se rechaza con `400 UNKNOWN_TECHNICIAN` y el formulario conserva la selección.
 
 El alta de miembros por legajo espera 300 ms sin tipear, cancela la consulta en vuelo apenas cambia el campo (así una respuesta tardía nunca pisa a un legajo más nuevo) y resuelve "ya es miembro" sin HTTP. Detalle de las decisiones en `.claude/specs/013c-tecnicos-equipos/notes.md`.
 
@@ -246,7 +257,7 @@ El alta de miembros por legajo espera 300 ms sin tipear, cancela la consulta en 
 
 La feature `machines` tiene sus propios servicios (`MachinesService` y `PartsService`), un componente presentacional recursivo (`PartTree`, sin HTTP ni permisos, reutilizable por la spec 013d para elegir una parte) y tres páginas: `machines-list`, `machine-form` y `machine-parts` (el árbol de una máquina). Las páginas deciden el permiso, traducen los errores de los servicios a avisos y recargan el árbol desde el servidor tras cada cambio.
 
-El árbol se guarda como **lista de adyacencia plana** (cada parte con su `parentId`) y `buildPartTree` lo arma desde las raíces: lo que no cuelga de ninguna (datos rotos a mano) se muestra aparte como "partes sin padre" en vez de perderse. `machineId` y `parentId` no cambian después de crear la parte. JSON Server no tiene cascada, acepta huérfanos y `code` repetidos, descarta el `id` que manda el cliente al crear y convierte a número los valores numéricos del query string (`?machineId=1` no encuentra `"1"`): por eso los servicios leen todas las partes y filtran en el cliente, verifican máquina y padre antes de escribir y, antes de eliminar, vuelven a leer los datos para bloquear si hay hijos o partes. Para probar todo esto de punta a punta hay un emulador fiel de JSON Server para tests (`core/testing/in-memory-api.ts`). Detalle de las decisiones, los hallazgos y el defecto de 013c que apareció por el camino en `.claude/specs/013a-maestro-maquinas-partes/notes.md`.
+El árbol se guarda como **lista de adyacencia plana** (cada parte con su `parentId`) y `buildPartTree` lo arma desde las raíces: lo que no cuelga de ninguna (datos rotos a mano) se muestra aparte como "partes sin padre" en vez de perderse. Las partes se piden por su máquina (`GET /machines/{id}/parts`), se crean ahí mismo (`POST`, con `parentId` en `null` para el primer nivel), se renombran con `PATCH /parts/{id}` (solo el nombre: la API rechaza mover una parte) y se eliminan con `DELETE /parts/{id}`. La API garantiza la integridad que antes verificaba el cliente: `409 PART_HAS_CHILDREN`, `409 MACHINE_HAS_PARTS`, `409 DUPLICATE_MACHINE_CODE` y `400 PARENT_PART_NOT_FOUND` / `PARENT_PART_OTHER_MACHINE`; los servicios los traducen a errores tipados y las páginas muestran el aviso y recargan. El listado de máquinas muestra el `partCount` que calcula la API. La página del árbol se prueba con `features/machines/testing/machines-api.fake.ts`, un servidor en memoria que cumple ese contrato. Detalle histórico de las decisiones en `.claude/specs/013a-maestro-maquinas-partes/notes.md`.
 
 ### Routing
 
@@ -278,25 +289,25 @@ La feature de órdenes utiliza `loadChildren()` y sus páginas se cargan mediant
 
 El listado ya utiliza estas herramientas, pero aún requiere unificar búsqueda, página y recarga para mantener el estado consistente en todos los escenarios.
 
-## HTTP y backend de desarrollo
+## HTTP y backend
 
-JSON Server reemplaza al antiguo `mockApiInterceptor` como fuente de datos de desarrollo. Las solicitudes salen del navegador hacia un servidor HTTP local; el interceptor anterior permanece en el código, pero no está registrado en el flujo activo.
-
-El flujo configurado es:
+Desde la spec 018 el frontend habla con la API real; JSON Server, `db.json`, el `mockApiInterceptor`, el `mockDelayInterceptor` y el emulador de tests (`in-memory-api`) se retiraron. El flujo configurado es:
 
 ```text
-Página → WorkOrdersService → HttpClient
-      → loadingInterceptor → mockDelayInterceptor → errorInterceptor
-      → JSON Server
+Página → servicio de la feature → HttpClient
+      → authInterceptor → loadingInterceptor → errorInterceptor
+      → API (localhost:8080)
 ```
 
+- **`authInterceptor`:** agrega `Authorization: Bearer <token>` solo a las URLs de la API y solo si hay sesión.
 - **`loadingInterceptor`:** informa el inicio y fin de las peticiones. `LoadingService` mantiene un contador para contemplar solicitudes simultáneas.
-- **`mockDelayInterceptor`:** introduce una demora artificial de 300 ms en las emisiones de respuesta. No genera datos ni reemplaza al servidor.
-- **`errorInterceptor`:** interpreta errores HTTP, solicita un mensaje global y propaga el error para que la feature pueda responder al caso particular.
+- **`errorInterceptor`:** convierte el error HTTP en un `AppHttpError` (`status`, `message`, `code`, `details`). Muestra un aviso global salvo en los `409`, los `400` con detalle por campo y los `401` del login y de `/auth/me`, que resuelve quien hizo la petición para no duplicar el mensaje. Un `401` con sesión abierta cierra la sesión y redirige a `/login` con el `returnUrl`.
 
-Un mensaje global no reemplaza los estados persistentes de error ni las opciones de recuperación de cada pantalla. Completar esos estados es parte del trabajo pendiente.
+Un mensaje global no reemplaza los estados persistentes de error ni las opciones de recuperación de cada pantalla.
 
-JSON Server permite desarrollar y probar el frontend sin construir todavía un backend propio. No representa la solución de producción ni sustituye reglas de negocio y controles de acceso del servidor definitivo.
+La API es la autoridad: valida unicidad (legajo, código de máquina), integridad (no borrar una máquina con partes ni una parte con sub-partes, el padre debe ser de la misma máquina), las transiciones de estado de las órdenes y los permisos por rol. Los guards y los permisos del frontend son control de navegación y de interfaz; la autorización real es del servidor. Los servicios solo validan el formato antes de enviar y traducen los errores de la API.
+
+Limitación conocida: la API no filtra por fecha de cierre, así que "Cerradas hoy" del tablero se calcula sobre la primera página (hasta 100) de órdenes `completed` y `cancelled`. Con más de 100 cerradas podría omitir alguna de hoy.
 
 ## Componentes compartidos y estilos
 
@@ -322,7 +333,7 @@ El rediseño de `014-rediseno-mobile-first` reemplazó el drawer por una barra i
 | Comando                        | Propósito                                      |
 | ------------------------------ | ---------------------------------------------- |
 | `pnpm start`                   | Iniciar Angular en desarrollo                  |
-| `pnpm api`                     | Iniciar json-server en desarrollo              |
+| `pnpm test:coverage`           | Ejecutar las pruebas con cobertura             |
 | `pnpm build`                   | Generar el build de producción                 |
 | `pnpm watch`                   | Compilar en modo desarrollo y observar cambios |
 | `pnpm test`                    | Ejecutar las pruebas mediante Angular          |
@@ -330,7 +341,7 @@ El rediseño de `014-rediseno-mobile-first` reemplazó el drawer por una barra i
 | `pnpm lint`                    | Ejecutar ESLint                                |
 | `pnpm exec prettier . --check` | Comprobar formato sin modificar archivos       |
 
-El build se genera en `dist/angular-enterprise-lab`. Compilar el frontend no incluye ni despliega JSON Server.
+El build se genera en `dist/angular-enterprise-lab`. Compilar el frontend no incluye ni despliega la API.
 
 Husky tiene configurado un hook `pre-commit` que ejecuta `pnpm test`. La adaptación del hook a una ejecución finita y la integración de `lint-staged` están pendientes; su presencia como dependencia no implica que ya esté conectado.
 
@@ -346,26 +357,27 @@ siguiendo un ciclo de tres fases con revisión entre cada una:
 Los specs y planes se conservan en `.claude/specs/<número>-<nombre>/` como registro
 de las decisiones tomadas para cada feature.
 
-| Feature                                                     | Spec                                                                                             | Estado                                                                                                |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| Unificar búsqueda, paginación y recarga                     | [`001-unificar-busqueda-paginacion`](.claude/specs/001-unificar-busqueda-paginacion)             | Implementado (5 tests nuevos, 21→51 en la suite)                                                      |
-| Recuperación de la búsqueda tras errores                    | [`002-recuperacion-busqueda-tras-errores`](.claude/specs/002-recuperacion-busqueda-tras-errores) | Implementado (4 tests nuevos, 51→55 en la suite)                                                      |
-| Estados de error en detalle y edición                       | [`003-estados-error-detalle-edicion`](.claude/specs/003-estados-error-detalle-edicion)           | Implementado (13 tests nuevos, 55→73 en la suite)                                                     |
-| Protección de formularios inválidos y envíos duplicados     | [`004-proteccion-formularios`](.claude/specs/004-proteccion-formularios)                         | Implementado (11 tests nuevos, 73→84 en la suite)                                                     |
-| Manejo de foco y limpieza del modal                         | [`005-foco-limpieza-modal`](.claude/specs/005-foco-limpieza-modal)                               | Implementado (8 tests nuevos, 84→92 en la suite)                                                      |
-| Página 404 y validación de formato de id                    | [`006-pagina-404`](.claude/specs/006-pagina-404)                                                 | Implementado (12 tests nuevos, 92→104 en la suite)                                                    |
-| Cobertura de tests y verificaciones de formato              | [`007-cobertura-y-verificaciones`](.claude/specs/007-cobertura-y-verificaciones)                 | Implementado (sin tests nuevos — configura medición y verificación, no persigue un número)            |
-| Tipado estricto y aliases de imports                        | [`008a-tipado-aliases`](.claude/specs/008a-tipado-aliases)                                       | Implementado (sin tests nuevos — tipado y refactor de imports, no persigue un número)                 |
-| Accesibilidad y adaptación responsive                       | [`008b-accesibilidad-responsive`](.claude/specs/008b-accesibilidad-responsive)                   | Implementado (15 tests nuevos, 104→119 en la suite)                                                   |
-| Cobertura de Functions por feature                          | [`009-cobertura-por-feature`](.claude/specs/009-cobertura-por-feature)                           | Implementado (9 tests nuevos, 119→128 en la suite; Functions 79.5%→87.57%)                            |
-| Autenticación simulada, sesión, logout y retorno tras login | [`010-autenticacion-simulada`](.claude/specs/010-autenticacion-simulada)                         | Implementado (82 tests nuevos, 128→210 en la suite; +17 del spec de `errorInterceptor`, 227 en total) |
-| Guards de ruta y permisos por rol                           | [`011-guards-permisos-rol`](.claude/specs/011-guards-permisos-rol)                               | Implementado (31 tests nuevos, 227→258 en la suite)                                                   |
-| Filtros por estado y prioridad, cambio de estado de órdenes | [`012-filtros-estado-prioridad`](.claude/specs/012-filtros-estado-prioridad)                     | Implementado (76 tests nuevos, 258→334 en la suite)                                                   |
-| Roles extendidos del dominio de mantenimiento               | [`013b-roles-extendidos`](.claude/specs/013b-roles-extendidos)                                   | Implementado (189 tests nuevos, 334→523 en la suite)                                                  |
-| Gestión de técnicos y equipos                               | [`013c-tecnicos-equipos`](.claude/specs/013c-tecnicos-equipos)                                   | Implementado (449 tests nuevos, 523→972 en la suite)                                                  |
-| Maestro de máquinas y árbol de partes                       | [`013a-maestro-maquinas-partes`](.claude/specs/013a-maestro-maquinas-partes)                     | Implementado (671 tests nuevos, 972→1643 en la suite; incluye el arreglo de 013c)                     |
-| Máquina y parte en la orden, tomar, cerrar y liberar        | [`013d-maquina-en-orden`](.claude/specs/013d-maquina-en-orden)                                   | Implementado (316 tests nuevos, 1645→1961 en la suite; ver notas)                                     |
-| Rediseño "Tablero de turno", mobile-first                   | [`014-rediseno-mobile-first`](.claude/specs/014-rediseno-mobile-first)                           | Implementado (102 tests nuevos, 1961→2063 en la suite; ver notas)                                     |
+| Feature                                                                 | Spec                                                                                             | Estado                                                                                                |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Unificar búsqueda, paginación y recarga                                 | [`001-unificar-busqueda-paginacion`](.claude/specs/001-unificar-busqueda-paginacion)             | Implementado (5 tests nuevos, 21→51 en la suite)                                                      |
+| Recuperación de la búsqueda tras errores                                | [`002-recuperacion-busqueda-tras-errores`](.claude/specs/002-recuperacion-busqueda-tras-errores) | Implementado (4 tests nuevos, 51→55 en la suite)                                                      |
+| Estados de error en detalle y edición                                   | [`003-estados-error-detalle-edicion`](.claude/specs/003-estados-error-detalle-edicion)           | Implementado (13 tests nuevos, 55→73 en la suite)                                                     |
+| Protección de formularios inválidos y envíos duplicados                 | [`004-proteccion-formularios`](.claude/specs/004-proteccion-formularios)                         | Implementado (11 tests nuevos, 73→84 en la suite)                                                     |
+| Manejo de foco y limpieza del modal                                     | [`005-foco-limpieza-modal`](.claude/specs/005-foco-limpieza-modal)                               | Implementado (8 tests nuevos, 84→92 en la suite)                                                      |
+| Página 404 y validación de formato de id                                | [`006-pagina-404`](.claude/specs/006-pagina-404)                                                 | Implementado (12 tests nuevos, 92→104 en la suite)                                                    |
+| Cobertura de tests y verificaciones de formato                          | [`007-cobertura-y-verificaciones`](.claude/specs/007-cobertura-y-verificaciones)                 | Implementado (sin tests nuevos — configura medición y verificación, no persigue un número)            |
+| Tipado estricto y aliases de imports                                    | [`008a-tipado-aliases`](.claude/specs/008a-tipado-aliases)                                       | Implementado (sin tests nuevos — tipado y refactor de imports, no persigue un número)                 |
+| Accesibilidad y adaptación responsive                                   | [`008b-accesibilidad-responsive`](.claude/specs/008b-accesibilidad-responsive)                   | Implementado (15 tests nuevos, 104→119 en la suite)                                                   |
+| Cobertura de Functions por feature                                      | [`009-cobertura-por-feature`](.claude/specs/009-cobertura-por-feature)                           | Implementado (9 tests nuevos, 119→128 en la suite; Functions 79.5%→87.57%)                            |
+| Autenticación simulada, sesión, logout y retorno tras login             | [`010-autenticacion-simulada`](.claude/specs/010-autenticacion-simulada)                         | Implementado (82 tests nuevos, 128→210 en la suite; +17 del spec de `errorInterceptor`, 227 en total) |
+| Guards de ruta y permisos por rol                                       | [`011-guards-permisos-rol`](.claude/specs/011-guards-permisos-rol)                               | Implementado (31 tests nuevos, 227→258 en la suite)                                                   |
+| Filtros por estado y prioridad, cambio de estado de órdenes             | [`012-filtros-estado-prioridad`](.claude/specs/012-filtros-estado-prioridad)                     | Implementado (76 tests nuevos, 258→334 en la suite)                                                   |
+| Roles extendidos del dominio de mantenimiento                           | [`013b-roles-extendidos`](.claude/specs/013b-roles-extendidos)                                   | Implementado (189 tests nuevos, 334→523 en la suite)                                                  |
+| Gestión de técnicos y equipos                                           | [`013c-tecnicos-equipos`](.claude/specs/013c-tecnicos-equipos)                                   | Implementado (449 tests nuevos, 523→972 en la suite)                                                  |
+| Maestro de máquinas y árbol de partes                                   | [`013a-maestro-maquinas-partes`](.claude/specs/013a-maestro-maquinas-partes)                     | Implementado (671 tests nuevos, 972→1643 en la suite; incluye el arreglo de 013c)                     |
+| Máquina y parte en la orden, tomar, cerrar y liberar                    | [`013d-maquina-en-orden`](.claude/specs/013d-maquina-en-orden)                                   | Implementado (316 tests nuevos, 1645→1961 en la suite; ver notas)                                     |
+| Rediseño "Tablero de turno", mobile-first                               | [`014-rediseno-mobile-first`](.claude/specs/014-rediseno-mobile-first)                           | Implementado (102 tests nuevos, 1961→2063 en la suite; ver notas)                                     |
+| Integración con la API real (Spring Boot + JWT) y retiro de JSON Server | [`018-integracion-api-backend`](.claude/specs/018-integracion-api-backend)                       | En curso (ver `notes.md` de la spec)                                                                  |
 
 ### Estado de las pruebas
 

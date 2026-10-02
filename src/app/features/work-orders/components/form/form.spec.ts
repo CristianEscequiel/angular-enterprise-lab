@@ -7,8 +7,8 @@ import { MACHINE_REF_FIXTURE } from '../../testing/work-order.fixtures';
 import { Form, MACHINE_COMMENT_MAX_LENGTH, WorkOrderFormValue } from './form';
 
 const MACHINES: Machine[] = [
-  { id: '1', code: 'ENV-01', name: 'Envasadora línea 1' },
-  { id: '2', code: 'SEL-02', name: 'Selladora' },
+  { id: '1', code: 'ENV-01', name: 'Envasadora línea 1', partCount: 0 },
+  { id: '2', code: 'SEL-02', name: 'Selladora', partCount: 0 },
 ];
 
 const PARTS: Part[] = [

@@ -2,16 +2,13 @@ import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angula
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
 
 import { AuthService } from '@core/auth/auth.service';
-import { UsersService } from '@core/auth/users.service';
 import { MessageService } from '@core/services/message.service';
 import { Alert } from '@shared/components/alert/alert';
 import { Button } from '@shared/components/button/button';
 import { Modal } from '@shared/components/modal/modal';
-import { TeamsService } from '../../data-access/teams.service';
-import { TechniciansService } from '../../data-access/technicians.service';
+import { TechnicianInUseError, TechniciansService } from '../../data-access/technicians.service';
 import {
   canCreateTechnician,
   canDeleteTechnician,
@@ -28,8 +25,6 @@ import { fullName, Technician } from '../../models/technician.model';
 export class TechniciansList implements OnInit {
   private readonly router = inject(Router);
   private readonly techniciansService = inject(TechniciansService);
-  private readonly usersService = inject(UsersService);
-  private readonly teamsService = inject(TeamsService);
   private readonly messageService = inject(MessageService);
   private readonly authService = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
@@ -118,51 +113,14 @@ export class TechniciansList implements OnInit {
     this.deleteModalOpen.set(true);
   }
 
-  // Un técnico con usuario de login, o miembro de algún equipo, no se elimina: quedaría una
-  // referencia colgante en `users` o en `equipos`. Si no se puede comprobar (error de red), tampoco
-  // se elimina: un fallo no equivale a "sin referencias".
+  // Un técnico con usuario de acceso, o miembro de algún equipo, no se elimina: la API responde `409
+  // TECHNICIAN_IN_USE` con el motivo y el técnico queda en el listado.
   deleteTechnician(legajo: string): void {
     if (!this.canDelete()) {
       this.warnDeleteDenied();
       return;
     }
 
-    forkJoin({
-      hasAccount: this.usersService.hasTechnicianAccount(legajo),
-      teams: this.teamsService.getAll(),
-    })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: ({ hasAccount, teams }) => {
-          const reasons: string[] = [];
-
-          if (hasAccount) {
-            reasons.push('tiene un usuario de acceso al sistema');
-          }
-
-          const memberOf = teams.filter((team) => team.memberLegajos.includes(legajo));
-          if (memberOf.length > 0) {
-            reasons.push(`es miembro de: ${memberOf.map((team) => team.name).join(', ')}`);
-          }
-
-          if (reasons.length > 0) {
-            this.messageService.showWarning(
-              `No se puede eliminar al técnico ${legajo}: ${reasons.join(' y ')}.`,
-              'No se puede eliminar',
-            );
-            return;
-          }
-
-          this.removeTechnician(legajo);
-        },
-        error: () =>
-          this.messageService.showError(
-            'No se pudo verificar si el técnico está en uso. No se eliminó.',
-          ),
-      });
-  }
-
-  private removeTechnician(legajo: string): void {
     this.techniciansService
       .delete(legajo)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -171,7 +129,14 @@ export class TechniciansList implements OnInit {
           this.messageService.showSuccess('Técnico eliminado satisfactoriamente.');
           this.loadTechnicians();
         },
-        error: () => this.messageService.showError('Error al eliminar el técnico.'),
+        error: (error: unknown) => {
+          if (error instanceof TechnicianInUseError) {
+            this.messageService.showWarning(error.message, 'No se puede eliminar');
+            return;
+          }
+
+          this.messageService.showError('Error al eliminar el técnico.');
+        },
       });
   }
 

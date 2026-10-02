@@ -1,15 +1,12 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { Observable, of, Subject, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 
 import { AuthUser } from '@core/auth/auth.model';
 import { AuthService } from '@core/auth/auth.service';
-import { UsersService } from '@core/auth/users.service';
 import { MessageService } from '@core/services/message.service';
-import { TeamsService } from '../../data-access/teams.service';
-import { TechniciansService } from '../../data-access/technicians.service';
-import { Team } from '../../models/team.model';
+import { TechnicianInUseError, TechniciansService } from '../../data-access/technicians.service';
 import { Technician } from '../../models/technician.model';
 import { TechniciansList } from './technicians-list';
 
@@ -42,19 +39,11 @@ describe('TechniciansList', () => {
     specialty: 'general',
     teamType: 'preventivo-correctivo',
   };
-  const team = (name: string, memberLegajos: string[]): Team => ({
-    id: name,
-    name,
-    type: 'guardia',
-    memberLegajos,
-  });
 
   const technicians = {
     getAll: vi.fn<() => Observable<Technician[]>>(),
     delete: vi.fn<(legajo: string) => Observable<void>>(),
   };
-  const users = { hasTechnicianAccount: vi.fn<(legajo: string) => Observable<boolean>>() };
-  const teams = { getAll: vi.fn<() => Observable<Team[]>>() };
 
   const administrador: AuthUser = {
     id: '1',
@@ -80,8 +69,6 @@ describe('TechniciansList', () => {
   beforeEach(async () => {
     technicians.getAll.mockReset().mockReturnValue(of([ana, luis, marta]));
     technicians.delete.mockReset().mockReturnValue(of(undefined));
-    users.hasTechnicianAccount.mockReset().mockReturnValue(of(false));
-    teams.getAll.mockReset().mockReturnValue(of([]));
     currentUser.set(administrador);
 
     await TestBed.configureTestingModule({
@@ -89,8 +76,6 @@ describe('TechniciansList', () => {
       providers: [
         provideRouter([]),
         { provide: TechniciansService, useValue: technicians },
-        { provide: UsersService, useValue: users },
-        { provide: TeamsService, useValue: teams },
         { provide: AuthService, useValue: { currentUser: currentUser.asReadonly() } },
       ],
     }).compileComponents();
@@ -184,12 +169,11 @@ describe('TechniciansList', () => {
       expect(text()).toContain('Preventivo-correctivo');
     });
 
-    it('lists a technician that has no login user and does not look up users to do it', () => {
-      expect.assertions(2);
+    it('lists a technician that has no login user', () => {
+      expect.assertions(1);
       startAs();
 
       expect(rowLegajos()).toContain('1003');
-      expect(users.hasTechnicianAccount).not.toHaveBeenCalled();
     });
 
     it('shows an empty state when there are no technicians', () => {
@@ -332,13 +316,12 @@ describe('TechniciansList', () => {
   });
 
   describe('deleting', () => {
-    it('administrador confirms and DELETE goes out for a technician that is not in use', () => {
-      expect.assertions(4);
+    it('administrador confirms and DELETE goes out straight away, without looking anything up first', () => {
+      expect.assertions(3);
       startAs(administrador);
 
       confirmDeletion(marta);
 
-      expect(users.hasTechnicianAccount).toHaveBeenCalledExactlyOnceWith('1003');
       expect(technicians.delete).toHaveBeenCalledExactlyOnceWith('1003');
       expect(message()?.variant).toBe('success');
       // Vuelve a cargar el listado.
@@ -346,7 +329,7 @@ describe('TechniciansList', () => {
     });
 
     it('asks for confirmation naming the technician, and cancelling deletes nothing', () => {
-      expect.assertions(5);
+      expect.assertions(4);
       startAs(administrador);
 
       component.openDeleteModal(ana);
@@ -365,11 +348,10 @@ describe('TechniciansList', () => {
 
       expect(component.deleteModalOpen()).toBe(false);
       expect(technicians.delete).not.toHaveBeenCalled();
-      expect(users.hasTechnicianAccount).not.toHaveBeenCalled();
     });
 
     it('team leader cannot open the confirmation nor delete: no DELETE and a warning', () => {
-      expect.assertions(6);
+      expect.assertions(4);
       startAs(teamLeader);
 
       component.openDeleteModal(ana);
@@ -379,8 +361,6 @@ describe('TechniciansList', () => {
       component.deleteTechnician('1001');
 
       expect(technicians.delete).not.toHaveBeenCalled();
-      expect(users.hasTechnicianAccount).not.toHaveBeenCalled();
-      expect(teams.getAll).not.toHaveBeenCalled();
       expect(message()).toMatchObject({
         variant: 'warning',
         title: 'Acceso denegado',
@@ -401,101 +381,31 @@ describe('TechniciansList', () => {
       expect(message()?.title).toBe('Acceso denegado');
     });
 
-    it('blocks a technician that has a login user: warning and no DELETE', () => {
-      expect.assertions(4);
-      users.hasTechnicianAccount.mockReturnValue(of(true));
-      startAs(administrador);
-
-      component.deleteTechnician('1001');
-
-      expect(technicians.delete).not.toHaveBeenCalled();
-      expect(message()?.variant).toBe('warning');
-      expect(message()?.message).toContain('usuario de acceso');
-      expect(technicians.getAll).toHaveBeenCalledTimes(1);
-    });
-
-    it('blocks a technician that belongs to a team, naming the team', () => {
-      expect.assertions(4);
-      teams.getAll.mockReturnValue(
-        of([team('Guardia mecánica', ['1001', '1002']), team('Otro equipo', ['1002'])]),
+    it('blocks a technician that is in use: the API says why, a warning shows it and the row stays', () => {
+      expect.assertions(5);
+      technicians.delete.mockReturnValue(
+        throwError(
+          () =>
+            new TechnicianInUseError(
+              '1001',
+              'El técnico 1001 es miembro del equipo Guardia mecánica',
+            ),
+        ),
       );
       startAs(administrador);
 
       component.deleteTechnician('1001');
 
-      expect(technicians.delete).not.toHaveBeenCalled();
-      expect(message()?.variant).toBe('warning');
-      expect(message()?.message).toContain('Guardia mecánica');
-      expect(message()?.message).not.toContain('Otro equipo');
-    });
-
-    it('lists every team when the technician belongs to several', () => {
-      teams.getAll.mockReturnValue(of([team('Equipo A', ['1001']), team('Equipo B', ['1001'])]));
-      startAs(administrador);
-
-      component.deleteTechnician('1001');
-
-      expect(message()?.message).toContain('Equipo A, Equipo B');
-    });
-
-    it('reports both reasons when the technician has a login and is in a team', () => {
-      expect.assertions(3);
-      users.hasTechnicianAccount.mockReturnValue(of(true));
-      teams.getAll.mockReturnValue(of([team('Guardia mecánica', ['1001'])]));
-      startAs(administrador);
-
-      component.deleteTechnician('1001');
-
-      expect(message()?.message).toContain('usuario de acceso');
-      expect(message()?.message).toContain('Guardia mecánica');
-      expect(technicians.delete).not.toHaveBeenCalled();
-    });
-
-    it('deletes when the teams exist but none has that technician', () => {
-      teams.getAll.mockReturnValue(of([team('Otro equipo', ['1002'])]));
-      startAs(administrador);
-
-      component.deleteTechnician('1003');
-
-      expect(technicians.delete).toHaveBeenCalledExactlyOnceWith('1003');
-    });
-
-    it('does not delete when the users lookup fails: a failure is not "no references"', () => {
-      expect.assertions(4);
-      users.hasTechnicianAccount.mockReturnValue(throwError(() => new Error('down')));
-      startAs(administrador);
-
-      component.deleteTechnician('1003');
-
-      expect(technicians.delete).not.toHaveBeenCalled();
-      expect(message()?.variant).toBe('error');
-      expect(message()?.message).toContain('No se eliminó');
+      expect(technicians.delete).toHaveBeenCalledExactlyOnceWith('1001');
+      expect(message()).toEqual({
+        variant: 'warning',
+        title: 'No se puede eliminar',
+        message: 'El técnico 1001 es miembro del equipo Guardia mecánica',
+      });
+      // No recarga: no cambió nada.
       expect(technicians.getAll).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not delete when the teams lookup fails', () => {
-      expect.assertions(2);
-      teams.getAll.mockReturnValue(throwError(() => new Error('down')));
-      startAs(administrador);
-
-      component.deleteTechnician('1003');
-
-      expect(technicians.delete).not.toHaveBeenCalled();
-      expect(message()?.variant).toBe('error');
-    });
-
-    it('waits for both lookups before deciding', () => {
-      expect.assertions(2);
-      const pendingTeams = new Subject<Team[]>();
-      teams.getAll.mockReturnValue(pendingTeams);
-      startAs(administrador);
-
-      component.deleteTechnician('1003');
-      expect(technicians.delete).not.toHaveBeenCalled();
-
-      pendingTeams.next([]);
-      pendingTeams.complete();
-      expect(technicians.delete).toHaveBeenCalledExactlyOnceWith('1003');
+      expect(rowLegajos()).toContain('1001');
+      expect(message()?.variant).not.toBe('success');
     });
 
     it('reports an error and keeps the list when DELETE fails', () => {

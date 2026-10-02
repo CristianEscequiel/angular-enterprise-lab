@@ -6,13 +6,14 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { of } from 'rxjs';
 
 import { routes } from './app.routes';
-import { AuthSession, UserRecord } from './core/auth/auth.model';
+import { AuthSession, AuthUser } from './core/auth/auth.model';
 import { AUTH_STORAGE_KEY, AuthService } from './core/auth/auth.service';
 import { API_BASE_URL } from './core/config/api.config';
 import { MessageService } from './core/services/message.service';
 import { WorkOrdersService } from './features/work-orders/data-access/work-order.service';
 import { WorkOrder } from './features/work-orders/models/work-order.model';
 import { MachinesService } from './features/machines/data-access/machines.service';
+import { DashboardService } from './features/dashboard/data-access/dashboard.service';
 import { PartsService } from './features/machines/data-access/parts.service';
 import { Machine } from './features/machines/models/machine.model';
 import { Part } from './features/machines/models/part.model';
@@ -46,15 +47,31 @@ describe('app routes', () => {
     },
   };
 
+  const dashboardServiceMock = {
+    getSummary: vi.fn().mockReturnValue(
+      of({
+        period: { from: '2026-09-01', to: '2026-09-30' },
+        byStatus: { pending: 1, 'in-progress': 0, completed: 0, cancelled: 0 },
+        byPriority: { low: 0, medium: 1, high: 0 },
+        byType: { preventivo: 0, correctivo: 1, 'pronto-intervencion': 0 },
+        total: 1,
+        open: 1,
+        closedInPeriod: { completed: 0, cancelled: 0, total: 0 },
+        averageResolutionMinutes: null,
+      }),
+    ),
+    getWorkload: vi.fn().mockReturnValue(of([])),
+  };
+
   const workOrdersServiceMock = {
-    // El dashboard (destino de las redirecciones por falta de permiso) carga las órdenes (spec 014).
-    getAll: vi.fn().mockReturnValue(of([order])),
+    // El dashboard (destino de las redirecciones por falta de permiso) carga las órdenes por estado.
+    listByStatus: vi
+      .fn()
+      .mockReturnValue(of({ data: [order], page: 1, size: 100, totalItems: 1, totalPages: 1 })),
     getById: vi.fn().mockReturnValue(of(order)),
     search: vi
       .fn()
-      .mockReturnValue(
-        of({ first: 1, prev: null, next: null, last: 1, pages: 1, items: 1, data: [order] }),
-      ),
+      .mockReturnValue(of({ data: [order], page: 1, size: 10, totalItems: 1, totalPages: 1 })),
   };
 
   const technician: Technician = {
@@ -80,7 +97,7 @@ describe('app routes', () => {
     getById: vi.fn(),
   };
 
-  const machine: Machine = { id: 'srv-1', code: 'ENV-01', name: 'Envasadora' };
+  const machine: Machine = { id: 'srv-1', code: 'ENV-01', name: 'Envasadora', partCount: 0 };
   const machinePart: Part = { id: 'p1', machineId: 'srv-1', parentId: null, name: 'Mesa' };
   const machinesServiceMock = {
     getAll: vi.fn(),
@@ -121,6 +138,7 @@ describe('app routes', () => {
         { provide: TeamsService, useValue: teamsServiceMock },
         { provide: MachinesService, useValue: machinesServiceMock },
         { provide: PartsService, useValue: partsServiceMock },
+        { provide: DashboardService, useValue: dashboardServiceMock },
       ],
     });
 
@@ -141,6 +159,14 @@ describe('app routes', () => {
 
   function returnUrl(): string | null {
     return router.parseUrl(router.url).queryParamMap.get('returnUrl');
+  }
+
+  type TestUser = AuthUser & { password: string };
+
+  // La API responde `{ token, user }` y el usuario nunca lleva la contraseña.
+  function sessionFor(record: TestUser): AuthSession {
+    const user = Object.fromEntries(Object.entries(record).filter(([key]) => key !== 'password'));
+    return { token: `jwt.${record.id}`, user: user as unknown as AuthUser };
   }
 
   const users = {
@@ -176,23 +202,16 @@ describe('app routes', () => {
       email: 'tecnico@enterprise-lab.dev',
       role: 'tecnico',
       legajo: '1001',
+      specialty: 'mecanico',
+      teamType: 'guardia',
     },
-  } satisfies Record<string, UserRecord>;
+  } satisfies Record<string, TestUser>;
 
   // Reemplaza la sesión del beforeEach por la de otro usuario, por el mismo camino que el login real.
-  function loginAs(record: UserRecord): void {
+  function loginAs(record: TestUser): void {
     authService.logout();
     authService.login({ username: record.username, password: record.password }).subscribe();
-    httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([record]);
-
-    // El técnico completa su perfil buscando su legajo en el maestro (`GET /tecnicos`).
-    if (record.role === 'tecnico') {
-      httpMock
-        .expectOne(`${API_BASE_URL}/tecnicos`)
-        .flush([
-          { id: 'srv-1', legajo: record.legajo, specialty: 'mecanico', teamType: 'guardia' },
-        ]);
-    }
+    httpMock.expectOne(`${API_BASE_URL}/auth/login`).flush(sessionFor(record));
   }
 
   describe('with an active session', () => {
@@ -356,18 +375,7 @@ describe('app routes', () => {
       password.dispatchEvent(new Event('input'));
       page.querySelector('form')?.dispatchEvent(new Event('submit'));
 
-      httpMock
-        .expectOne((req) => req.url === `${API_BASE_URL}/users`)
-        .flush([
-          {
-            id: '1',
-            username: 'admin',
-            password: 'admin123',
-            displayName: 'Administrador',
-            email: 'admin@enterprise-lab.dev',
-            role: 'administrador',
-          },
-        ]);
+      httpMock.expectOne(`${API_BASE_URL}/auth/login`).flush(sessionFor(users.admin));
       await harness.fixture.whenStable();
 
       expect(authService.isAuthenticated()).toBe(true);
@@ -555,7 +563,7 @@ describe('app routes', () => {
       password.dispatchEvent(new Event('input'));
       page.querySelector('form')?.dispatchEvent(new Event('submit'));
 
-      httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([users.produccion]);
+      httpMock.expectOne(`${API_BASE_URL}/auth/login`).flush(sessionFor(users.produccion));
       await harness.fixture.whenStable();
 
       expect(router.url).toBe('/work-orders/new');
@@ -775,7 +783,7 @@ describe('app routes', () => {
         password.dispatchEvent(new Event('input'));
         login.querySelector('form')?.dispatchEvent(new Event('submit'));
 
-        httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([users.teamLeader]);
+        httpMock.expectOne(`${API_BASE_URL}/auth/login`).flush(sessionFor(users.teamLeader));
         await harness.fixture.whenStable();
 
         expect(router.url).toBe('/maintenance/teams');
@@ -983,7 +991,7 @@ describe('app routes', () => {
         password.dispatchEvent(new Event('input'));
         login.querySelector('form')?.dispatchEvent(new Event('submit'));
 
-        httpMock.expectOne((req) => req.url === `${API_BASE_URL}/users`).flush([users.teamLeader]);
+        httpMock.expectOne(`${API_BASE_URL}/auth/login`).flush(sessionFor(users.teamLeader));
         await harness.fixture.whenStable();
 
         expect(router.url).toBe('/machines/srv-1/parts');

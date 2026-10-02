@@ -5,7 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
-import { UserRecord } from '@core/auth/auth.model';
+import { AuthUser } from '@core/auth/auth.model';
 import { AUTH_STORAGE_KEY, AuthService } from '@core/auth/auth.service';
 import { API_BASE_URL } from '@core/config/api.config';
 import { LoginPage } from './login-page';
@@ -14,10 +14,9 @@ import { LoginPage } from './login-page';
 class StubPage {}
 
 describe('LoginPage', () => {
-  const admin: UserRecord = {
+  const admin: AuthUser = {
     id: '1',
     username: 'admin',
-    password: 'admin123',
     displayName: 'Administrador',
     email: 'admin@enterprise-lab.dev',
     role: 'administrador',
@@ -69,8 +68,8 @@ describe('LoginPage', () => {
     harness.detectChanges();
   }
 
-  function usersRequests() {
-    return httpMock.match((req) => req.url === `${API_BASE_URL}/users`);
+  function loginRequests() {
+    return httpMock.match((req) => req.url === `${API_BASE_URL}/auth/login`);
   }
 
   beforeEach(() => {
@@ -99,11 +98,11 @@ describe('LoginPage', () => {
       fill('admin', 'admin123');
 
       submit();
-      const [request] = usersRequests();
-      request?.flush([admin]);
+      const [request] = loginRequests();
+      request?.flush({ token: 'jwt', user: admin });
       await harness.fixture.whenStable();
 
-      expect(request?.request.params.get('username')).toBe('admin');
+      expect(request?.request.body).toEqual({ username: 'admin', password: 'admin123' });
       expect(authService.isAuthenticated()).toBe(true);
       expect(authService.currentUser()?.username).toBe('admin');
       expect(router.url).toBe('/dashboard');
@@ -116,7 +115,7 @@ describe('LoginPage', () => {
       fill('admin', 'admin123');
 
       submit();
-      usersRequests()[0]?.flush([admin]);
+      loginRequests()[0]?.flush({ token: 'jwt', user: admin });
       await harness.fixture.whenStable();
 
       expect(authService.isAuthenticated()).toBe(true);
@@ -133,7 +132,7 @@ describe('LoginPage', () => {
       fill('admin', 'admin123');
 
       submit();
-      usersRequests()[0]?.flush([admin]);
+      loginRequests()[0]?.flush({ token: 'jwt', user: admin });
       await harness.fixture.whenStable();
 
       expect(router.url).toBe('/dashboard');
@@ -148,7 +147,10 @@ describe('LoginPage', () => {
       fill('admin', 'incorrecta');
 
       submit();
-      usersRequests()[0]?.flush([]);
+      loginRequests()[0]?.flush(
+        { code: 'INVALID_CREDENTIALS', message: 'Credenciales inválidas' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
       harness.detectChanges();
 
       expect(element().querySelector('[role="alert"]')?.textContent).toContain(
@@ -166,7 +168,7 @@ describe('LoginPage', () => {
       fill('admin', 'admin123');
 
       submit();
-      usersRequests()[0]?.flush([{ ...admin, role: 'tecnico' }]);
+      loginRequests()[0]?.flush({ token: 'jwt', user: { ...admin, role: 'tecnico' } });
       harness.detectChanges();
 
       expect(element().querySelector('[role="alert"]')?.textContent).toContain(
@@ -185,7 +187,10 @@ describe('LoginPage', () => {
       const button = element().querySelector<HTMLButtonElement>('button[type="submit"]');
       expect(button?.disabled).toBe(true);
 
-      usersRequests()[0]?.flush([]);
+      loginRequests()[0]?.flush(
+        { code: 'INVALID_CREDENTIALS', message: 'Credenciales inválidas' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
       harness.detectChanges();
 
       expect(button?.disabled).toBe(false);
@@ -196,7 +201,10 @@ describe('LoginPage', () => {
       await setup();
       fill('admin', 'incorrecta');
       submit();
-      usersRequests()[0]?.flush([]);
+      loginRequests()[0]?.flush(
+        { code: 'INVALID_CREDENTIALS', message: 'Credenciales inválidas' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
       harness.detectChanges();
       expect(element().querySelector('[role="alert"]')).not.toBeNull();
 
@@ -204,7 +212,7 @@ describe('LoginPage', () => {
       submit();
 
       expect(element().querySelector('[role="alert"]')).toBeNull();
-      usersRequests()[0]?.flush([admin]);
+      loginRequests()[0]?.flush({ token: 'jwt', user: admin });
     });
 
     it('does not show the inline credentials error on a connection failure', async () => {
@@ -213,7 +221,7 @@ describe('LoginPage', () => {
       fill('admin', 'admin123');
 
       submit();
-      usersRequests()[0]?.flush('boom', { status: 500, statusText: 'Server Error' });
+      loginRequests()[0]?.flush('boom', { status: 500, statusText: 'Server Error' });
       harness.detectChanges();
 
       expect(element().querySelector('[role="alert"]')).toBeNull();
@@ -228,7 +236,7 @@ describe('LoginPage', () => {
 
       submit();
 
-      expect(usersRequests()).toHaveLength(0);
+      expect(loginRequests()).toHaveLength(0);
       expect(element().querySelector('#username-error')).not.toBeNull();
       expect(element().querySelector('#password-error')).not.toBeNull();
     });
@@ -240,7 +248,7 @@ describe('LoginPage', () => {
 
       submit();
 
-      expect(usersRequests()).toHaveLength(0);
+      expect(loginRequests()).toHaveLength(0);
       expect(element().querySelector('#username-error')).toBeNull();
       expect(element().querySelector('#password')?.getAttribute('aria-invalid')).toBe('true');
     });
@@ -253,9 +261,9 @@ describe('LoginPage', () => {
       submit();
       submit();
 
-      const requests = usersRequests();
+      const requests = loginRequests();
       expect(requests).toHaveLength(1);
-      requests[0]?.flush([admin]);
+      requests[0]?.flush({ token: 'jwt', user: admin });
     });
   });
 });

@@ -21,11 +21,15 @@
         variant="warning"
       />
     }
+    @if (machineRefError(); as refError) {
+      <app-alert title="Máquina o parte no válida" [message]="refError" variant="error" />
+    }
     <app-form
       [allowedTypes]="allowedTypes()"
       [submitting]="isSubmitting()"
       [machines]="machines()"
       [partNodes]="partNodes()"
+      [serverErrors]="fieldErrors()"
       (machineChange)="onMachineChange($event)"
       (sendData)="onSubmit($event)"
     ></app-form>

@@ -1,13 +1,18 @@
 import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, finalize, of, Subject, switchMap } from 'rxjs';
-import { WorkOrdersService } from '../../data-access/work-order.service';
+import {
+  WorkOrderMachineRefError,
+  WorkOrdersService,
+  WorkOrderValidationError,
+} from '../../data-access/work-order.service';
+import { errorStatus } from '@core/api/api-error';
 import { AuthService } from '@core/auth/auth.service';
 import { MessageService } from '@core/services/message.service';
 import { MachinesService } from '@features/machines/data-access/machines.service';
 import { PartsService } from '@features/machines/data-access/parts.service';
 import { Machine } from '@features/machines/models/machine.model';
-import { buildBreadcrumb, buildPartTree, Part } from '@features/machines/models/part.model';
+import { buildPartTree, Part } from '@features/machines/models/part.model';
 import { Form, WorkOrderFormValue } from '../../components/form/form';
 import { WorkOrderCreateRequest } from '../../models/work-order.model';
 import { canCreateWorkOrder, creatableTypes } from '../../models/work-order.permissions';
@@ -34,6 +39,9 @@ export class WorkOrderCreate implements OnInit {
   private readonly machineSelection = new Subject<string | null>();
 
   readonly isSubmitting = signal(false);
+  // Errores de la API que la página muestra en su lugar (spec 018, REQ-9.3 y 9.4).
+  readonly machineRefError = signal<string | null>(null);
+  readonly fieldErrors = signal<Readonly<Record<string, string>>>({});
   // La página decide qué tipos ofrece según el rol; el formulario solo los muestra.
   readonly allowedTypes = computed(() => creatableTypes(this.authService.currentUser()));
 
@@ -106,22 +114,14 @@ export class WorkOrderCreate implements OnInit {
       return;
     }
 
-    // El breadcrumb se arma UNA sola vez, ahora, con las partes cargadas; no se recalcula después.
-    const breadcrumb = buildBreadcrumb(machine, value.partId, this.parts());
-
-    if (breadcrumb === null) {
-      this.messageService.showError(
-        'No se pudo armar la ruta de la parte seleccionada. Elegila de nuevo.',
-      );
-      return;
-    }
-
     const { machineId, partId, comment, ...rest } = value;
     const workOrderData: WorkOrderCreateRequest = {
       ...rest,
-      machineRef: { machineId, partId, breadcrumb, comment: comment.trim() },
+      machineRef: { machineId, partId, comment: comment.trim() },
     };
 
+    this.machineRefError.set(null);
+    this.fieldErrors.set({});
     this.isSubmitting.set(true);
     this.workOrderService
       .create(workOrderData)
@@ -131,11 +131,29 @@ export class WorkOrderCreate implements OnInit {
           this.messageService.showSuccess('Work order created successfully.');
           this.navigateToWorkOrdersList();
         },
-        error: () => {
-          this.messageService.showError('Error al crear la orden de trabajo.');
-        },
+        error: (error: unknown) => this.handleCreateError(error),
       });
   }
+
+  // La máquina o la parte elegida no sirve (se borró o no corresponde) y los campos inválidos se
+  // muestran en su lugar y el formulario conserva lo que el usuario escribió. Un `403` ya lo avisó el
+  // interceptor ("no tenés permisos"): no se suma otro mensaje.
+  private handleCreateError(error: unknown): void {
+    if (error instanceof WorkOrderMachineRefError) {
+      this.machineRefError.set(error.message);
+      return;
+    }
+
+    if (error instanceof WorkOrderValidationError) {
+      this.fieldErrors.set(error.fieldErrors);
+      return;
+    }
+
+    if (errorStatus(error) === 403) return;
+
+    this.messageService.showError('Error al crear la orden de trabajo.');
+  }
+
   navigateToWorkOrdersList(): void {
     this.activateRoute.navigate(['/work-orders']);
   }

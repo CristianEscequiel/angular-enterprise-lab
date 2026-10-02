@@ -9,6 +9,7 @@ import { AuthService } from '@core/auth/auth.service';
 import { LocalStorageService } from '@core/services/localStorage.service';
 import { MessageService } from '@core/services/message.service';
 import {
+  WorkOrderLoadError,
   WorkOrdersCriteria,
   WorkOrdersService,
   WorkOrderStateError,
@@ -18,7 +19,6 @@ import {
   WorkOrder,
   WorkOrderPriority,
   WorkOrderStatus,
-  WorkOrderTaker,
 } from '../../models/work-order.model';
 import { WorkOrdersList } from './work-orders-list';
 
@@ -45,7 +45,7 @@ describe('WorkOrdersList search and pagination', () => {
   };
 
   function response(pages = 4, data: WorkOrder[] = [order]): PaginatedResponse<WorkOrder> {
-    return { first: 1, prev: null, next: 2, last: pages, pages, items: pages * 10, data };
+    return { data, page: 1, size: 10, totalItems: pages * 10, totalPages: pages };
   }
 
   function expected(over: Partial<WorkOrdersCriteria> = {}): WorkOrdersCriteria {
@@ -58,7 +58,7 @@ describe('WorkOrdersList search and pagination', () => {
 
   const service = {
     search: vi.fn<(criteria: WorkOrdersCriteria) => Observable<PaginatedResponse<WorkOrder>>>(),
-    take: vi.fn<(id: string, taker: WorkOrderTaker) => Observable<WorkOrder>>(),
+    take: vi.fn<(id: string) => Observable<WorkOrder>>(),
     release: vi.fn<(id: string) => Observable<WorkOrder>>(),
     delete: vi.fn<(...args: string[]) => Observable<void>>(),
   };
@@ -533,6 +533,37 @@ describe('WorkOrdersList search and pagination', () => {
     });
   });
 
+  it('warns and reloads the list when the order to delete no longer exists (404)', () => {
+    expect.assertions(3);
+    start();
+    const messageService = TestBed.inject(MessageService);
+    service.delete.mockReturnValueOnce(
+      throwError(() => new WorkOrderLoadError('not-found', 'La orden de trabajo no existe.')),
+    );
+    const searchesBefore = service.search.mock.calls.length;
+
+    component.deleteWorkOrder('1');
+
+    expect(messageService.message()).toMatchObject({
+      variant: 'warning',
+      message: 'La orden ya no existe.',
+    });
+    expect(messageService.message()?.variant).not.toBe('error');
+    expect(service.search.mock.calls.length).toBeGreaterThan(searchesBefore);
+  });
+
+  it('adds no message of its own when deleting is forbidden (403): the interceptor already said it', () => {
+    expect.assertions(2);
+    start();
+    const messageService = TestBed.inject(MessageService);
+    service.delete.mockReturnValueOnce(throwError(() => ({ status: 403 })));
+
+    component.deleteWorkOrder('1');
+
+    expect(messageService.message()).toBeNull();
+    expect(service.delete).toHaveBeenCalledWith('1');
+  });
+
   describe('status and priority filters', () => {
     it('sends the status filter as a request parameter and renders the response as received', () => {
       start();
@@ -915,10 +946,7 @@ describe('WorkOrdersList search and pagination', () => {
 
         click('Tomar orden Falla en cinta');
 
-        expect(service.take).toHaveBeenCalledExactlyOnceWith(
-          '10',
-          expect.objectContaining({ id: '2', name: tecnico.displayName }),
-        );
+        expect(service.take).toHaveBeenCalledExactlyOnceWith('10');
         // Todavía no terminó de tomarla: no se abre la página de cierre.
         expect(navigate).not.toHaveBeenCalled();
 
@@ -996,6 +1024,16 @@ describe('WorkOrdersList search and pagination', () => {
         click('Tomar orden Falla en cinta');
 
         expect(message()?.message).toBe('La orden ya fue cerrada.');
+        expect(navigate).not.toHaveBeenCalled();
+      });
+
+      it('a 403 (the team does not attend this type) adds no message of its own and does not navigate', () => {
+        service.take.mockReturnValue(throwError(() => ({ status: 403 })));
+        startAs(tecnico, [pending]);
+
+        click('Tomar orden Falla en cinta');
+
+        expect(message()).toBeNull();
         expect(navigate).not.toHaveBeenCalled();
       });
 

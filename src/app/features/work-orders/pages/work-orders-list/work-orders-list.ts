@@ -4,6 +4,7 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { catchError, debounceTime, EMPTY, finalize, map, merge, Subject, switchMap } from 'rxjs';
 
+import { errorStatus } from '@core/api/api-error';
 import { AuthService } from '@core/auth/auth.service';
 import { LocalStorageService } from '@core/services/localStorage.service';
 import { MessageService } from '@core/services/message.service';
@@ -11,7 +12,11 @@ import { Alert } from '@shared/components/alert/alert';
 import { Badge } from '@shared/components/badge/badge';
 import { Button } from '@shared/components/button/button';
 import { Modal } from '@shared/components/modal/modal';
-import { WorkOrdersService, WorkOrderStateError } from '../../data-access/work-order.service';
+import {
+  WorkOrderLoadError,
+  WorkOrdersService,
+  WorkOrderStateError,
+} from '../../data-access/work-order.service';
 import {
   PRIORITY_BADGE,
   PRIORITY_LABELS,
@@ -28,7 +33,6 @@ import {
   WorkOrder,
   WorkOrderPriority,
   WorkOrderStatus,
-  WorkOrderTaker,
 } from '../../models/work-order.model';
 import {
   canDeleteWorkOrder,
@@ -151,7 +155,7 @@ export class WorkOrdersList implements OnInit {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe(({ query, response }) => {
-        const totalPages = Math.max(1, response.pages);
+        const totalPages = Math.max(1, response.totalPages);
         this.totalPages.set(totalPages);
         if (query.page > totalPages) {
           this.requestWorkOrders({ ...query, page: totalPages });
@@ -250,15 +254,9 @@ export class WorkOrdersList implements OnInit {
       return;
     }
 
-    const taker: WorkOrderTaker = {
-      id: user.id,
-      name: user.displayName,
-      at: new Date().toISOString(),
-    };
-
     this.setBusy(order.id, true);
     this.workOrdersService
-      .take(order.id, taker)
+      .take(order.id)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.setBusy(order.id, false)),
@@ -310,6 +308,8 @@ export class WorkOrdersList implements OnInit {
             return;
           }
 
+          if (errorStatus(error) === 403) return;
+
           this.messageService.showError('No se pudo liberar la orden.');
         },
       });
@@ -327,6 +327,9 @@ export class WorkOrdersList implements OnInit {
       this.loadWorkOrders();
       return;
     }
+
+    // Un 403 (equipo no habilitado para ese tipo) ya lo avisó el interceptor.
+    if (errorStatus(error) === 403) return;
 
     this.messageService.showError('No se pudo tomar la orden.');
   }
@@ -433,7 +436,17 @@ export class WorkOrdersList implements OnInit {
           this.messageService.showSuccess('Orden eliminada satisfactoriamente.');
           this.loadWorkOrders();
         },
-        error: () => {
+        error: (error: unknown) => {
+          // Ya no existe (la borró otro usuario): la lista estaba desactualizada y se recarga. Un
+          // `403` ya lo avisó el interceptor.
+          if (error instanceof WorkOrderLoadError) {
+            this.messageService.showWarning('La orden ya no existe.', 'No se pudo eliminar');
+            this.loadWorkOrders();
+            return;
+          }
+
+          if (errorStatus(error) === 403) return;
+
           this.messageService.showError('Error al eliminar la orden.');
         },
       });

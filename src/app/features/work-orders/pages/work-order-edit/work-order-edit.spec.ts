@@ -4,7 +4,11 @@ import { of, Subject, throwError } from 'rxjs';
 
 import { WorkOrderEdit } from './work-order-edit';
 import { MessageService } from '@core/services/message.service';
-import { WorkOrderLoadError, WorkOrdersService } from '../../data-access/work-order.service';
+import {
+  WorkOrderLoadError,
+  WorkOrdersService,
+  WorkOrderValidationError,
+} from '../../data-access/work-order.service';
 import { WorkOrderFormValue } from '../../components/form/form';
 import { MACHINE_REF_FIXTURE } from '../../testing/work-order.fixtures';
 
@@ -177,20 +181,7 @@ describe('WorkOrderEdit', () => {
       );
     });
 
-    it('keeps the original machineRef in the PUT when the rest of the order changes', async () => {
-      expect.assertions(1);
-      await createComponent();
-
-      component.onSubmitEdit(changedPayload);
-
-      expect(workOrdersServiceMock.update).toHaveBeenCalledWith(
-        '1',
-        expect.objectContaining({ machineRef: MACHINE_REF_FIXTURE }),
-      );
-    });
-
-    // Aunque el formulario emitiera otra máquina/parte (p. ej. manipulando el DOM), la página no la envía.
-    it('never sends a machine, part or comment different from the stored ones', async () => {
+    it('sends no machine, part, comment or breadcrumb in the PUT: they cannot change', async () => {
       expect.assertions(2);
       await createComponent();
 
@@ -202,9 +193,8 @@ describe('WorkOrderEdit', () => {
       });
 
       const sent = workOrdersServiceMock.update.mock.calls[0]?.[1] as Record<string, unknown>;
-      expect(sent['machineRef']).toEqual(MACHINE_REF_FIXTURE);
-      // Los campos sueltos del formulario no son campos de la orden.
-      expect(Object.keys(sent)).not.toEqual(expect.arrayContaining(['machineId', 'partId']));
+      expect(Object.keys(sent).sort()).toEqual(['description', 'priority', 'title']);
+      expect(sent).not.toHaveProperty('machineRef');
     });
 
     it('does not treat a machine-only difference as a change', async () => {
@@ -226,7 +216,7 @@ describe('WorkOrderEdit', () => {
     });
   });
 
-  describe('owner and closing note (spec 013d)', () => {
+  describe('owner, status and closing note (spec 013d)', () => {
     const takenBy = {
       id: '2',
       name: 'Técnico Mecánico de Guardia',
@@ -239,31 +229,25 @@ describe('WorkOrderEdit', () => {
       at: '2026-09-25T15:00:00.000Z',
     };
 
+    // El dueño, el estado y la nota de cierre cambian solo por tomar, cerrar y liberar: el PUT nunca
+    // los lleva, en ningún estado de la orden.
     it.each([
+      ['pending', {}],
       ['in-progress', { takenBy }],
       ['completed', { takenBy, closingNote }],
       ['cancelled', { takenBy, closingNote }],
-    ])('keeps takenBy and closingNote in the PUT of a %s order', async (status, extra) => {
+    ])('edits a %s order sending only title, description and priority', async (status, extra) => {
+      expect.assertions(1);
       workOrdersServiceMock.getById.mockReturnValue(of({ ...mockWorkOrder, status, ...extra }));
       await createComponent();
 
       component.onSubmitEdit(changedPayload);
 
-      expect(workOrdersServiceMock.update).toHaveBeenCalledWith(
-        '1',
-        expect.objectContaining({ status, ...extra }),
-      );
-    });
-
-    it('does not touch the status while editing', async () => {
-      await createComponent();
-
-      component.onSubmitEdit(changedPayload);
-
-      expect(workOrdersServiceMock.update).toHaveBeenCalledWith(
-        '1',
-        expect.objectContaining({ status: 'pending' }),
-      );
+      expect(workOrdersServiceMock.update).toHaveBeenCalledExactlyOnceWith('1', {
+        title: 'Orden de prueba actualizada',
+        description: 'Descripción de prueba',
+        priority: 'medium',
+      });
     });
   });
 
@@ -282,34 +266,16 @@ describe('WorkOrderEdit', () => {
       expect(typeSelect().disabled).toBe(true);
     });
 
-    it('keeps the original type in the PUT when the rest of the order changes', async () => {
-      expect.assertions(2);
-      await createComponent();
-
-      component.onSubmitEdit(changedPayload);
-
-      expect(workOrdersServiceMock.update).toHaveBeenCalledTimes(1);
-      expect(workOrdersServiceMock.update).toHaveBeenCalledWith(
-        '1',
-        expect.objectContaining({
-          id: '1',
-          title: 'Orden de prueba actualizada',
-          type: 'correctivo',
-        }),
-      );
-    });
-
-    // Aunque el formulario emitiera otro tipo (p. ej. manipulando el DOM), la página no lo envía.
-    it('never sends a type different from the stored one', async () => {
-      expect.assertions(1);
+    it('never sends a type: not the stored one nor a different one', async () => {
+      expect.assertions(3);
       await createComponent();
 
       component.onSubmitEdit({ ...changedPayload, type: 'pronto-intervencion' });
 
-      expect(workOrdersServiceMock.update).toHaveBeenCalledWith(
-        '1',
-        expect.objectContaining({ type: 'correctivo' }),
-      );
+      expect(workOrdersServiceMock.update).toHaveBeenCalledTimes(1);
+      const sent = workOrdersServiceMock.update.mock.calls[0]?.[1] as Record<string, unknown>;
+      expect(sent).not.toHaveProperty('type');
+      expect(sent['title']).toBe('Orden de prueba actualizada');
     });
 
     it('does not treat a type-only difference as a change', async () => {
@@ -330,7 +296,7 @@ describe('WorkOrderEdit', () => {
       expect(TestBed.inject(MessageService).message()?.message).toBe('No hubo cambios en la orden');
     });
 
-    it('sends the stored type when the form is submitted from the screen', async () => {
+    it('submits only the editable fields when the form is sent from the screen', async () => {
       expect.assertions(1);
       await createComponent();
       const title = fixture.nativeElement.querySelector('#title') as HTMLInputElement;
@@ -339,13 +305,72 @@ describe('WorkOrderEdit', () => {
 
       fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
 
-      expect(workOrdersServiceMock.update).toHaveBeenCalledWith(
-        '1',
-        expect.objectContaining({
-          title: 'Título modificado desde la pantalla',
-          type: 'correctivo',
-        }),
+      expect(workOrdersServiceMock.update).toHaveBeenCalledExactlyOnceWith('1', {
+        title: 'Título modificado desde la pantalla',
+        description: 'Descripción de prueba',
+        priority: 'medium',
+      });
+    });
+  });
+
+  describe('errors answered by the API', () => {
+    it('a 404 on save shows the not-found state instead of the form', async () => {
+      expect.assertions(3);
+      await createComponent();
+      workOrdersServiceMock.update.mockReturnValue(
+        throwError(() => new WorkOrderLoadError('not-found', 'La orden de trabajo no existe.')),
       );
+
+      component.onSubmitEdit(changedPayload);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('Orden no encontrada');
+      expect(fixture.nativeElement.querySelector('app-form')).toBeNull();
+      expect(routerMock.navigate).not.toHaveBeenCalled();
+    });
+
+    it('a validation error shows each message next to its field and keeps the form', async () => {
+      expect.assertions(3);
+      await createComponent();
+      workOrdersServiceMock.update.mockReturnValue(
+        throwError(
+          () => new WorkOrderValidationError({ title: 'Debe tener entre 3 y 150 caracteres' }),
+        ),
+      );
+
+      component.onSubmitEdit(changedPayload);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('#title-server-error')?.textContent).toContain(
+        'entre 3 y 150',
+      );
+      expect(fixture.nativeElement.querySelector('app-form')).not.toBeNull();
+      expect(TestBed.inject(MessageService).message()).toBeNull();
+    });
+
+    it('a 403 adds no message of its own and keeps the screen as it is', async () => {
+      expect.assertions(3);
+      await createComponent();
+      workOrdersServiceMock.update.mockReturnValue(throwError(() => ({ status: 403 })));
+
+      component.onSubmitEdit(changedPayload);
+      fixture.detectChanges();
+
+      expect(TestBed.inject(MessageService).message()).toBeNull();
+      expect(fixture.nativeElement.querySelector('app-form')).not.toBeNull();
+      expect(component.isSubmitting()).toBe(false);
+    });
+
+    it('any other failure shows the generic error', async () => {
+      await createComponent();
+      workOrdersServiceMock.update.mockReturnValue(throwError(() => ({ status: 500 })));
+
+      component.onSubmitEdit(changedPayload);
+
+      expect(TestBed.inject(MessageService).message()).toMatchObject({
+        variant: 'error',
+        message: 'Error actualizando la orden de trabajo',
+      });
     });
   });
 });

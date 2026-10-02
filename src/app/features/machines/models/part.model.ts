@@ -1,6 +1,6 @@
 import { Machine } from './machine.model';
 
-// Partes de una máquina (`/partes`): lista de adyacencia plana. Cada parte apunta a su máquina
+// Partes de una máquina (`/machines/{id}/parts` y `/parts/{id}`): lista de adyacencia plana. Cada parte apunta a su máquina
 // (`machineId`) y a su padre (`parentId`, `null` en las de primer nivel). Una parte sin hijos es
 // una hoja; ese dato no se guarda, se deduce de que nadie la tiene como `parentId`.
 //

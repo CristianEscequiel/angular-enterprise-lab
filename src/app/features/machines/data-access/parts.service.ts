@@ -1,9 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { catchError, map, Observable, of, switchMap, throwError } from 'rxjs';
+import { catchError, map, Observable, throwError } from 'rxjs';
 
+import { errorCode, errorMessage, errorStatus } from '@core/api/api-error';
 import { API_BASE_URL } from '@core/config/api.config';
-import { hasChildren, Part, PartDraft } from '../models/part.model';
+import { Part } from '../models/part.model';
 
 // La máquina en la que se quiere crear la parte no existe.
 export class MachineNotFoundError extends Error {
@@ -32,20 +33,18 @@ export class ParentPartNotFoundError extends Error {
 }
 
 // La parte tiene sub-partes y no se elimina (no hay cascada: ver `PartsService.delete`).
+const PART_HAS_CHILDREN_MESSAGE =
+  'No se puede eliminar la parte: tiene sub-partes. Elimine primero las sub-partes.';
+
 export class PartHasChildrenError extends Error {
   constructor(
     readonly partId: string,
-    readonly childCount: number,
+    message = PART_HAS_CHILDREN_MESSAGE,
   ) {
-    super(
-      `No se puede eliminar la parte: tiene ${childCount} ${childCount === 1 ? 'sub-parte' : 'sub-partes'}. ` +
-        'Elimine primero las sub-partes.',
-    );
+    super(message);
     this.name = 'PartHasChildrenError';
   }
 }
-
-// Datos que ni siquiera se envían: nombre vacío o un id en blanco (que armaría la URL de la
 // colección entera en vez de la de una parte).
 export class InvalidPartError extends Error {
   constructor(message = 'Los datos de la parte no son válidos.') {
@@ -54,38 +53,40 @@ export class InvalidPartError extends Error {
   }
 }
 
-function isNotFound(error: unknown): boolean {
-  return (error as { status?: number } | null)?.status === 404;
-}
-
 function isId(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
 // JSON Server no valida nada ni hace cascada: acepta partes huérfanas y deja hijos colgando al
 // borrar un padre. Toda la integridad del árbol la garantiza este servicio, ANTES de escribir.
+// Las partes de una máquina se piden y se crean por la máquina (`/machines/{id}/parts`) y se editan y
+// eliminan por su id (`/parts/{id}`). La API garantiza lo que antes verificaba el cliente: que la
+// máquina exista, que el padre sea de la misma máquina y que una parte con sub-partes no se borre.
 @Injectable({
   providedIn: 'root',
 })
 export class PartsService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = `${API_BASE_URL}/partes`;
-  private readonly machinesUrl = `${API_BASE_URL}/maquinas`;
+  private readonly partsUrl = `${API_BASE_URL}/parts`;
+  private readonly machinesUrl = `${API_BASE_URL}/machines`;
 
-  getAll(): Observable<Part[]> {
-    return this.http.get<Part[]>(this.apiUrl);
-  }
-
-  // Pide TODAS las partes y filtra en el cliente: JSON Server convierte a número los valores
-  // numéricos del query string y `?machineId=1` no encontraría `"machineId": "1"` (devuelve []).
+  // Lista plana en orden de creación; el árbol lo arma `buildPartTree` por `parentId`.
   getByMachine(machineId: string): Observable<Part[]> {
-    return this.getAll().pipe(map((parts) => parts.filter((part) => part.machineId === machineId)));
+    if (!isId(machineId)) {
+      return throwError(() => new MachineNotFoundError(machineId));
+    }
+
+    return this.http
+      .get<Part[]>(this.partsOf(machineId))
+      .pipe(
+        catchError((error: unknown) =>
+          throwError(() =>
+            errorStatus(error) === 404 ? new MachineNotFoundError(machineId) : error,
+          ),
+        ),
+      );
   }
 
-  // Verifica antes de escribir que la máquina existe y que el padre (si lo hay) existe y es de la
-  // misma máquina; si no, error tipado y NO sale el `POST`. Un error de red o `5xx` en esas
-  // consultas se propaga tal cual: nunca se interpreta como "no existe". El `id` no se manda: el
-  // servidor genera el suyo y descarta el que llegue.
   create(machineId: string, parentId: string | null, name: string): Observable<Part> {
     const trimmed = name.trim();
 
@@ -93,21 +94,28 @@ export class PartsService {
       return throwError(() => new InvalidPartError());
     }
 
-    return this.ensureMachineExists(machineId).pipe(
-      switchMap(() =>
-        parentId === null ? of(undefined) : this.ensureParentBelongsTo(parentId, machineId),
-      ),
-      switchMap(() => {
-        const draft: PartDraft = { machineId, parentId, name: trimmed };
+    return this.http.post<Part>(this.partsOf(machineId), { name: trimmed, parentId }).pipe(
+      catchError((error: unknown) => {
+        const code = errorCode(error);
 
-        return this.http.post<Part>(this.apiUrl, draft);
+        if (errorStatus(error) === 404) {
+          return throwError(() => new MachineNotFoundError(machineId));
+        }
+
+        if (parentId !== null && code === 'PARENT_PART_NOT_FOUND') {
+          return throwError(() => new ParentPartNotFoundError(parentId, 'missing'));
+        }
+
+        if (parentId !== null && code === 'PARENT_PART_OTHER_MACHINE') {
+          return throwError(() => new ParentPartNotFoundError(parentId, 'other-machine'));
+        }
+
+        return throwError(() => error);
       }),
     );
   }
 
-  // Solo el nombre: `machineId` y `parentId` no se pueden cambiar (no hay "mover"), y con `PATCH`
-  // ni siquiera viajan. Un `PUT` reenviaría los valores que la pantalla tenía cargados y podría
-  // pisar cambios ajenos.
+  // Solo el nombre: la API rechaza mover una parte (`machineId` o `parentId` distintos).
   update(id: string, name: string): Observable<Part> {
     const trimmed = name.trim();
 
@@ -118,53 +126,28 @@ export class PartsService {
     return this.http.patch<Part>(this.url(id), { name: trimmed });
   }
 
-  // Bloquea si la parte tiene sub-partes (no hay cascada: serían N `DELETE` no atómicos y un fallo a
-  // mitad dejaría hijos huérfanos). El chequeo usa datos FRESCOS (`GET /partes`), no el árbol que la
-  // pantalla tenga en memoria: otro usuario puede haberle agregado un hijo hace un momento. Si esa
-  // consulta falla, no se borra.
   delete(id: string): Observable<void> {
     if (!isId(id)) {
       return throwError(() => new InvalidPartError());
     }
 
-    return this.getAll().pipe(
-      switchMap((parts) => {
-        if (hasChildren(parts, id)) {
-          const childCount = parts.filter((part) => part.parentId === id).length;
-
-          return throwError(() => new PartHasChildrenError(id, childCount));
-        }
-
-        return this.http.delete<void>(this.url(id)).pipe(map(() => undefined));
-      }),
+    return this.http.delete<void>(this.url(id)).pipe(
+      map(() => undefined),
+      catchError((error: unknown) =>
+        throwError(() =>
+          errorCode(error) === 'PART_HAS_CHILDREN'
+            ? new PartHasChildrenError(id, errorMessage(error, PART_HAS_CHILDREN_MESSAGE))
+            : error,
+        ),
+      ),
     );
   }
 
   private url(id: string): string {
-    return `${this.apiUrl}/${encodeURIComponent(id)}`;
+    return `${this.partsUrl}/${encodeURIComponent(id)}`;
   }
 
-  private ensureMachineExists(machineId: string): Observable<void> {
-    return this.http.get<unknown>(`${this.machinesUrl}/${encodeURIComponent(machineId)}`).pipe(
-      map(() => undefined),
-      catchError((error: unknown) =>
-        throwError(() => (isNotFound(error) ? new MachineNotFoundError(machineId) : error)),
-      ),
-    );
-  }
-
-  private ensureParentBelongsTo(parentId: string, machineId: string): Observable<void> {
-    return this.http.get<Part>(this.url(parentId)).pipe(
-      catchError((error: unknown) =>
-        throwError(() =>
-          isNotFound(error) ? new ParentPartNotFoundError(parentId, 'missing') : error,
-        ),
-      ),
-      switchMap((parent) =>
-        parent.machineId === machineId
-          ? of(undefined)
-          : throwError(() => new ParentPartNotFoundError(parentId, 'other-machine')),
-      ),
-    );
+  private partsOf(machineId: string): string {
+    return `${this.machinesUrl}/${encodeURIComponent(machineId)}/parts`;
   }
 }

@@ -11,7 +11,11 @@ import { PartsService } from '@features/machines/data-access/parts.service';
 import { Machine } from '@features/machines/models/machine.model';
 import { Part } from '@features/machines/models/part.model';
 import { WorkOrderCreate } from './work-order-create';
-import { WorkOrdersService } from '../../data-access/work-order.service';
+import {
+  WorkOrderMachineRefError,
+  WorkOrdersService,
+  WorkOrderValidationError,
+} from '../../data-access/work-order.service';
 import { WorkOrderFormValue } from '../../components/form/form';
 import {
   WORK_ORDER_TYPES,
@@ -21,8 +25,8 @@ import {
 } from '../../models/work-order.model';
 
 const MACHINES: Machine[] = [
-  { id: '1', code: 'ENV-01', name: 'Envasadora línea 1' },
-  { id: '2', code: 'SEL-02', name: 'Selladora' },
+  { id: '1', code: 'ENV-01', name: 'Envasadora línea 1', partCount: 0 },
+  { id: '2', code: 'SEL-02', name: 'Selladora', partCount: 0 },
 ];
 
 const PARTS_OF_MACHINE_1: Part[] = [
@@ -50,7 +54,7 @@ describe('WorkOrderCreate', () => {
   const expectedRequest: WorkOrderCreateRequest = {
     title: 'Revisar motor',
     description: 'Revisar temperatura del motor',
-    machineRef: { machineId: '1', partId: null, breadcrumb: 'Envasadora línea 1', comment: '' },
+    machineRef: { machineId: '1', partId: null, comment: '' },
     type: 'correctivo',
     priority: 'medium',
   };
@@ -58,6 +62,7 @@ describe('WorkOrderCreate', () => {
   const created: WorkOrder = {
     id: '1',
     ...expectedRequest,
+    machineRef: { ...expectedRequest.machineRef, breadcrumb: 'Envasadora línea 1' },
     status: 'pending',
     createdAt: '2026-09-08T10:00:00Z',
   };
@@ -213,48 +218,113 @@ describe('WorkOrderCreate', () => {
       expect(workOrdersServiceMock.create).toHaveBeenCalledTimes(1);
     });
 
-    it('stops at the machine: partId null and breadcrumb equal to the machine name', () => {
+    it('stops at the machine: partId null, and no breadcrumb travels (the server builds it)', () => {
       expect.assertions(2);
 
       component.onSubmit({ ...payload, machineId: '2', partId: null });
 
-      expect(lastRequest().machineRef.partId).toBeNull();
-      expect(lastRequest().machineRef.breadcrumb).toBe('Selladora');
+      expect(lastRequest().machineRef).toEqual({ machineId: '2', partId: null, comment: '' });
+      expect(lastRequest().machineRef).not.toHaveProperty('breadcrumb');
     });
 
-    it('builds the full chain of ancestors, in order, for a level-3 part', () => {
+    it('sends the chosen part as is, without looking for it in the loaded tree', () => {
       component.onMachineChange('1');
 
       component.onSubmit({ ...payload, machineId: '1', partId: '3' });
 
-      expect(lastRequest().machineRef).toEqual({
-        machineId: '1',
-        partId: '3',
-        breadcrumb: 'Envasadora línea 1 > Mesa de transporte > Cinta 1 > Motor de cinta',
-        comment: '',
-      });
+      expect(lastRequest().machineRef).toEqual({ machineId: '1', partId: '3', comment: '' });
     });
 
-    it('keeps the failure comment in its own field, never inside the breadcrumb', () => {
-      expect.assertions(3);
+    it('keeps the failure comment in its own field, trimmed', () => {
+      expect.assertions(2);
       component.onMachineChange('1');
 
       component.onSubmit({ ...payload, partId: '3', comment: '  Vibración en el arranque  ' });
 
       expect(lastRequest().machineRef.comment).toBe('Vibración en el arranque');
-      expect(lastRequest().machineRef.breadcrumb).not.toContain('Vibración');
       expect(Object.keys(lastRequest())).not.toContain('comment');
     });
 
-    it('does not create the order when the part cannot be resolved: warning, no request', () => {
-      expect.assertions(3);
-      component.onMachineChange('1');
+    describe('errors answered by the API', () => {
+      it.each(['MACHINE_NOT_FOUND', 'PART_NOT_FOUND', 'PART_OTHER_MACHINE'])(
+        '%s: shows the reason in an alert, keeps the form and does not navigate',
+        (code) => {
+          expect.assertions(5);
+          workOrdersServiceMock.create.mockReturnValue(
+            throwError(() => new WorkOrderMachineRefError(code, 'La parte 9 no existe')),
+          );
 
-      component.onSubmit({ ...payload, partId: 'inexistente' });
+          component.onSubmit(payload);
+          fixture.detectChanges();
 
-      expect(workOrdersServiceMock.create).not.toHaveBeenCalled();
-      expect(routerMock.navigate).not.toHaveBeenCalled();
-      expect(message()?.variant).toBe('error');
+          expect(component.machineRefError()).toBe('La parte 9 no existe');
+          expect(fixture.nativeElement.textContent).toContain('La parte 9 no existe');
+          expect(fixture.nativeElement.querySelector('app-form')).not.toBeNull();
+          expect(routerMock.navigate).not.toHaveBeenCalled();
+          expect(component.isSubmitting()).toBe(false);
+        },
+      );
+
+      it('clears the reference error on the next attempt', () => {
+        expect.assertions(2);
+        workOrdersServiceMock.create.mockReturnValueOnce(
+          throwError(() => new WorkOrderMachineRefError('PART_NOT_FOUND', 'x')),
+        );
+        component.onSubmit(payload);
+        expect(component.machineRefError()).toBe('x');
+
+        component.onSubmit(payload);
+
+        expect(component.machineRefError()).toBeNull();
+      });
+
+      it('a validation error shows each message next to its field and keeps what was typed', () => {
+        expect.assertions(4);
+        workOrdersServiceMock.create.mockReturnValue(
+          throwError(
+            () =>
+              new WorkOrderValidationError({
+                title: 'Debe tener entre 3 y 150 caracteres',
+                description: 'Debe tener entre 10 y 2000 caracteres',
+              }),
+          ),
+        );
+
+        component.onSubmit(payload);
+        fixture.detectChanges();
+
+        expect(fixture.nativeElement.querySelector('#title-server-error')?.textContent).toContain(
+          'entre 3 y 150',
+        );
+        expect(
+          fixture.nativeElement.querySelector('#description-server-error')?.textContent,
+        ).toContain('entre 10 y 2000');
+        expect(routerMock.navigate).not.toHaveBeenCalled();
+        expect(message()).toBeNull();
+      });
+
+      it('a 403 adds no message of its own: the interceptor already said "no permissions"', () => {
+        expect.assertions(2);
+        workOrdersServiceMock.create.mockReturnValue(
+          throwError(() => ({ status: 403, message: 'No tenés permisos' })),
+        );
+
+        component.onSubmit(payload);
+
+        expect(message()).toBeNull();
+        expect(routerMock.navigate).not.toHaveBeenCalled();
+      });
+
+      it('any other failure shows the generic error', () => {
+        workOrdersServiceMock.create.mockReturnValue(throwError(() => ({ status: 500 })));
+
+        component.onSubmit(payload);
+
+        expect(message()).toMatchObject({
+          variant: 'error',
+          message: 'Error al crear la orden de trabajo.',
+        });
+      });
     });
 
     it('loads the parts of the chosen machine and shows them as a tree', () => {
@@ -269,18 +339,6 @@ describe('WorkOrderCreate', () => {
           (el as HTMLElement).textContent?.trim(),
         ),
       ).toEqual(['Mesa de transporte', 'Cinta 1', 'Motor de cinta']);
-    });
-
-    it('does not use the parts of the previous machine once the machine changed', () => {
-      expect.assertions(2);
-      component.onMachineChange('1');
-      component.onMachineChange('2');
-
-      component.onSubmit({ ...payload, machineId: '2', partId: '3' });
-
-      // La parte 3 es de la máquina 1: no se puede colgar de la 2.
-      expect(workOrdersServiceMock.create).not.toHaveBeenCalled();
-      expect(message()?.variant).toBe('error');
     });
 
     it('discards the answer of an earlier parts request when the machine changed meanwhile', () => {
