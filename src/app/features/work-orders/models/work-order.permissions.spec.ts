@@ -9,6 +9,7 @@ import {
 } from '@core/auth/auth.model';
 import { WORK_ORDER_TYPES, WorkOrder, WorkOrderStatus, WorkOrderType } from './work-order.model';
 import {
+  canCancelWorkOrder,
   canCreateWorkOrder,
   canDeleteWorkOrder,
   canEditWorkOrder,
@@ -362,6 +363,55 @@ describe('work order permissions', () => {
       ['no session', null],
     ])('does not let %s release', (_label, user) => {
       expect(canReleaseWorkOrder(user, { status: 'in-progress' })).toBe(false);
+    });
+  });
+
+  // Spec 019: cancelar una orden pendiente (administrador y team leader).
+  describe('canCancelWorkOrder (spec 019)', () => {
+    const ALL_STATUSES: WorkOrderStatus[] = ['pending', 'in-progress', 'completed', 'cancelled'];
+    const NOT_PENDING: WorkOrderStatus[] = ['in-progress', 'completed', 'cancelled'];
+
+    it('REQ-1.1: lets administrador cancel a pending order', () => {
+      expect(canCancelWorkOrder(administrador, { status: 'pending' })).toBe(true);
+    });
+
+    it('REQ-1.2: lets team leader cancel a pending order', () => {
+      expect(canCancelWorkOrder(teamLeader, { status: 'pending' })).toBe(true);
+    });
+
+    it.each<[string, AuthUser]>([
+      ['tecnico', tecnico],
+      ['personal-produccion', produccion],
+    ])('REQ-1.3: does not let %s cancel any order, whatever its status', (_label, user) => {
+      for (const status of ALL_STATUSES) {
+        expect(canCancelWorkOrder(user, { status })).toBe(false);
+      }
+    });
+
+    it('REQ-1.4: does not let a missing session cancel any order, whatever its status', () => {
+      for (const status of ALL_STATUSES) {
+        expect(canCancelWorkOrder(null, { status })).toBe(false);
+      }
+    });
+
+    it.each<[string, AuthUser]>([
+      ['administrador', administrador],
+      ['team leader', teamLeader],
+      ['personal-produccion', produccion],
+      ['tecnico', tecnico],
+    ])(
+      'REQ-1.5: does not let %s cancel an in-progress, completed or cancelled order',
+      (_l, user) => {
+        for (const status of NOT_PENDING) {
+          expect(canCancelWorkOrder(user, { status })).toBe(false);
+        }
+      },
+    );
+
+    it('REQ-1.5: does not let a missing session cancel an in-progress, completed or cancelled order', () => {
+      for (const status of NOT_PENDING) {
+        expect(canCancelWorkOrder(null, { status })).toBe(false);
+      }
     });
   });
 });

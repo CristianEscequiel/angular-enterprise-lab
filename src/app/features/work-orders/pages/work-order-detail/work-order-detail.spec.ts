@@ -1,10 +1,18 @@
 import { MACHINE_ONLY_REF_FIXTURE, MACHINE_REF_FIXTURE } from '../../testing/work-order.fixtures';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { signal } from '@angular/core';
+import { of, Subject, throwError } from 'rxjs';
 
+import { AuthUser } from '@core/auth/auth.model';
+import { AuthService } from '@core/auth/auth.service';
+import { MessageService } from '@core/services/message.service';
 import { WorkOrderDetail } from './work-order-detail';
-import { WorkOrderLoadError, WorkOrdersService } from '../../data-access/work-order.service';
+import {
+  WorkOrderLoadError,
+  WorkOrdersService,
+  WorkOrderStateError,
+} from '../../data-access/work-order.service';
 
 describe('WorkOrderDetail', () => {
   let component: WorkOrderDetail;
@@ -20,14 +28,46 @@ describe('WorkOrderDetail', () => {
     status: 'pending',
   };
 
+  const administrador: AuthUser = {
+    id: '1',
+    username: 'admin',
+    displayName: 'Administrador',
+    email: 'admin@enterprise-lab.dev',
+    role: 'administrador',
+  };
+  const teamLeader: AuthUser = {
+    ...administrador,
+    id: '3',
+    username: 'teamleader',
+    role: 'team-leader-mantenimiento',
+  };
+  const produccion: AuthUser = {
+    ...administrador,
+    id: '4',
+    username: 'produccion',
+    role: 'personal-produccion',
+  };
+  const tecnico: AuthUser = {
+    ...administrador,
+    id: '2',
+    username: 'tecnico',
+    role: 'tecnico',
+    legajo: '1001',
+    specialty: 'mecanico',
+    teamType: 'guardia',
+  };
+  const currentUser = signal<AuthUser | null>(administrador);
+
   const workOrdersServiceMock = {
     getById: vi.fn().mockReturnValue(of(mockWorkOrder)),
+    cancel: vi.fn(),
   };
   const routerMock = {
     navigate: vi.fn(),
   };
 
-  async function createComponent(id = '1'): Promise<void> {
+  async function createComponent(id = '1', user: AuthUser | null = administrador): Promise<void> {
+    currentUser.set(user);
     await TestBed.configureTestingModule({
       imports: [WorkOrderDetail],
       providers: [
@@ -46,6 +86,10 @@ describe('WorkOrderDetail', () => {
         {
           provide: Router,
           useValue: routerMock,
+        },
+        {
+          provide: AuthService,
+          useValue: { currentUser: currentUser.asReadonly() },
         },
       ],
     }).compileComponents();
@@ -66,6 +110,7 @@ describe('WorkOrderDetail', () => {
 
   beforeEach(() => {
     workOrdersServiceMock.getById.mockReset().mockReturnValue(of(mockWorkOrder));
+    workOrdersServiceMock.cancel.mockReset();
     routerMock.navigate.mockReset();
   });
 
@@ -348,5 +393,281 @@ describe('WorkOrderDetail', () => {
     backButton?.click();
 
     expect(routerMock.navigate).toHaveBeenCalledExactlyOnceWith(['/work-orders']);
+  });
+
+  // Cancelar una orden pendiente (spec 019): administrador y team leader, con confirmación.
+  describe('cancel order (spec 019)', () => {
+    const pendingOrder = { ...mockWorkOrder, createdAt: '2026-09-20T10:30:00.000Z' };
+    const cancelledResult = { ...pendingOrder, status: 'cancelled' };
+    const message = () => TestBed.inject(MessageService).message();
+
+    function pageButton(): HTMLButtonElement | undefined {
+      const buttons: HTMLButtonElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll('button'),
+      );
+
+      return buttons.find(
+        (button) =>
+          button.textContent?.trim() === 'Cancelar orden' && !button.closest('[role="dialog"]'),
+      );
+    }
+
+    function dialog(): HTMLElement | null {
+      return (fixture.nativeElement as HTMLElement).querySelector('[role="dialog"]');
+    }
+
+    function openFromPage(): void {
+      const button = pageButton();
+      if (!button) throw new Error('No hay el botón "Cancelar orden"');
+      button.click();
+      fixture.detectChanges();
+    }
+
+    function confirmInDialog(): void {
+      const confirmButton = dialog()?.querySelector<HTMLButtonElement>(
+        '.modal__actions .btn--danger',
+      );
+      if (!confirmButton) throw new Error('No se abrió el modal de cancelación');
+      confirmButton.click();
+      fixture.detectChanges();
+    }
+
+    function dismissInDialog(): void {
+      const dismissButton = dialog()?.querySelector<HTMLButtonElement>(
+        '.modal__actions .btn--secondary',
+      );
+      if (!dismissButton) throw new Error('No se abrió el modal de cancelación');
+      dismissButton.click();
+      fixture.detectChanges();
+    }
+
+    async function startAs(user: AuthUser | null, order: object = pendingOrder): Promise<void> {
+      workOrdersServiceMock.getById.mockReturnValue(of(order));
+      await createComponent('1', user);
+    }
+
+    describe('visibility of the button', () => {
+      it.each<[string, AuthUser]>([
+        ['administrador', administrador],
+        ['team leader', teamLeader],
+      ])('REQ-3.1: %s sees "Cancelar orden" on a pending order', async (_label, user) => {
+        await startAs(user);
+
+        expect(pageButton()).toBeDefined();
+      });
+
+      it.each<[string, AuthUser | null]>([
+        ['tecnico', tecnico],
+        ['personal-produccion', produccion],
+        ['no session', null],
+      ])('REQ-3.2: %s does not get the "Cancelar orden" button', async (_label, user) => {
+        await startAs(user);
+
+        expect(pageButton()).toBeUndefined();
+      });
+
+      it.each(['in-progress', 'completed', 'cancelled'])(
+        'REQ-3.2: administrador does not get the button on a %s order',
+        async (status) => {
+          await startAs(administrador, { ...pendingOrder, status });
+
+          expect(pageButton()).toBeUndefined();
+        },
+      );
+
+      it('REQ-3.4: there is no button while the order is loading', async () => {
+        workOrdersServiceMock.getById.mockReturnValue(new Subject());
+        await createComponent('1', administrador);
+
+        expect(pageButton()).toBeUndefined();
+        expect(dialog()).toBeNull();
+      });
+
+      it.each<[string, WorkOrderLoadError]>([
+        ['not-found', new WorkOrderLoadError('not-found', 'La orden de trabajo no existe.')],
+        ['connection', new WorkOrderLoadError('connection', 'No se pudo conectar.')],
+      ])('REQ-3.4: there is no button when loading failed (%s)', async (_kind, error) => {
+        workOrdersServiceMock.getById.mockReturnValue(throwError(() => error));
+        await createComponent('1', administrador);
+
+        expect(pageButton()).toBeUndefined();
+      });
+    });
+
+    describe('confirmation modal', () => {
+      it('REQ-2.3: pressing "Cancelar orden" opens a modal that names the order, without calling the API', async () => {
+        await startAs(administrador);
+
+        openFromPage();
+
+        expect(component.cancelModalOpen()).toBe(true);
+        expect(dialog()?.textContent).toContain('Orden de prueba');
+        expect(workOrdersServiceMock.cancel).not.toHaveBeenCalled();
+      });
+
+      it('REQ-2.4: confirming calls cancel with the id of the order', async () => {
+        workOrdersServiceMock.cancel.mockReturnValue(of(cancelledResult));
+        await startAs(administrador);
+
+        openFromPage();
+        confirmInDialog();
+
+        expect(workOrdersServiceMock.cancel).toHaveBeenCalledExactlyOnceWith('1');
+      });
+
+      it('REQ-2.5: dismissing the modal makes no request and leaves the order unchanged', async () => {
+        await startAs(administrador);
+
+        openFromPage();
+        dismissInDialog();
+
+        expect(workOrdersServiceMock.cancel).not.toHaveBeenCalled();
+        expect(dialog()).toBeNull();
+        expect(
+          fixture.nativeElement.querySelector('.order-detail__summary .badge')?.textContent?.trim(),
+        ).toBe('Pendiente');
+        expect(pageButton()).toBeDefined();
+      });
+    });
+
+    describe('success', () => {
+      it('REQ-2.6: closes the modal and shows a success toast', async () => {
+        workOrdersServiceMock.cancel.mockReturnValue(of(cancelledResult));
+        await startAs(administrador);
+
+        openFromPage();
+        confirmInDialog();
+
+        expect(component.cancelModalOpen()).toBe(false);
+        expect(dialog()).toBeNull();
+        expect(message()).toMatchObject({ variant: 'success', message: 'Orden cancelada.' });
+      });
+
+      it('REQ-3.3: shows the returned order as "Cancelada" and hides the button', async () => {
+        workOrdersServiceMock.cancel.mockReturnValue(of(cancelledResult));
+        await startAs(administrador);
+
+        openFromPage();
+        confirmInDialog();
+
+        const badge = fixture.nativeElement.querySelector('.order-detail__summary .badge');
+        expect(badge?.textContent?.trim()).toBe('Cancelada');
+        expect(badge?.classList).toContain('badge--error');
+        expect(pageButton()).toBeUndefined();
+      });
+    });
+
+    describe('errors', () => {
+      it('REQ-5.2: a WorkOrderStateError shows its message, closes the modal and loads the order again', async () => {
+        const stateError = new WorkOrderStateError('not-pending', null, 'in-progress');
+        workOrdersServiceMock.cancel.mockReturnValue(throwError(() => stateError));
+        await startAs(administrador);
+        workOrdersServiceMock.getById.mockClear();
+        workOrdersServiceMock.getById.mockReturnValue(
+          of({ ...pendingOrder, status: 'in-progress' }),
+        );
+
+        openFromPage();
+        confirmInDialog();
+
+        expect(message()).toMatchObject({ variant: 'warning', message: stateError.message });
+        expect(dialog()).toBeNull();
+        expect(workOrdersServiceMock.getById).toHaveBeenCalledTimes(1);
+        expect(
+          fixture.nativeElement.querySelector('.order-detail__summary .badge')?.textContent?.trim(),
+        ).toBe('En progreso');
+        expect(pageButton()).toBeUndefined();
+      });
+
+      it('REQ-5.3: a not-found error shows the "Orden no encontrada" alert, closes the modal and leaves no button', async () => {
+        workOrdersServiceMock.cancel.mockReturnValue(
+          throwError(() => new WorkOrderLoadError('not-found', 'La orden de trabajo no existe.')),
+        );
+        await startAs(administrador);
+
+        openFromPage();
+        confirmInDialog();
+
+        expect(fixture.nativeElement.textContent).toContain('Orden no encontrada');
+        expect(dialog()).toBeNull();
+        expect(pageButton()).toBeUndefined();
+      });
+
+      it('REQ-5.4: a 403 closes the modal and adds no message of its own', async () => {
+        workOrdersServiceMock.cancel.mockReturnValue(throwError(() => ({ status: 403 })));
+        await startAs(administrador);
+
+        openFromPage();
+        confirmInDialog();
+
+        expect(message()).toBeNull();
+        expect(dialog()).toBeNull();
+        expect(workOrdersServiceMock.cancel).toHaveBeenCalledExactlyOnceWith('1');
+      });
+
+      it('REQ-5.5: another error shows a generic connection toast and leaves the order unchanged', async () => {
+        workOrdersServiceMock.cancel.mockReturnValue(throwError(() => new Error('offline')));
+        await startAs(administrador);
+
+        openFromPage();
+        confirmInDialog();
+
+        expect(message()).toMatchObject({
+          variant: 'error',
+          message: 'No se pudo cancelar la orden. Verificá tu conexión e intentá nuevamente.',
+        });
+        expect(
+          fixture.nativeElement.querySelector('.order-detail__summary .badge')?.textContent?.trim(),
+        ).toBe('Pendiente');
+        expect(pageButton()).toBeDefined();
+        expect(pageButton()?.disabled).toBe(false);
+      });
+    });
+
+    describe('double submit', () => {
+      it('REQ-5.6: while the cancellation is in flight the button is disabled and a second confirmation sends nothing', async () => {
+        workOrdersServiceMock.cancel.mockReturnValue(new Subject());
+        await startAs(administrador);
+
+        openFromPage();
+        confirmInDialog();
+
+        expect(pageButton()?.disabled).toBe(true);
+
+        component.confirmCancel();
+
+        expect(workOrdersServiceMock.cancel).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('defense in depth', () => {
+      it.each<[string, AuthUser | null]>([
+        ['tecnico', tecnico],
+        ['personal-produccion', produccion],
+        ['no session', null],
+      ])(
+        'REQ-6.1: %s cannot open the modal even if openCancelModal is invoked',
+        async (_l, user) => {
+          await startAs(user);
+
+          component.openCancelModal();
+          fixture.detectChanges();
+
+          expect(component.cancelModalOpen()).toBe(false);
+          expect(dialog()).toBeNull();
+          expect(workOrdersServiceMock.cancel).not.toHaveBeenCalled();
+          expect(message()).toMatchObject({ variant: 'warning' });
+        },
+      );
+
+      it('REQ-6.1: confirmCancel without permission makes no request and warns', async () => {
+        await startAs(tecnico);
+
+        component.confirmCancel();
+
+        expect(workOrdersServiceMock.cancel).not.toHaveBeenCalled();
+        expect(message()).toMatchObject({ variant: 'warning' });
+      });
+    });
   });
 });

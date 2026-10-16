@@ -133,6 +133,17 @@
                       Liberar
                     </app-button>
                   }
+                  @if (canCancel(workOrder)) {
+                    <app-button
+                      size="sm"
+                      variant="danger"
+                      [ariaLabel]="'Cancelar orden ' + workOrder.title"
+                      [disabled]="isBusy(workOrder.id)"
+                      (clicked)="openCancelModal(workOrder)"
+                    >
+                      Cancelar orden
+                    </app-button>
+                  }
                   @if (canEdit()) {
                     <app-button
                       size="sm"
@@ -175,6 +186,14 @@
       confirmText="Liberar"
       cancelText="Cancelar"
       (confirmed)="confirmRelease()"
+    />
+    <app-modal
+      [(isOpen)]="cancelModalOpen"
+      title="Cancelar orden de trabajo"
+      [message]="cancelMessage()"
+      confirmText="Cancelar orden"
+      cancelText="Volver"
+      (confirmed)="confirmCancel()"
     />
 
     <nav class="pagination mt-lg" aria-label="Paginación de órdenes de trabajo">

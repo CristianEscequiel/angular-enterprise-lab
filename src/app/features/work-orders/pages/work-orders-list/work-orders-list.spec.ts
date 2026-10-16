@@ -60,6 +60,7 @@ describe('WorkOrdersList search and pagination', () => {
     search: vi.fn<(criteria: WorkOrdersCriteria) => Observable<PaginatedResponse<WorkOrder>>>(),
     take: vi.fn<(id: string) => Observable<WorkOrder>>(),
     release: vi.fn<(id: string) => Observable<WorkOrder>>(),
+    cancel: vi.fn<(id: string) => Observable<WorkOrder>>(),
     delete: vi.fn<(...args: string[]) => Observable<void>>(),
   };
   const storage = {
@@ -105,6 +106,7 @@ describe('WorkOrdersList search and pagination', () => {
     service.search.mockReset().mockReturnValue(of(response()));
     service.take.mockReset();
     service.release.mockReset();
+    service.cancel.mockReset();
     service.delete.mockReset().mockReturnValue(of(undefined));
     storage.get.mockReset().mockReturnValue(null);
     storage.set.mockReset().mockReturnValue(true);
@@ -1211,6 +1213,322 @@ describe('WorkOrdersList search and pagination', () => {
         component.confirmRelease();
 
         expect(service.release).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
+
+  // Cancelar una orden pendiente (spec 019): administrador y team leader, con confirmación.
+  describe('cancel order (spec 019)', () => {
+    const pendingOrder: WorkOrder = { ...order, id: '20', title: 'Cinta detenida' };
+    const inProgressOrder: WorkOrder = {
+      ...order,
+      id: '21',
+      title: 'Motor en reparación',
+      status: 'in-progress',
+      takenBy: { id: '2', name: 'Técnico Mecánico de Guardia', at: '2026-09-25T10:00:00.000Z' },
+    };
+    const completedOrder: WorkOrder = {
+      ...order,
+      id: '22',
+      title: 'Filtro cambiado',
+      status: 'completed',
+    };
+    const cancelledOrder: WorkOrder = {
+      ...order,
+      id: '23',
+      title: 'Orden anulada',
+      status: 'cancelled',
+    };
+    const cancelledResult: WorkOrder = { ...pendingOrder, status: 'cancelled' };
+    const CANCEL_LABEL = 'Cancelar orden Cinta detenida';
+
+    const message = () => TestBed.inject(MessageService).message();
+
+    function startAs(user: AuthUser | null, orders: WorkOrder[] = [pendingOrder]): void {
+      currentUser.set(user);
+      service.search.mockReset().mockReturnValue(of(response(1, orders)));
+      start();
+      fixture.detectChanges();
+    }
+
+    function cancelLabels(): string[] {
+      const buttons: HTMLButtonElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll('tbody button'),
+      );
+
+      return buttons
+        .map((button) => button.getAttribute('aria-label') ?? '')
+        .filter((label) => label.startsWith('Cancelar orden'));
+    }
+
+    function rowButton(label: string): HTMLButtonElement {
+      const button = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('tbody button'),
+      ).find((candidate) => candidate.getAttribute('aria-label') === label);
+
+      if (!button) throw new Error(`No hay el botón "${label}"`);
+      return button;
+    }
+
+    function openFromRow(label = CANCEL_LABEL): void {
+      rowButton(label).click();
+      fixture.detectChanges();
+    }
+
+    function dialog(): HTMLElement | null {
+      return (fixture.nativeElement as HTMLElement).querySelector('[role="dialog"]');
+    }
+
+    function confirmInDialog(): void {
+      const confirmButton = dialog()?.querySelector<HTMLButtonElement>(
+        '.modal__actions .btn--danger',
+      );
+      if (!confirmButton) throw new Error('No se abrió el modal de cancelación');
+      confirmButton.click();
+      fixture.detectChanges();
+    }
+
+    function dismissInDialog(): void {
+      const dismissButton = dialog()?.querySelector<HTMLButtonElement>(
+        '.modal__actions .btn--secondary',
+      );
+      if (!dismissButton) throw new Error('No se abrió el modal de cancelación');
+      dismissButton.click();
+      fixture.detectChanges();
+    }
+
+    describe('visibility of the row button', () => {
+      it.each<[string, AuthUser]>([
+        ['administrador', administrador],
+        ['team leader', teamLeader],
+      ])('REQ-2.1: %s sees "Cancelar orden" only on the pending order', (_label, user) => {
+        startAs(user, [pendingOrder, inProgressOrder, completedOrder, cancelledOrder]);
+
+        expect(cancelLabels()).toEqual([CANCEL_LABEL]);
+      });
+
+      it.each<[string, AuthUser | null]>([
+        ['tecnico', tecnico],
+        ['personal-produccion', produccion],
+        ['no session', null],
+      ])(
+        'REQ-2.2: %s does not get a "Cancelar orden" button on a pending order',
+        (_label, user) => {
+          startAs(user, [pendingOrder]);
+
+          expect(cancelLabels()).toEqual([]);
+        },
+      );
+
+      it.each<[string, WorkOrder]>([
+        ['in-progress', inProgressOrder],
+        ['completed', completedOrder],
+        ['cancelled', cancelledOrder],
+      ])('REQ-2.2: administrador does not get a "Cancelar orden" button on a %s order', (_s, o) => {
+        startAs(administrador, [o]);
+
+        expect(cancelLabels()).toEqual([]);
+      });
+    });
+
+    describe('confirmation modal', () => {
+      it('REQ-2.3: pressing "Cancelar orden" opens a modal that names the order, without calling the API', () => {
+        startAs(administrador);
+
+        openFromRow();
+
+        expect(component.cancelModalOpen()).toBe(true);
+        expect(dialog()?.textContent).toContain('Cinta detenida');
+        expect(service.cancel).not.toHaveBeenCalled();
+      });
+
+      it('REQ-2.4: confirming calls cancel with the id of that order', () => {
+        service.cancel.mockReturnValue(of(cancelledResult));
+        startAs(administrador, [{ ...pendingOrder, id: '99', title: 'Otra' }, pendingOrder]);
+
+        openFromRow();
+        confirmInDialog();
+
+        expect(service.cancel).toHaveBeenCalledExactlyOnceWith('20');
+      });
+
+      it('REQ-2.5: dismissing the modal makes no request and leaves the list unchanged', () => {
+        startAs(administrador);
+        const searchesBefore = service.search.mock.calls.length;
+
+        openFromRow();
+        dismissInDialog();
+
+        expect(service.cancel).not.toHaveBeenCalled();
+        expect(dialog()).toBeNull();
+        expect(service.search).toHaveBeenCalledTimes(searchesBefore);
+        expect(component.workOrders()).toEqual([pendingOrder]);
+      });
+
+      it('REQ-2.5: closing the modal with Escape makes no request', () => {
+        startAs(administrador);
+
+        openFromRow();
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        fixture.detectChanges();
+
+        expect(service.cancel).not.toHaveBeenCalled();
+        expect(component.cancelModalOpen()).toBe(false);
+      });
+    });
+
+    describe('success', () => {
+      it('REQ-2.6: closes the modal and shows a success toast', () => {
+        service.cancel.mockReturnValue(of(cancelledResult));
+        startAs(administrador);
+
+        openFromRow();
+        confirmInDialog();
+
+        expect(component.cancelModalOpen()).toBe(false);
+        expect(dialog()).toBeNull();
+        expect(message()).toMatchObject({ variant: 'success', message: 'Orden cancelada.' });
+      });
+
+      it('REQ-2.7: reloads the list and shows the order as cancelled', () => {
+        service.cancel.mockReturnValue(of(cancelledResult));
+        startAs(administrador);
+        service.search.mockClear();
+        service.search.mockReturnValue(of(response(1, [cancelledResult])));
+
+        openFromRow();
+        confirmInDialog();
+
+        expect(service.search).toHaveBeenCalledTimes(1);
+        expect(component.workOrders()).toEqual([cancelledResult]);
+        expect(cancelLabels()).toEqual([]);
+      });
+    });
+
+    describe('errors', () => {
+      it('REQ-5.2: a WorkOrderStateError shows its message in a toast, closes the modal and reloads', () => {
+        const stateError = new WorkOrderStateError('not-pending', null, 'in-progress');
+        service.cancel.mockReturnValue(throwError(() => stateError));
+        startAs(administrador);
+        service.search.mockClear();
+        service.search.mockReturnValue(of(response(1, [inProgressOrder])));
+
+        openFromRow();
+        confirmInDialog();
+
+        expect(message()).toMatchObject({ variant: 'warning', message: stateError.message });
+        expect(dialog()).toBeNull();
+        expect(service.search).toHaveBeenCalledTimes(1);
+      });
+
+      it('REQ-5.3: a not-found error warns that the order no longer exists, closes the modal and reloads', () => {
+        service.cancel.mockReturnValue(
+          throwError(() => new WorkOrderLoadError('not-found', 'La orden de trabajo no existe.')),
+        );
+        startAs(administrador);
+        service.search.mockClear();
+        service.search.mockReturnValue(of(response(1, [])));
+
+        openFromRow();
+        confirmInDialog();
+
+        expect(message()).toMatchObject({ variant: 'warning', message: 'La orden ya no existe.' });
+        expect(dialog()).toBeNull();
+        expect(service.search).toHaveBeenCalledTimes(1);
+      });
+
+      it('REQ-5.4: a 403 closes the modal and adds no message of its own', () => {
+        service.cancel.mockReturnValue(throwError(() => ({ status: 403 })));
+        startAs(administrador);
+
+        openFromRow();
+        confirmInDialog();
+
+        expect(message()).toBeNull();
+        expect(dialog()).toBeNull();
+        expect(service.cancel).toHaveBeenCalledExactlyOnceWith('20');
+      });
+
+      it('REQ-5.5: another error shows a generic connection toast and leaves the order unchanged', () => {
+        service.cancel.mockReturnValue(throwError(() => new Error('offline')));
+        startAs(administrador);
+        service.search.mockClear();
+
+        openFromRow();
+        confirmInDialog();
+
+        expect(message()).toMatchObject({
+          variant: 'error',
+          message: 'No se pudo cancelar la orden. Verificá tu conexión e intentá nuevamente.',
+        });
+        expect(component.workOrders()).toEqual([pendingOrder]);
+        expect(cancelLabels()).toEqual([CANCEL_LABEL]);
+        expect(component.isBusy('20')).toBe(false);
+      });
+    });
+
+    describe('double submit', () => {
+      it('REQ-5.6: while the cancellation is in flight the row button is disabled and a second confirmation sends nothing', () => {
+        service.cancel.mockReturnValue(new Subject<WorkOrder>());
+        startAs(administrador);
+
+        openFromRow();
+        confirmInDialog();
+
+        expect(rowButton(CANCEL_LABEL).disabled).toBe(true);
+
+        component.confirmCancel();
+
+        expect(service.cancel).toHaveBeenCalledTimes(1);
+      });
+
+      it('REQ-5.6: the row button is enabled again after the cancellation fails', () => {
+        service.cancel.mockReturnValue(throwError(() => new Error('offline')));
+        startAs(administrador);
+
+        openFromRow();
+        confirmInDialog();
+
+        expect(rowButton(CANCEL_LABEL).disabled).toBe(false);
+      });
+    });
+
+    describe('defense in depth', () => {
+      it.each<[string, AuthUser | null]>([
+        ['tecnico', tecnico],
+        ['personal-produccion', produccion],
+        ['no session', null],
+      ])('REQ-6.1: %s cannot open the modal even if openCancelModal is invoked', (_label, user) => {
+        startAs(user);
+
+        component.openCancelModal(pendingOrder);
+        fixture.detectChanges();
+
+        expect(component.cancelModalOpen()).toBe(false);
+        expect(dialog()).toBeNull();
+        expect(service.cancel).not.toHaveBeenCalled();
+        expect(message()).toMatchObject({ variant: 'warning', title: 'Acceso denegado' });
+      });
+
+      it('REQ-6.1: confirmCancel without permission makes no request and warns', () => {
+        startAs(tecnico);
+        component.workOrderToCancel.set(pendingOrder);
+
+        component.confirmCancel();
+
+        expect(service.cancel).not.toHaveBeenCalled();
+        expect(message()).toMatchObject({ variant: 'warning', title: 'Acceso denegado' });
+      });
+
+      it('REQ-6.1: administrador cannot cancel an order that is no longer pending, even if invoked', () => {
+        startAs(administrador, [inProgressOrder]);
+
+        component.openCancelModal(inProgressOrder);
+        fixture.detectChanges();
+
+        expect(component.cancelModalOpen()).toBe(false);
+        expect(service.cancel).not.toHaveBeenCalled();
+        expect(message()).toMatchObject({ variant: 'warning' });
       });
     });
   });
