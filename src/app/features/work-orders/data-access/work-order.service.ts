@@ -206,6 +206,22 @@ export class WorkOrdersService {
       .pipe(catchError((error: unknown) => throwError(() => this.translateTransitionError(error))));
   }
 
+  // Cancelar una orden pendiente (spec 019). `404` → la orden ya no existe; `409` → error de estado;
+  // el resto se propaga tal cual (el `403` lo avisa el interceptor).
+  cancel(id: string): Observable<WorkOrder> {
+    return this.http.post<WorkOrder>(`${this.url(id)}/cancel`, null).pipe(
+      catchError((error: unknown) => {
+        if (errorStatus(error) === 404) {
+          return throwError(
+            () => new WorkOrderLoadError('not-found', 'La orden de trabajo no existe.'),
+          );
+        }
+
+        return throwError(() => this.translateTransitionError(error));
+      }),
+    );
+  }
+
   private translateTransitionError(error: unknown): unknown {
     const reason = errorCode(error) === null ? null : STATE_ERROR_REASONS[errorCode(error) ?? ''];
 

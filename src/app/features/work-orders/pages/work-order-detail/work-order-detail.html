@@ -65,6 +65,21 @@
           </p>
         </section>
       }
+      @if (canCancel()) {
+        <div class="card__footer">
+          <app-button variant="danger" [disabled]="cancelling()" (clicked)="openCancelModal()">
+            Cancelar orden
+          </app-button>
+        </div>
+      }
     </div>
+    <app-modal
+      [(isOpen)]="cancelModalOpen"
+      title="Cancelar orden de trabajo"
+      [message]="cancelMessage()"
+      confirmText="Cancelar orden"
+      cancelText="Volver"
+      (confirmed)="confirmCancel()"
+    />
   }
 </section>

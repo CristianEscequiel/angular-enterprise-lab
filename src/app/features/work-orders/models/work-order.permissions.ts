@@ -33,6 +33,7 @@ const DELETE_ROLES: readonly UserRole[] = ['administrador'];
 // Mismo nivel de permiso que la gestión de máquinas (013a): liberan una orden que un técnico dejó
 // trabada.
 const RELEASE_ROLES: readonly UserRole[] = ['administrador', 'team-leader-mantenimiento'];
+const CANCEL_ROLES: readonly UserRole[] = ['administrador', 'team-leader-mantenimiento'];
 
 // Qué tipos de orden atiende cada tipo de equipo del técnico.
 const TEAM_TYPE_ORDER_TYPES: Record<TechnicianTeamType, readonly WorkOrderType[]> = {
@@ -89,6 +90,14 @@ export function canReleaseWorkOrder(
   order: Pick<WorkOrder, 'status'>,
 ): boolean {
   return user !== null && RELEASE_ROLES.includes(user.role) && order.status === 'in-progress';
+}
+
+// Cancelar una orden pendiente: administrador y team leader. Una orden en progreso se libera primero.
+export function canCancelWorkOrder(
+  user: AuthUser | null,
+  order: Pick<WorkOrder, 'status'>,
+): boolean {
+  return user !== null && CANCEL_ROLES.includes(user.role) && order.status === 'pending';
 }
 
 // Consulta de "qué órdenes puede gestionar" (tomar, comentar, cerrar). Especialidad y tipo de

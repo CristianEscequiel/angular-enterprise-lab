@@ -718,6 +718,76 @@ describe('WorkOrdersService', () => {
       });
     });
 
+    // Spec 019: cancelar una orden pendiente.
+    describe('cancel (spec 019)', () => {
+      it('REQ-4.1: sends a single POST /work-orders/{id}/cancel without a body and emits the updated order', () => {
+        expect.assertions(4);
+        const outcome = run(service.cancel('1'));
+
+        const request = httpMock.expectOne(`${url}/cancel`);
+        expect(request.request.method).toBe('POST');
+        expect(request.request.body).toBeNull();
+        request.flush({ ...order, status: 'cancelled' });
+
+        expect((outcome.value as WorkOrder).status).toBe('cancelled');
+        expect(outcome.done).toBe(true);
+      });
+
+      it('REQ-5.1: translates 409 WORK_ORDER_NOT_PENDING into a WorkOrderStateError with reason not-pending and the real status', () => {
+        expect.assertions(3);
+        const outcome = run(service.cancel('1'));
+
+        httpMock.expectOne(`${url}/cancel`).flush(
+          {
+            code: 'WORK_ORDER_NOT_PENDING',
+            message: 'La orden 1 no está pendiente',
+            details: { status: 'in-progress' },
+          },
+          conflict,
+        );
+
+        expect(outcome.error).toBeInstanceOf(WorkOrderStateError);
+        expect(stateError(outcome).reason).toBe('not-pending');
+        expect(stateError(outcome).status).toBe('in-progress');
+      });
+
+      it('REQ-5.3: translates a 404 into a WorkOrderLoadError with kind not-found', () => {
+        expect.assertions(2);
+        const outcome = run(service.cancel('1'));
+
+        httpMock
+          .expectOne(`${url}/cancel`)
+          .flush({ code: 'NOT_FOUND', message: 'x' }, { status: 404, statusText: 'Not Found' });
+
+        expect(outcome.error).toBeInstanceOf(WorkOrderLoadError);
+        expect(outcome.error).toMatchObject({ kind: 'not-found' });
+      });
+
+      it('REQ-5.4: lets a 403 through untouched (the interceptor already warned)', () => {
+        expect.assertions(3);
+        const outcome = run(service.cancel('1'));
+
+        httpMock
+          .expectOne(`${url}/cancel`)
+          .flush({ code: 'FORBIDDEN', message: 'x' }, { status: 403, statusText: 'Forbidden' });
+
+        expect(outcome.error).not.toBeInstanceOf(WorkOrderStateError);
+        expect(outcome.error).not.toBeInstanceOf(WorkOrderLoadError);
+        expect(outcome.error).toMatchObject({ status: 403 });
+      });
+
+      it('REQ-5.5: lets a network failure through untouched', () => {
+        expect.assertions(3);
+        const outcome = run(service.cancel('1'));
+
+        httpMock.expectOne(`${url}/cancel`).error(new ProgressEvent('error'));
+
+        expect(outcome.error).toBeDefined();
+        expect(outcome.error).not.toBeInstanceOf(WorkOrderStateError);
+        expect(outcome.error).not.toBeInstanceOf(WorkOrderLoadError);
+      });
+    });
+
     describe('409 with an unknown code', () => {
       it('is not turned into a WorkOrderStateError', () => {
         expect.assertions(1);

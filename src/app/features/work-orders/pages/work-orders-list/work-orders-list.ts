@@ -35,6 +35,7 @@ import {
   WorkOrderStatus,
 } from '../../models/work-order.model';
 import {
+  canCancelWorkOrder,
   canDeleteWorkOrder,
   canEditWorkOrder,
   canReleaseWorkOrder,
@@ -219,6 +220,73 @@ export class WorkOrdersList implements OnInit {
 
   canRelease(order: WorkOrder): boolean {
     return canReleaseWorkOrder(this.authService.currentUser(), order);
+  }
+
+  readonly cancelModalOpen = signal(false);
+  readonly workOrderToCancel = signal<WorkOrder | null>(null);
+  readonly cancelMessage = computed<string>(() => {
+    const order = this.workOrderToCancel();
+
+    return `La orden${order ? ` "${order.title}"` : ''} pasa a Cancelada y ya no se podrá tomar. Esta acción no se puede deshacer.`;
+  });
+
+  canCancel(order: WorkOrder): boolean {
+    return canCancelWorkOrder(this.authService.currentUser(), order);
+  }
+
+  openCancelModal(order: WorkOrder): void {
+    if (!this.canCancel(order)) {
+      this.messageService.showWarning('No tiene permiso para cancelar órdenes.', 'Acceso denegado');
+      return;
+    }
+    this.workOrderToCancel.set(order);
+    this.cancelModalOpen.set(true);
+  }
+
+  confirmCancel(): void {
+    const order = this.workOrderToCancel();
+
+    if (!order) return;
+
+    if (!this.canCancel(order)) {
+      this.messageService.showWarning('No tiene permiso para cancelar órdenes.', 'Acceso denegado');
+      return;
+    }
+
+    if (this.isBusy(order.id)) return;
+
+    this.setBusy(order.id, true);
+    this.workOrdersService
+      .cancel(order.id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.setBusy(order.id, false)),
+      )
+      .subscribe({
+        next: () => {
+          this.messageService.showSuccess('Orden cancelada.');
+          this.loadWorkOrders();
+        },
+        error: (error: unknown) => {
+          if (error instanceof WorkOrderStateError) {
+            this.messageService.showWarning(error.message, 'No se puede cancelar');
+            this.loadWorkOrders();
+            return;
+          }
+
+          if (error instanceof WorkOrderLoadError && error.kind === 'not-found') {
+            this.messageService.showWarning('La orden ya no existe.');
+            this.loadWorkOrders();
+            return;
+          }
+
+          if (errorStatus(error) === 403) return;
+
+          this.messageService.showError(
+            'No se pudo cancelar la orden. Verificá tu conexión e intentá nuevamente.',
+          );
+        },
+      });
   }
 
   isBusy(id: string): boolean {
