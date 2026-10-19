@@ -431,6 +431,83 @@ ok(
 r = await call('GET', `/work-orders/${orderId}`, { token: P });
 ok('GET /work-orders/{id}', r.status === 200 && r.json?.closingNote);
 
+// Cancelar una orden pendiente (enmienda 04-A de la API): administrador y team leader, solo desde pending
+const newOrder = {
+  title: 'Orden spec018 a cancelar',
+  description: 'Prueba de integración del frontend',
+  type: 'correctivo',
+  priority: 'medium',
+  machineRef: { machineId, partId: partB, comment: '' },
+};
+r = await call('POST', '/work-orders', { token: TL, body: newOrder });
+const cancelId = r.json?.id;
+ok('POST /work-orders para cancelar', r.status === 201 && r.json?.status === 'pending');
+r = await call('POST', `/work-orders/${cancelId}/cancel`);
+ok('cancel sin token → 401', r.status === 401, JSON.stringify(r.json?.code));
+r = await call('POST', `/work-orders/${cancelId}/cancel`, { token: T });
+ok('cancel por técnico → 403', r.status === 403, r.json?.code);
+r = await call('POST', `/work-orders/${cancelId}/cancel`, { token: P });
+ok('cancel por producción → 403', r.status === 403, r.json?.code);
+r = await call('POST', '/work-orders/999999999/cancel', { token: TL });
+ok('cancel de una orden inexistente → 404', r.status === 404, r.json?.code);
+r = await call('POST', `/work-orders/${cancelId}/cancel`, { token: TL });
+ok(
+  'cancel por team leader',
+  r.status === 200 && r.json?.status === 'cancelled' && !r.json?.takenBy && !r.json?.closingNote,
+  JSON.stringify({ status: r.json?.status, takenBy: r.json?.takenBy }),
+);
+r = await call('GET', `/work-orders/${cancelId}`, { token: P });
+ok(
+  'GET de la cancelada: cancelled, sin dueño ni closingNote',
+  r.status === 200 && r.json?.status === 'cancelled' && !r.json?.takenBy && !r.json?.closingNote,
+);
+r = await call('POST', `/work-orders/${cancelId}/cancel`, { token: A });
+ok(
+  'cancel repetido → 409 WORK_ORDER_NOT_PENDING (details.status cancelled, sin dueño)',
+  r.status === 409 &&
+    r.json?.code === 'WORK_ORDER_NOT_PENDING' &&
+    r.json?.details?.status === 'cancelled' &&
+    !r.json?.details?.takenById,
+  JSON.stringify(r.json?.details),
+);
+r = await call('POST', `/work-orders/${cancelId}/take`, { token: E });
+ok(
+  'take de una cancelada → 409 WORK_ORDER_NOT_PENDING',
+  r.status === 409 && r.json?.code === 'WORK_ORDER_NOT_PENDING',
+);
+r = await call('POST', `/work-orders/${cancelId}/release`, { token: A });
+ok(
+  'release de una cancelada → 409 WORK_ORDER_NOT_IN_PROGRESS',
+  r.status === 409 && r.json?.code === 'WORK_ORDER_NOT_IN_PROGRESS',
+);
+r = await call('POST', `/work-orders/${cancelId}/close`, {
+  token: E,
+  body: {
+    outcome: 'completed',
+    comment: 'Intento de cierre sobre una orden cancelada sin dueño, que debe rechazarse.',
+  },
+});
+ok(
+  'close de una cancelada → 409 WORK_ORDER_NOT_IN_PROGRESS',
+  r.status === 409 && r.json?.code === 'WORK_ORDER_NOT_IN_PROGRESS',
+  r.json?.code,
+);
+r = await call('POST', '/work-orders', { token: TL, body: newOrder });
+const busyId = r.json?.id;
+await call('POST', `/work-orders/${busyId}/take`, { token: E });
+r = await call('POST', `/work-orders/${busyId}/cancel`, { token: TL });
+ok(
+  'cancel de una in-progress → 409 WORK_ORDER_NOT_PENDING con dueño en details',
+  r.status === 409 &&
+    r.json?.code === 'WORK_ORDER_NOT_PENDING' &&
+    r.json?.details?.status === 'in-progress' &&
+    r.json?.details?.takenById,
+  JSON.stringify(r.json?.details),
+);
+await call('DELETE', `/work-orders/${busyId}`, { token: A });
+r = await call('DELETE', `/work-orders/${cancelId}`, { token: A });
+ok('DELETE de la orden cancelada (admin)', r.status === 204);
+
 // Dashboard
 r = await call('GET', '/dashboard/summary', { token: T });
 ok(
