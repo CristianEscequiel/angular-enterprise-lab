@@ -378,6 +378,7 @@ de las decisiones tomadas para cada feature.
 | Máquina y parte en la orden, tomar, cerrar y liberar                    | [`17-maquina-en-orden`](.claude/specs/17-maquina-en-orden)                                     | Implementado (316 tests nuevos, 1645→1961 en la suite; ver notas)                                     |
 | Rediseño "Tablero de turno", mobile-first                               | [`18-rediseno-mobile-first`](.claude/specs/18-rediseno-mobile-first)                           | Implementado (102 tests nuevos, 1961→2063 en la suite; ver notas)                                     |
 | Integración con la API real (Spring Boot + JWT) y retiro de JSON Server | [`19-integracion-api-backend`](.claude/specs/19-integracion-api-backend)                       | En curso (ver `notes.md` de la spec)                                                                  |
+| Portada pública y página "Acerca de"                                    | [`21-home-acerca-de`](.claude/specs/21-home-acerca-de)                                         | Implementado (verificación responsive y de foco hecha a mano)                                         |
 
 ### Estado de las pruebas
 

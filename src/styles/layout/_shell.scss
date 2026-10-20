@@ -87,6 +87,20 @@
   white-space: nowrap;
 }
 
+.header__link {
+  flex-shrink: 0;
+
+  color: #ffffff;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline-color: var(--color-signal);
+  }
+}
+
 .header__session {
   display: flex;
   flex-shrink: 0;
@@ -95,7 +109,8 @@
 }
 
 .header__user {
-  max-width: 7rem;
+  // Por debajo de md hay que dejar lugar al enlace "Acerca de".
+  max-width: 4.5rem;
   overflow: hidden;
 
   text-overflow: ellipsis;

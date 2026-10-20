@@ -1,10 +1,12 @@
 import { Component, input, output } from '@angular/core';
 
+import { RouterLink, RouterLinkActive } from '@angular/router';
+
 import { Button } from '@shared/components/button/button';
 
 @Component({
   selector: 'app-header',
-  imports: [Button],
+  imports: [Button, RouterLink, RouterLinkActive],
   templateUrl: './header.html',
   styleUrl: './header.scss',
 })

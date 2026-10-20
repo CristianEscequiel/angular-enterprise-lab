@@ -55,6 +55,27 @@ describe('injectNavItems', () => {
     expect(labels(items()())).toEqual(expected);
   });
 
+  // Spec 21: la portada no cambia la navegación (sin tests nuevos de producción; guarda de regresión).
+  it.each<[UserRole, string[]]>([
+    ['administrador', ['Inicio', 'Órdenes', 'Técnicos', 'Máquinas']],
+    ['team-leader-mantenimiento', ['Inicio', 'Órdenes', 'Técnicos', 'Equipos', 'Máquinas']],
+    ['personal-produccion', ['Inicio', 'Órdenes']],
+    ['tecnico', ['Inicio', 'Órdenes']],
+  ])('REQ-9.4: %s keeps the same items as before the "Acerca de" page', (role, expected) => {
+    currentUser.set(byRole[role]);
+
+    expect(labels(items()())).toEqual(expected);
+  });
+
+  it.each([null, ...USER_ROLES])('REQ-8.4: %s gets no "Acerca de" item', (role) => {
+    currentUser.set(role === null ? null : byRole[role]);
+    const list = items()();
+
+    expect(list.some((item) => item.label === 'Acerca de' || item.path === '/acerca-de')).toBe(
+      false,
+    );
+  });
+
   // Un rol nuevo obliga a decidir acá qué secciones ve.
   it.each(USER_ROLES)('has a decision for role %s', (role) => {
     expect(byRole[role]).toBeDefined();

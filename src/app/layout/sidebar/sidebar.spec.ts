@@ -175,6 +175,36 @@ describe('Sidebar', () => {
     });
   });
 
+  // Spec 21: "Acerca de" vive en el header, no en la navegación.
+  it.each([
+    ['administrador', administrador],
+    ['team-leader-mantenimiento', teamLeader],
+    ['personal-produccion', produccion],
+    ['tecnico', tecnico],
+    ['no session', null],
+  ])('REQ-8.4: %s does not get an "Acerca de" link', (_label, user) => {
+    expect.assertions(2);
+    showFor(user);
+
+    expect(links()).not.toContain('Acerca de');
+    expect(fixture.nativeElement.querySelector('nav a[href="/acerca-de"]')).toBeNull();
+  });
+
+  it.each([
+    ['administrador', administrador, ['Inicio', 'Órdenes', 'Técnicos', 'Máquinas']],
+    [
+      'team-leader-mantenimiento',
+      teamLeader,
+      ['Inicio', 'Órdenes', 'Técnicos', 'Equipos', 'Máquinas'],
+    ],
+    ['personal-produccion', produccion, ['Inicio', 'Órdenes']],
+    ['tecnico', tecnico, ['Inicio', 'Órdenes']],
+  ])('REQ-9.4: %s sees the same items as before the "Acerca de" page', (_label, user, expected) => {
+    showFor(user);
+
+    expect(links()).toEqual(expected);
+  });
+
   describe('active link', () => {
     async function goTo(url: string): Promise<void> {
       await TestBed.inject(Router).navigateByUrl(url);

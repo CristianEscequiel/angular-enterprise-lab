@@ -17,7 +17,7 @@ siguiente sin esa aprobación, aunque el pedido parezca claro. (Las specs 00 a 1
 formato corto `spec.md` + `plan.md` + `notes.md`; no se reescriben.)
 
 - Specs en `.claude/specs/<NN>-<nombre>/`, numeración `00`–`NN` de dos dígitos sin letras ni
-  huecos; la siguiente libre es la `21`. El mapa y la equivalencia con la numeración vieja
+  huecos; la siguiente libre es la `22`. El mapa y la equivalencia con la numeración vieja
   están en `.claude/specs/ROADMAP.md`.
 - Contexto de proyecto (qué es, stack, estructura) en `.claude/steering/` — leelo antes de
   escribir la primera spec de una sesión nueva.
@@ -44,8 +44,10 @@ formato corto `spec.md` + `plan.md` + `notes.md`; no se reescriben.)
 
 ## Estado actual
 
-- Specs 00 a 20 implementadas; el detalle por spec y los pendientes (19·T12, 18·O2) están en
+- Specs 00 a 21 implementadas; el detalle por spec y los pendientes (19·T12, 18·O2) están en
   `.claude/specs/ROADMAP.md`.
+- `/` es una portada pública (con sesión redirige a `/dashboard`) y `/acerca-de` es la misma
+  página para todos; el enlace "Acerca de" vive en el header (spec 21).
 - Autenticación: JWT contra la API (`POST /auth/login`, `GET /auth/me`); sesión en `localStorage`.
 - Cobertura: `pnpm test:coverage` (informativa, sin umbral bloqueante).
 
