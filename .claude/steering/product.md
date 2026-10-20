@@ -38,7 +38,7 @@ turno" (spec 18). Sin usuarios externos ni multi-tenant.
 
 ## Features (módulos de `features/`)
 
-`auth` (login JWT), `dashboard` ("Turno de hoy" + resumen de la API), `work-orders`
+`about` (portada pública y "Acerca de"), `auth` (login JWT), `dashboard` ("Turno de hoy" + resumen de la API), `work-orders`
 (listado con búsqueda/paginación/filtros, alta, edición, baja, tomar, cerrar, liberar,
 cancelar), `machines` (maestro y árbol de partes), `maintenance` (técnicos y equipos).
 

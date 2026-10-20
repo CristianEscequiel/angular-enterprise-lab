@@ -19,7 +19,7 @@ angular-enterprise-lab/
 │   │   ├── interceptors/        # auth, error, loading
 │   │   └── services/            # loading, message, localStorage
 │   ├── features/                # una carpeta por feature
-│   │   ├── auth/ | dashboard/ | machines/ | maintenance/ | work-orders/
+│   │   ├── about/ | auth/ | dashboard/ | machines/ | maintenance/ | work-orders/
 │   │   │   └── components/ data-access/ models/ pages/ testing/ <feature>.routes.ts
 │   ├── layout/                  # header, sidebar, shell
 │   ├── pages/                   # páginas globales (404)
@@ -59,4 +59,5 @@ angular-enterprise-lab/
 - Los permisos por rol espejan la matriz de la API (`*.permissions.ts` ↔ `*Permissions`
   del dominio del backend), pero la autoridad es del servidor.
 - Las features del front se corresponden con los módulos de la API
-  (`work-orders`↔`workorders`, `maintenance`, `machines`, `dashboard`, `auth`).
+  (`work-orders`↔`workorders`, `maintenance`, `machines`, `dashboard`, `auth`), salvo `about`:
+  es una feature solo de front (página informativa sin llamadas a la API).

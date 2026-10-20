@@ -1,6 +1,9 @@
 <header class="header">
   <!-- Es el nombre del sitio, no un encabezado: cada página tiene su propio h1. -->
   <p class="header__title">Centro de Gestión de Mantenimiento</p>
+  <a class="header__link" routerLink="/acerca-de" routerLinkActive ariaCurrentWhenActive="page"
+    >Acerca de</a
+  >
   @if (userName() !== null) {
     <div class="header__session">
       <span class="header__user">{{ userName() }}</span>

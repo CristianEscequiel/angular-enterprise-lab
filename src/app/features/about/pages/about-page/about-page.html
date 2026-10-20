@@ -1,0 +1,60 @@
+<div class="about">
+  <section class="about__section about__hero" aria-labelledby="about-hero-title">
+    <h1 id="about-hero-title">Centro de Gestión de Mantenimiento</h1>
+    <p class="about__tagline">{{ content.heroTagline }}</p>
+    @if (isAuthenticated()) {
+      <a routerLink="/dashboard" class="btn btn--primary">Ir al tablero</a>
+    } @else {
+      <a routerLink="/login" class="btn btn--primary">Iniciar sesión</a>
+    }
+  </section>
+
+  <section class="about__section" aria-labelledby="about-steps-title">
+    <h2 id="about-steps-title">Cómo avanza una orden</h2>
+    <ol class="about__steps">
+      @for (step of content.steps; track step.title) {
+        <li class="about__step">
+          <strong>{{ step.title }}</strong
+          >{{ ' ' }}<span>{{ step.description }}</span>
+        </li>
+      }
+    </ol>
+  </section>
+
+  <section class="about__section" aria-labelledby="about-roles-title">
+    <h2 id="about-roles-title">Quién usa la aplicación</h2>
+    <div class="about__grid">
+      @for (role of content.roles; track role.role) {
+        <article class="card">
+          <h3 class="card__title">{{ role.title }}</h3>
+          <ul class="about__actions">
+            @for (action of role.actions; track action.id) {
+              <li>{{ action.label }}</li>
+            }
+          </ul>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="about__section" aria-labelledby="about-areas-title">
+    <h2 id="about-areas-title">Qué puede hacer</h2>
+    <div class="about__grid">
+      @for (area of content.areas; track area.title) {
+        <article class="card">
+          <h3 class="card__title">{{ area.title }}</h3>
+          <p class="card__description">{{ area.description }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="about__section about__closing" aria-labelledby="about-closing-title">
+    <h2 id="about-closing-title">Empezar</h2>
+    @if (isAuthenticated()) {
+      <a routerLink="/dashboard" class="btn btn--primary">Ir al tablero</a>
+    } @else {
+      <a routerLink="/login" class="btn btn--primary">Iniciar sesión</a>
+    }
+  </section>
+</div>

@@ -1,0 +1,11 @@
+# Baseline de tests aprobados (spec 21) - 2026-10-20
+58b47318d5a83d13fe3475bacb7d57ef6cf47ace src/app/features/about/models/about-content.spec.ts
+c6d42de902d9dd7e626afd1ecb2e41f5ac581354 src/app/features/about/pages/about-page/about-page.spec.ts
+14357ca7e56ff5677a78773d23fc0c70bb9a8cd3 src/app/app.routes.spec.ts
+5a2ffc33ab030e754a2b8229eec0d46f8d0baf73 src/app/layout/header/header.spec.ts
+698aa0365199e2a010e1483988c8e4c3977794a4 src/app/layout/sidebar/sidebar.spec.ts
+295c9163402960ba7d80770c2fd1c59b85368375 src/app/layout/bottom-nav/bottom-nav.spec.ts
+8b0c7a3ec327c13118e9e00912eed40f727d7bae src/app/layout/nav-items.spec.ts
+# 2026-10-20: REQ-1.3 en about-page.spec.ts y app.routes.spec.ts: expect.assertions(2) -> (1) (httpMock.expectNone/verify no cuentan como aserciones); autorizado por el usuario
+5e72a93cda22a065a081c57fab070344f849a722 src/app/app.spec.ts
+# 2026-10-20: app.spec.ts: se agrega provideRouter([]) al TestBed porque Header usa RouterLink (NG0201); sin cambios de aserciones; autorizado por el usuario

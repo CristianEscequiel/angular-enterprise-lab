@@ -6,6 +6,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { of } from 'rxjs';
 
 import { routes } from './app.routes';
+import { AppShell } from './layout/app-shell/app-shell';
 import { AuthSession, AuthUser } from './core/auth/auth.model';
 import { AUTH_STORAGE_KEY, AuthService } from './core/auth/auth.service';
 import { API_BASE_URL } from './core/config/api.config';
@@ -403,6 +404,199 @@ describe('app routes', () => {
 
       expect(router.url).toBe('/no-existe');
       expect(harness.routeNativeElement?.textContent).toContain('Página no encontrada');
+    });
+  });
+
+  // Spec 21: portada pública (`/`) y página "Acerca de" (`/acerca-de`).
+  describe('about page routes (spec 21)', () => {
+    const ABOUT_TITLE = 'Acerca de | Angular Enterprise Lab';
+    const aboutHeading = () => harness.routeNativeElement?.querySelector('h1')?.textContent ?? '';
+
+    function fillAndSubmitLogin(record: TestUser): void {
+      const page = harness.routeNativeElement;
+      const username = page?.querySelector<HTMLInputElement>('#username');
+      const password = page?.querySelector<HTMLInputElement>('#password');
+      if (!page || !username || !password) {
+        throw new Error('login form not rendered');
+      }
+      username.value = record.username;
+      username.dispatchEvent(new Event('input'));
+      password.value = record.password;
+      password.dispatchEvent(new Event('input'));
+      page.querySelector('form')?.dispatchEvent(new Event('submit'));
+    }
+
+    function linkNamed(label: string): HTMLAnchorElement | undefined {
+      return Array.from(harness.routeNativeElement?.querySelectorAll('a') ?? []).find(
+        (anchor) => anchor.textContent?.trim() === label,
+      );
+    }
+
+    describe('without a session', () => {
+      beforeEach(() => {
+        authService.logout();
+      });
+
+      it('REQ-1.1: shows the about page at / instead of redirecting to the login', async () => {
+        expect.assertions(3);
+
+        await harness.navigateByUrl('/');
+
+        expect(aboutHeading()).toContain('Centro de Gestión de Mantenimiento');
+        expect(harness.routeNativeElement?.querySelector('#username')).toBeNull();
+        expect(pathname()).not.toBe('/login');
+      });
+
+      it('REQ-1.2: keeps the URL as / in the address bar', async () => {
+        expect.assertions(2);
+
+        await harness.navigateByUrl('/');
+
+        expect(router.url).toBe('/');
+        expect(aboutHeading()).toContain('Centro de Gestión de Mantenimiento');
+      });
+
+      it('REQ-1.3: the about page at / sends no HTTP request', async () => {
+        expect.assertions(1);
+
+        await harness.navigateByUrl('/');
+
+        expect(aboutHeading()).toContain('Centro de Gestión de Mantenimiento');
+        httpMock.expectNone(() => true);
+        httpMock.verify();
+      });
+
+      it('REQ-1.1: the "Volver al inicio" link of the 404 page leads to the about page', async () => {
+        expect.assertions(3);
+        await harness.navigateByUrl('/no-existe');
+
+        linkNamed('Volver al inicio')?.click();
+        await harness.fixture.whenStable();
+
+        expect(router.url).toBe('/');
+        expect(aboutHeading()).toContain('Centro de Gestión de Mantenimiento');
+        expect(harness.routeNativeElement?.textContent).not.toContain('Página no encontrada');
+      });
+
+      it('REQ-2.2: sends /dashboard to /login keeping returnUrl=/dashboard', async () => {
+        expect.assertions(2);
+
+        await harness.navigateByUrl('/dashboard');
+
+        expect(router.url).toBe('/login?returnUrl=%2Fdashboard');
+        expect(harness.routeNativeElement?.querySelector('#username')).not.toBeNull();
+      });
+
+      it('REQ-6.4: logging in coming from the about page leads to /dashboard', async () => {
+        expect.assertions(4);
+        await harness.navigateByUrl('/');
+
+        linkNamed('Iniciar sesión')?.click();
+        await harness.fixture.whenStable();
+        expect(router.url).toBe('/login');
+
+        fillAndSubmitLogin(users.admin);
+        httpMock.expectOne(`${API_BASE_URL}/auth/login`).flush(sessionFor(users.admin));
+        await harness.fixture.whenStable();
+
+        expect(authService.isAuthenticated()).toBe(true);
+        expect(router.url).toBe('/dashboard');
+        expect(harness.routeNativeElement?.textContent).not.toContain('Iniciar sesión');
+      });
+
+      it('REQ-7.1: shows the about page at /acerca-de without redirecting', async () => {
+        expect.assertions(2);
+
+        await harness.navigateByUrl('/acerca-de');
+
+        expect(router.url).toBe('/acerca-de');
+        expect(aboutHeading()).toContain('Centro de Gestión de Mantenimiento');
+      });
+
+      it.each(['/work-orders', '/maintenance', '/machines'])(
+        'REQ-9.1: sends %s to the login keeping a returnUrl',
+        async (url) => {
+          expect.assertions(3);
+
+          await harness.navigateByUrl(url);
+
+          expect(pathname()).toBe('/login');
+          expect(returnUrl()).toContain(url);
+          expect(harness.routeNativeElement?.querySelector('#username')).not.toBeNull();
+        },
+      );
+
+      it('REQ-9.3: shows the 404 page for a nonexistent URL', async () => {
+        expect.assertions(2);
+
+        await harness.navigateByUrl('/no-existe');
+
+        expect(router.url).toBe('/no-existe');
+        expect(harness.routeNativeElement?.textContent).toContain('Página no encontrada');
+      });
+
+      it.each(['/', '/acerca-de'])(
+        'REQ-10.1: sets the document title "Acerca de | Angular Enterprise Lab" at %s',
+        async (url) => {
+          await harness.navigateByUrl(url);
+
+          expect(document.title).toBe(ABOUT_TITLE);
+        },
+      );
+    });
+
+    describe('with an active session', () => {
+      it('REQ-2.1: redirects / to /dashboard', async () => {
+        expect.assertions(2);
+
+        await harness.navigateByUrl('/');
+
+        expect(router.url).toBe('/dashboard');
+        expect(aboutHeading()).not.toContain('Centro de Gestión de Mantenimiento');
+      });
+
+      it('REQ-2.1: respects an internal returnUrl at / (/?returnUrl=/work-orders ends in /work-orders)', async () => {
+        await harness.navigateByUrl('/?returnUrl=%2Fwork-orders');
+
+        expect(router.url).toBe('/work-orders');
+      });
+
+      it('REQ-2.1: ignores an external returnUrl at / and ends in /dashboard', async () => {
+        await harness.navigateByUrl('/?returnUrl=%2F%2Fevil.com');
+
+        expect(router.url).toBe('/dashboard');
+      });
+
+      it('REQ-7.2: shows the about page at /acerca-de without redirecting to /dashboard', async () => {
+        expect.assertions(2);
+
+        await harness.navigateByUrl('/acerca-de');
+
+        expect(router.url).toBe('/acerca-de');
+        expect(aboutHeading()).toContain('Centro de Gestión de Mantenimiento');
+      });
+
+      it('REQ-9.2: redirects /login to /dashboard, or to its returnUrl', async () => {
+        expect.assertions(2);
+
+        await harness.navigateByUrl('/login');
+        expect(router.url).toBe('/dashboard');
+
+        await harness.navigateByUrl('/login?returnUrl=%2Fwork-orders');
+        expect(router.url).toBe('/work-orders');
+      });
+
+      it('REQ-9.3: shows the 404 page for a nonexistent URL', async () => {
+        await harness.navigateByUrl('/no-existe');
+
+        expect(harness.routeNativeElement?.textContent).toContain('Página no encontrada');
+      });
+
+      it('REQ-10.1: sets the document title "Acerca de | Angular Enterprise Lab" at /acerca-de', async () => {
+        await harness.navigateByUrl('/acerca-de');
+
+        expect(document.title).toBe(ABOUT_TITLE);
+      });
     });
   });
 
@@ -1012,5 +1206,123 @@ describe('app routes', () => {
         expect(router.url).toBe('/dashboard');
       });
     });
+  });
+});
+
+// Spec 21: el enlace "Acerca de" y la navegación dentro del shell real, con las rutas reales.
+describe('app shell with the real routes (spec 21)', () => {
+  const adminSession: AuthSession = {
+    token: 'mock-token.1.1700000000000',
+    user: {
+      id: '1',
+      username: 'admin',
+      displayName: 'Administrador',
+      email: 'admin@enterprise-lab.dev',
+      role: 'administrador',
+    },
+  };
+
+  let fixture: ReturnType<typeof TestBed.createComponent<AppShell>>;
+  let router: Router;
+  let httpMock: HttpTestingController;
+
+  async function renderAt(url: string, withSession: boolean): Promise<void> {
+    localStorage.clear();
+    if (withSession) {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(adminSession));
+    }
+
+    TestBed.configureTestingModule({
+      providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()],
+    });
+    fixture = TestBed.createComponent(AppShell);
+    router = TestBed.inject(Router);
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    await router.navigateByUrl(url);
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  const el = (): HTMLElement => fixture.nativeElement;
+  const headerLink = (): HTMLAnchorElement | null =>
+    Array.from(el().querySelectorAll<HTMLAnchorElement>('header a')).find(
+      (anchor) => anchor.textContent?.trim() === 'Acerca de',
+    ) ?? null;
+  const navLabels = (selector: string): string[] =>
+    Array.from(el().querySelectorAll<HTMLAnchorElement>(`${selector} nav a`)).map(
+      (anchor) => anchor.textContent?.trim() ?? '',
+    );
+
+  afterEach(() => {
+    httpMock.verify();
+    localStorage.clear();
+  });
+
+  it.each(['/login', '/no-existe'])(
+    'REQ-8.1: shows the "Acerca de" link in the header without a session at %s',
+    async (url) => {
+      expect.assertions(3);
+      await renderAt(url, false);
+
+      expect(router.url.split('?')[0]).toBe(url);
+      expect(headerLink()).not.toBeNull();
+      expect(headerLink()?.getAttribute('href')).toBe('/acerca-de');
+    },
+  );
+
+  it('REQ-8.2: shows the "Acerca de" link next to the user name and the logout button with a session', async () => {
+    expect.assertions(3);
+    await renderAt('/acerca-de', true);
+
+    expect(headerLink()).not.toBeNull();
+    expect(el().querySelector('header .header__user')?.textContent).toContain('Administrador');
+    expect(el().querySelector('header button')?.textContent).toContain('Cerrar sesión');
+  });
+
+  it('REQ-8.3: activating the header link from another page navigates to /acerca-de and keeps the session', async () => {
+    expect.assertions(3);
+    await renderAt('/no-existe', true);
+
+    headerLink()?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(router.url).toBe('/acerca-de');
+    expect(TestBed.inject(AuthService).isAuthenticated()).toBe(true);
+    expect(el().querySelector('header .header__user')).not.toBeNull();
+  });
+
+  it('REQ-7.3: keeps the sidebar visible at /acerca-de with a session', async () => {
+    expect.assertions(4);
+    await renderAt('/acerca-de', true);
+
+    expect(router.url).toBe('/acerca-de');
+    expect(el().querySelector('main h1')?.textContent).toContain(
+      'Centro de Gestión de Mantenimiento',
+    );
+    expect(el().querySelector('app-sidebar')).not.toBeNull();
+    expect(el().querySelector('.shell--with-nav')).not.toBeNull();
+  });
+
+  it('REQ-7.4: keeps the bottom bar visible at /acerca-de with a session', async () => {
+    expect.assertions(3);
+    await renderAt('/acerca-de', true);
+
+    expect(router.url).toBe('/acerca-de');
+    expect(el().querySelector('main h1')?.textContent).toContain(
+      'Centro de Gestión de Mantenimiento',
+    );
+    expect(el().querySelector('app-bottom-nav')).not.toBeNull();
+  });
+
+  it('REQ-8.4: neither the sidebar nor the bottom bar include "Acerca de" at /acerca-de', async () => {
+    expect.assertions(4);
+    await renderAt('/acerca-de', true);
+
+    expect(navLabels('app-sidebar')).toEqual(['Inicio', 'Órdenes', 'Técnicos', 'Máquinas']);
+    expect(navLabels('app-bottom-nav')).toEqual(['Inicio', 'Órdenes', 'Técnicos', 'Máquinas']);
+    expect(navLabels('app-sidebar')).not.toContain('Acerca de');
+    expect(navLabels('app-bottom-nav')).not.toContain('Acerca de');
   });
 });

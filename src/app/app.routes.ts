@@ -2,11 +2,22 @@ import { Routes } from '@angular/router';
 
 import { authGuard, guestGuard } from './core/auth/auth.guard';
 
+const ABOUT_TITLE = 'Acerca de | Angular Enterprise Lab';
+
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: 'dashboard',
     pathMatch: 'full',
+    canActivate: [guestGuard],
+    title: ABOUT_TITLE,
+    loadComponent: () =>
+      import('./features/about/pages/about-page/about-page').then((m) => m.AboutPage),
+  },
+  {
+    path: 'acerca-de',
+    title: ABOUT_TITLE,
+    loadComponent: () =>
+      import('./features/about/pages/about-page/about-page').then((m) => m.AboutPage),
   },
   {
     // Grupo protegido. `canActivateChild` (y no `canActivate`) para que se re-evalúe también

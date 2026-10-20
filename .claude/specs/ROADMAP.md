@@ -1,6 +1,6 @@
 # Roadmap de specs — angular-enterprise-lab
 
-**Estado:** las specs 00 a 20 están implementadas. Quedan pendientes dos tareas sueltas
+**Estado:** las specs 00 a 21 están implementadas. Quedan pendientes dos tareas sueltas
 (ver §3). La numeración se unificó el 2026-10-20 al formato de la API (`00`–`NN`, dos
 dígitos, sin letras ni huecos).
 
@@ -34,6 +34,7 @@ en `../steering/`. El mapa de la API es `../../../angular-enterprise-lab-api/.cl
 | 18  | Rediseño "Tablero de turno", mobile-first            | `dashboard`, `layout`, estilos | completo | Hecha; opcional O2 (skeleton de carga) sin hacer              |
 | 19  | Integración con la API real (Spring Boot + JWT)      | `core`, todas                  | completo | Hecha; T12 (opcional, nota sobre filtro por cierre) sin hacer |
 | 20  | Cancelar orden (administrador y team leader)         | `work-orders`                  | completo | Hecha                                                         |
+| 21  | Portada pública y página "Acerca de"                 | `about`, `layout`              | completo | Hecha                                                         |
 
 ```mermaid
 flowchart LR
@@ -43,19 +44,20 @@ flowchart LR
   S12 --> S15[15 Roles] --> S16[16 Técnicos y equipos]
   S14 --> S17[17 Máquina en la orden]
   S16 --> S17
-  S17 --> S18[18 Rediseño mobile-first] --> S19[19 Integración con la API] --> S20[20 Cancelar orden]
+  S17 --> S18[18 Rediseño mobile-first] --> S19[19 Integración con la API] --> S20[20 Cancelar orden] --> S21[21 Acerca de]
 ```
 
 ## 2. Correspondencia con la API
 
-| Front                                                 | Depende de (API)                           |
-| ----------------------------------------------------- | ------------------------------------------ |
-| 11, 12, 15 (sesión y roles), 19                       | 00 y enmienda 00-A (login JWT, `/auth/me`) |
-| 16 (técnicos y equipos)                               | 01                                         |
-| 14 (máquinas y partes)                                | 02                                         |
-| 13, 17 (órdenes: listado, alta, tomar/cerrar/liberar) | 03 y 04                                    |
-| 18 (dashboard "Turno de hoy") y 19 (resumen)          | 05                                         |
-| 20 (cancelar)                                         | enmienda 04-A de la API                    |
+| Front                                                 | Depende de (API)                              |
+| ----------------------------------------------------- | --------------------------------------------- |
+| 11, 12, 15 (sesión y roles), 19                       | 00 y enmienda 00-A (login JWT, `/auth/me`)    |
+| 16 (técnicos y equipos)                               | 01                                            |
+| 14 (máquinas y partes)                                | 02                                            |
+| 13, 17 (órdenes: listado, alta, tomar/cerrar/liberar) | 03 y 04                                       |
+| 18 (dashboard "Turno de hoy") y 19 (resumen)          | 05                                            |
+| 20 (cancelar)                                         | enmienda 04-A de la API                       |
+| 21 (Acerca de)                                        | — (página informativa, sin llamadas a la API) |
 
 ## 3. Pendientes
 
@@ -63,7 +65,7 @@ flowchart LR
   en `GET /work-orders`, para simplificar el cálculo de "cerradas hoy".
 - **18 · O2:** skeleton de carga en el dashboard; solo si el estado de carga se siente
   brusco en la verificación manual.
-- No hay specs 21+ definidas. Una spec nueva toma el siguiente número libre (`21`).
+- No hay specs 22+ definidas. Una spec nueva toma el siguiente número libre (`22`).
 
 ## 4. Equivalencia con la numeración anterior
 

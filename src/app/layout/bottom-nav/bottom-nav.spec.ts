@@ -71,6 +71,33 @@ describe('BottomNav', () => {
     expect(labels()).toEqual(['Inicio', 'Órdenes']);
   });
 
+  // Spec 21: "Acerca de" vive en el header, no en la navegación.
+  it.each([
+    ['team-leader-mantenimiento', teamLeader],
+    ['personal-produccion', produccion],
+  ])('REQ-8.4: %s does not get an "Acerca de" link', (_label, user) => {
+    expect.assertions(2);
+    currentUser.set(user);
+    fixture.detectChanges();
+
+    expect(labels()).not.toContain('Acerca de');
+    expect(fixture.nativeElement.querySelector('nav a[href="/acerca-de"]')).toBeNull();
+  });
+
+  it.each([
+    [
+      'team-leader-mantenimiento',
+      teamLeader,
+      ['Inicio', 'Órdenes', 'Técnicos', 'Equipos', 'Máquinas'],
+    ],
+    ['personal-produccion', produccion, ['Inicio', 'Órdenes']],
+  ])('REQ-9.4: %s sees the same items as before the "Acerca de" page', (_label, user, expected) => {
+    currentUser.set(user);
+    fixture.detectChanges();
+
+    expect(labels()).toEqual(expected);
+  });
+
   it('points each link to its section', () => {
     expect.assertions(2);
 
