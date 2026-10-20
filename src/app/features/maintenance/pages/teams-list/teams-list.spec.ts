@@ -102,7 +102,7 @@ describe('TeamsList', () => {
     fixture.detectChanges();
   }
 
-  // Spec 014 (REQ-3.1, 3.4): bajo md la fila se muestra como tarjeta. El CSS toma la etiqueta de
+  // Spec 18 (REQ-3.1, 3.4): bajo md la fila se muestra como tarjeta. El CSS toma la etiqueta de
   // cada valor de `data-label`, que tiene que coincidir con el encabezado de su columna.
   describe('card layout on small screens', () => {
     it('labels every cell with the header of its column', () => {

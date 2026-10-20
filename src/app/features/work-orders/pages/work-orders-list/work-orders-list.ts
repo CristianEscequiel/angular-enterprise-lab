@@ -201,7 +201,7 @@ export class WorkOrdersList implements OnInit {
     this.requestWorkOrders({ ...criteria, page: targetPage });
   }
 
-  // El estado ya no se cambia a mano desde el listado (spec 013d): pasa a `in-progress` al tomar la
+  // El estado ya no se cambia a mano desde el listado (spec 17): pasa a `in-progress` al tomar la
   // orden, se cierra desde su página y vuelve a `pending` al liberarla. Estas tres funciones son la
   // política de la pantalla; la plantilla oculta los botones y cada método vuelve a comprobarla.
   canContinue(order: WorkOrder): boolean {

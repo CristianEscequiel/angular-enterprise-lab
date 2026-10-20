@@ -117,7 +117,7 @@ describe('Sidebar', () => {
     });
   });
 
-  // Criterio 3 de 013a: solo `administrador` y `team-leader-mantenimiento` gestionan máquinas.
+  // Criterio 3 de 14: solo `administrador` y `team-leader-mantenimiento` gestionan máquinas.
   describe('the machines link follows the permission policy', () => {
     it.each([
       ['administrador', administrador],
@@ -262,7 +262,7 @@ describe('Sidebar', () => {
     });
   });
 
-  // Desde la spec 014 el sidebar es fijo (>= md): ya no hay drawer que abrir ni cerrar.
+  // Desde la spec 18 el sidebar es fijo (>= md): ya no hay drawer que abrir ni cerrar.
   it('has no toggle or close button: it is always visible', () => {
     expect(fixture.nativeElement.querySelector('button')).toBeNull();
   });

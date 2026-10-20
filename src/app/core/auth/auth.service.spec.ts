@@ -315,7 +315,7 @@ describe('AuthService', () => {
       expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
     });
 
-    it('discards a session stored with the legacy role admin (before 013b)', () => {
+    it('discards a session stored with the legacy role admin (before 15)', () => {
       expect.assertions(2);
       localStorage.setItem(
         AUTH_STORAGE_KEY,

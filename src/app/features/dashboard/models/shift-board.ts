@@ -1,7 +1,7 @@
 import { isSameLocalDay } from '@features/work-orders/models/work-order.dates';
 import { isClosedStatus, WorkOrder } from '@features/work-orders/models/work-order.model';
 
-// Lo que muestra el tablero "Turno de hoy" (spec 014, REQ-5). Se arma con una función pura para
+// Lo que muestra el tablero "Turno de hoy" (spec 18, REQ-5). Se arma con una función pura para
 // poder probar las reglas (qué cuenta como "de hoy", qué es "mía") sin HTTP ni reloj real.
 export interface ShiftBoard {
   // Sin tomar, de la más reciente a la más antigua.

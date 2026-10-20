@@ -1,4 +1,4 @@
-// Maestro de máquinas (`/machines`). El `id` lo genera el servidor y es lo que 013d va a referenciar;
+// Maestro de máquinas (`/machines`). El `id` lo genera el servidor y es lo que 17 va a referenciar;
 // el `code` es el identificador de negocio (único), por eso se puede editar sin romper referencias.
 export interface Machine {
   id: string;

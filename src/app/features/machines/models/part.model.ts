@@ -144,7 +144,7 @@ export function hasChildren(parts: readonly Part[], id: string): boolean {
   return parts.some((part) => part.parentId === id);
 }
 
-// Separador de la ruta que se guarda en la orden (spec 013d). Es solo presentación: la referencia
+// Separador de la ruta que se guarda en la orden (spec 17). Es solo presentación: la referencia
 // real es el `partId`, así que un nombre que contenga el separador no rompe nada.
 export const BREADCRUMB_SEPARATOR = ' > ';
 

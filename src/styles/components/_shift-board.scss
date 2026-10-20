@@ -1,6 +1,6 @@
 @use '../abstracts' as a;
 
-// Tablero "Turno de hoy" (spec 014, REQ-5.9 y 5.10). Es el único elemento que se permite ser
+// Tablero "Turno de hoy" (spec 18, REQ-5.9 y 5.10). Es el único elemento que se permite ser
 // llamativo: el resto de la app es deliberadamente quieto. Cada columna lleva en el borde superior el
 // mismo color de estado que la franja de las filas de las listas (pendiente = ámbar, en curso = azul,
 // cerrada = verde), así el tablero y los listados se leen como un solo sistema.
@@ -195,7 +195,7 @@
   margin-bottom: a.$spacing-md;
 }
 
-// Resumen (spec 018, REQ-11.1): cuatro cifras calculadas por la API. Dos por fila en mobile, cuatro
+// Resumen (spec 19, REQ-11.1): cuatro cifras calculadas por la API. Dos por fila en mobile, cuatro
 // desde md.
 .shift__summary {
   margin-block: a.$spacing-md;

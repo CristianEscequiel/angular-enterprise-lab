@@ -1,5 +1,0 @@
-# Baseline de tests aprobados (spec 019). Formato: <git hash-object> <ruta>
-b0688ec587ff45c64c6ff51af4b04f446747191d src/app/features/work-orders/models/work-order.permissions.spec.ts
-a53505f6e6b93b4474c0e8a9dc8eb39e7af0fe24 src/app/features/work-orders/data-access/work-order.service.spec.ts
-adf69af94124906d15a66e31b1c6be4eae0f7828 src/app/features/work-orders/pages/work-orders-list/work-orders-list.spec.ts
-874d6e0612b510157d13760fd353e170e3aa63dd src/app/features/work-orders/pages/work-order-detail/work-order-detail.spec.ts

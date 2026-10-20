@@ -733,7 +733,7 @@ describe('WorkOrdersList search and pagination', () => {
     });
   });
 
-  // Spec 014 (REQ-3.1, 3.3, 3.4): bajo md la fila se muestra como tarjeta. El CSS toma la etiqueta
+  // Spec 18 (REQ-3.1, 3.3, 3.4): bajo md la fila se muestra como tarjeta. El CSS toma la etiqueta
   // de cada valor de `data-label`, que tiene que coincidir con el encabezado de su columna.
   describe('card layout on small screens', () => {
     it('labels every cell with the header of its column', () => {
@@ -816,7 +816,7 @@ describe('WorkOrdersList search and pagination', () => {
     });
   });
 
-  // Tomar, continuar y liberar (spec 013d). El estado ya no se cambia con un <select>.
+  // Tomar, continuar y liberar (spec 17). El estado ya no se cambia con un <select>.
   describe('take, continue and release', () => {
     const at = '2026-09-25T10:00:00.000Z';
     const me = { id: '2', name: 'Técnico Mecánico de Guardia', at };
@@ -1217,8 +1217,8 @@ describe('WorkOrdersList search and pagination', () => {
     });
   });
 
-  // Cancelar una orden pendiente (spec 019): administrador y team leader, con confirmación.
-  describe('cancel order (spec 019)', () => {
+  // Cancelar una orden pendiente (spec 20): administrador y team leader, con confirmación.
+  describe('cancel order (spec 20)', () => {
     const pendingOrder: WorkOrder = { ...order, id: '20', title: 'Cinta detenida' };
     const inProgressOrder: WorkOrder = {
       ...order,

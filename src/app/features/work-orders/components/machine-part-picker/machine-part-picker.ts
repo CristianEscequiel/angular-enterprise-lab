@@ -5,7 +5,7 @@ import { Machine } from '@features/machines/models/machine.model';
 import { buildBreadcrumb, flattenPartTree, PartNode } from '@features/machines/models/part.model';
 import { Button } from '@shared/components/button/button';
 
-// Selector de máquina y parte para crear una orden (spec 013d). Es PRESENTACIONAL, como `PartTree`:
+// Selector de máquina y parte para crear una orden (spec 17). Es PRESENTACIONAL, como `PartTree`:
 // recibe las máquinas y los nodos de la máquina elegida, y emite lo que el usuario elige; no hace
 // HTTP ni consulta permisos. La página carga las partes cuando llega `machineChange` (CLAUDE.md: los
 // servicios encapsulan HTTP, las páginas coordinan).

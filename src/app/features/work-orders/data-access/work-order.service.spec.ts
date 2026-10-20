@@ -425,7 +425,7 @@ describe('WorkOrdersService', () => {
     });
   });
 
-  // Tomar, cerrar y liberar (spec 013d, contrato de la API). Cada transición es un solo `POST` sin
+  // Tomar, cerrar y liberar (spec 17, contrato de la API). Cada transición es un solo `POST` sin
   // lectura previa: el dueño sale del token y el servidor valida y responde `409` si no corresponde.
   describe('state transitions', () => {
     const url = `${apiUrl}/1`;
@@ -718,8 +718,8 @@ describe('WorkOrdersService', () => {
       });
     });
 
-    // Spec 019: cancelar una orden pendiente.
-    describe('cancel (spec 019)', () => {
+    // Spec 20: cancelar una orden pendiente.
+    describe('cancel (spec 20)', () => {
       it('REQ-4.1: sends a single POST /work-orders/{id}/cancel without a body and emits the updated order', () => {
         expect.assertions(4);
         const outcome = run(service.cancel('1'));

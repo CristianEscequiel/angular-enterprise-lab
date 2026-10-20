@@ -106,7 +106,7 @@ describe('isAuthSession', () => {
     ['an unknown role', 'superuser'],
     ['a non-string role', 7],
     ['an empty role', ''],
-    ['the legacy role admin (before 013b)', 'admin'],
+    ['the legacy role admin (before 15)', 'admin'],
   ])('rejects a session whose user has %s', (_label, role) => {
     expect(isAuthSession(sessionWith({ ...validSession.user, role }))).toBe(false);
   });

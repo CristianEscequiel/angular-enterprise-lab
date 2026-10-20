@@ -31,7 +31,7 @@
 
 // Una columna en mobile; las columnas pedidas, desde md. Antes era al revés (desktop primero, con un
 // override en max-width): el mixin respond-below y el respond-above del contenedor se pisaban a los
-// 768px exactos (spec 008b), un problema que mobile-first evita de raíz (spec 014).
+// 768px exactos (spec 09), un problema que mobile-first evita de raíz (spec 18).
 .grid--2,
 .grid--3,
 .grid--4 {

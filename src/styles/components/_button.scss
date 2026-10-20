@@ -6,7 +6,7 @@
   justify-content: center;
   gap: a.$spacing-sm;
 
-  // 44px: objetivo táctil mínimo (spec 014, REQ-3.4). Desde lg el `sm` vuelve a ser compacto.
+  // 44px: objetivo táctil mínimo (spec 18, REQ-3.4). Desde lg el `sm` vuelve a ser compacto.
   min-height: 2.75rem;
   padding: a.$spacing-sm a.$spacing-md;
 

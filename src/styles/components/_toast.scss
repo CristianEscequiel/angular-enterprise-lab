@@ -80,7 +80,7 @@
 
   font-size: 0.875rem;
   // --color-text-secondary no existe como custom property (mismo bug que
-  // ya se corrigió en _sidebar.scss): resolvía a inherit (spec 008b).
+  // ya se corrigió en _sidebar.scss): resolvía a inherit (spec 09).
   color: var(--color-text-muted);
 }
 

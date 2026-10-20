@@ -3,7 +3,7 @@ import { isLegajo, isTechnicianTeamType, TechnicianTeamType } from '@core/auth/a
 // Equipo (`/teams`): agrupación gestionable de técnicos. Los miembros se guardan como lista de
 // legajos dentro del propio equipo (no en una colección de unión), así un solo `PUT` guarda el
 // equipo y sus miembros. El `type` usa los mismos valores que el `teamType` del técnico, pero no se
-// exige que coincidan (spec 013c: no se valida la coherencia entre ambos).
+// exige que coincidan (spec 16: no se valida la coherencia entre ambos).
 export interface Team {
   id: string;
   name: string;

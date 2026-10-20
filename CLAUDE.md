@@ -1,12 +1,30 @@
 # Angular Enterprise Lab
 
-Frontend: Angular 22 + TypeScript 6, standalone components, signals.
-Backend: API real (Java 21 / Spring Boot 3 / PostgreSQL) en el repo hermano
-`../angular-enterprise-lab-api`, con JWT y autoridad de roles en el servidor. JSON Server y los
-mocks se retiraron (spec 018). Para correr la app hay que levantar la API con el perfil `dev`
-(ver README, "Ejecutar la aplicación"); los tests NO la necesitan.
+Frontend de un CMMS (órdenes de mantenimiento): Angular 22 + TypeScript 6, standalone
+components, signals. Consume la API real del repo hermano `../angular-enterprise-lab-api`
+(Java 21 / Spring Boot 3 / PostgreSQL, JWT, autoridad de roles en el servidor). JSON Server
+y los mocks se retiraron (spec 19). Para correr la app hay que levantar la API con el perfil
+`dev` (ver README, "Ejecutar la aplicación"); los tests NO la necesitan.
 La API es la fuente de verdad de unicidad, integridad referencial y transiciones de estado: el
 cliente solo valida formato y traduce los errores (`code`/`details`) a errores tipados.
+
+## Metodología de desarrollo
+
+Toda feature no trivial (más de ~3 archivos, o que toca datos/permisos/integraciones) sigue la
+skill `anthropic-skills:sdd-flow`, flujo completo: `requirements.md` → `design.md` →
+`tasks.md`, con aprobación explícita del usuario entre cada fase. No avances de una fase a la
+siguiente sin esa aprobación, aunque el pedido parezca claro. (Las specs 00 a 17 usan el
+formato corto `spec.md` + `plan.md` + `notes.md`; no se reescriben.)
+
+- Specs en `.claude/specs/<NN>-<nombre>/`, numeración `00`–`NN` de dos dígitos sin letras ni
+  huecos; la siguiente libre es la `21`. El mapa y la equivalencia con la numeración vieja
+  están en `.claude/specs/ROADMAP.md`.
+- Contexto de proyecto (qué es, stack, estructura) en `.claude/steering/` — leelo antes de
+  escribir la primera spec de una sesión nueva.
+- Si ya existe una spec para lo que se pide, es una enmienda (`NN-A`): se edita esa carpeta,
+  nunca se crea una segunda para lo mismo.
+- Los cambios de contrato con la API se acuerdan por spec en ambos repos (ver el ROADMAP de la
+  API); este repo no toca el backend.
 
 ## Arquitectura
 
@@ -24,12 +42,12 @@ cliente solo valida formato y traduce los errores (`code`/`details`) a errores t
 - Servicios encapsulan HTTP (`WorkOrdersService`), páginas coordinan carga/acciones/navegación
 - Rutas con `loadChildren()` a nivel feature, `loadComponent()` a nivel página
 
-## Estado actual (no lo repitas en cada spec, ya está acá)
+## Estado actual
 
-- CRUD implementado, búsqueda+paginación en estabilización
-- Autenticación: JWT contra la API (`POST /auth/login`, `GET /auth/me`); sesión en `localStorage`
-- Coverage: no medible todavía, falta configurar proveedor Vitest
-- Integración con la API (spec 018): ver `.claude/specs/018-integracion-api-backend/` (tareas T1–T12)
+- Specs 00 a 20 implementadas; el detalle por spec y los pendientes (19·T12, 18·O2) están en
+  `.claude/specs/ROADMAP.md`.
+- Autenticación: JWT contra la API (`POST /auth/login`, `GET /auth/me`); sesión en `localStorage`.
+- Cobertura: `pnpm test:coverage` (informativa, sin umbral bloqueante).
 
 ## Testing
 
@@ -39,6 +57,6 @@ cliente solo valida formato y traduce los errores (`code`/`details`) a errores t
 
 ## Instrucciones de compactación
 
-Al compactar, preservar: spec/plan activo, archivos modificados, tests
-fallidos, decisiones de arquitectura tomadas. Descartar: exploración
-descartada, logs de comandos repetidos.
+Al compactar, preservar: spec activa (requirements/design/tasks), fase en la que está (qué
+aprobación falta), archivos modificados, tests fallidos, decisiones de arquitectura tomadas.
+Descartar: exploración descartada, logs de comandos repetidos.
