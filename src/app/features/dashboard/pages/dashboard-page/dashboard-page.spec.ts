@@ -388,7 +388,7 @@ describe('DashboardPage', () => {
     });
   });
 
-  describe('summary figures (spec 018, REQ-11.1 and 11.6)', () => {
+  describe('summary figures (spec 19, REQ-11.1 and 11.6)', () => {
     it('asks the summary once, without a period, and shows the four figures', () => {
       start();
 
@@ -430,7 +430,7 @@ describe('DashboardPage', () => {
     });
   });
 
-  describe('lists by status (spec 018, REQ-11.2 and 11.3)', () => {
+  describe('lists by status (spec 19, REQ-11.2 and 11.3)', () => {
     it('builds the board from the four filtered lists, closed ones included', () => {
       service.getAll.mockReturnValue(
         of([
@@ -481,7 +481,7 @@ describe('DashboardPage', () => {
     });
   });
 
-  describe('workload (spec 018, REQ-11.4 and 11.5)', () => {
+  describe('workload (spec 19, REQ-11.4 and 11.5)', () => {
     const workload: WorkloadItem[] = [
       { takenById: '5', takenByName: 'Técnico Electricista Preventivo', inProgress: 5 },
       { takenById: '4', takenByName: 'Técnico Mecánico de Guardia', inProgress: 2 },
@@ -544,7 +544,7 @@ describe('DashboardPage', () => {
     });
   });
 
-  describe('when any reading fails (spec 018, REQ-11.7)', () => {
+  describe('when any reading fails (spec 19, REQ-11.7)', () => {
     it('the summary failing shows the error with a retry, and no board', () => {
       dashboard.getSummary.mockReturnValue(throwError(() => ({ status: 500 })));
       start();

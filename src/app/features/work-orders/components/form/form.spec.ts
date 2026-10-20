@@ -55,7 +55,7 @@ describe('Form', () => {
     expect(component).toBeTruthy();
   });
 
-  // Spec 014 (REQ-4.1, 4.2, 4.3): campos emparejados, acciones en su barra y errores vinculados.
+  // Spec 18 (REQ-4.1, 4.2, 4.3): campos emparejados, acciones en su barra y errores vinculados.
   describe('layout', () => {
     it('puts type and priority side by side in the same row', () => {
       const row = fixture.nativeElement.querySelector('.form-row');
@@ -104,7 +104,7 @@ describe('Form', () => {
     component.onSubmit();
 
     expect(emit).not.toHaveBeenCalled();
-    // Habilitado a propósito (spec 008b): si estuviera deshabilitado,
+    // Habilitado a propósito (spec 09): si estuviera deshabilitado,
     // markAllAsTouched() sería inalcanzable y un usuario de teclado
     // llegaría al final del form sin ninguna explicación.
     expect(submitButton().disabled).toBe(false);
@@ -177,7 +177,7 @@ describe('Form', () => {
     expect(submitButton().disabled).toBe(false);
   });
 
-  describe('machine and part (spec 013d)', () => {
+  describe('machine and part (spec 17)', () => {
     const machineSelect = (): HTMLSelectElement =>
       fixture.nativeElement.querySelector('#machine-select') as HTMLSelectElement;
 

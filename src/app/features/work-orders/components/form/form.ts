@@ -20,7 +20,7 @@ export type WorkOrderFormInput = Pick<
   'title' | 'description' | 'type' | 'priority' | 'machineRef'
 >;
 
-// Un comentario de falla es "corto" (spec 013d).
+// Un comentario de falla es "corto" (spec 17).
 export const MACHINE_COMMENT_MAX_LENGTH = 200;
 
 // Lo que emite el formulario. NO lleva el `breadcrumb`: la ruta de la parte la arma el servidor al
@@ -50,7 +50,7 @@ export class Form implements OnInit {
   // Las máquinas y las partes de la elegida las carga la página; el formulario solo las muestra.
   machines = input<readonly Machine[]>([]);
   partNodes = input<readonly PartNode[]>([]);
-  // La máquina/parte de una orden no cambia después de creada (spec 013d): en edición se muestra la
+  // La máquina/parte de una orden no cambia después de creada (spec 17): en edición se muestra la
   // referencia guardada, sin selector, y el valor original se sigue emitiendo.
   lockMachine = input<boolean>(false);
   sendData = output<WorkOrderFormValue>();

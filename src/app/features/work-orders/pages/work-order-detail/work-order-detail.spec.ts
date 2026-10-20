@@ -140,7 +140,7 @@ describe('WorkOrderDetail', () => {
     expect(component.loadError()).toBeNull();
   });
 
-  describe('machine reference (spec 013d)', () => {
+  describe('machine reference (spec 17)', () => {
     const text = (): string => (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
 
     it('shows the stored path and the failure comment in separate elements', async () => {
@@ -185,8 +185,8 @@ describe('WorkOrderDetail', () => {
     });
   });
 
-  // Spec 014 (REQ-4.4, 4.5): el detalle se lee de arriba abajo en un orden fijo.
-  describe('layout (spec 014)', () => {
+  // Spec 18 (REQ-4.4, 4.5): el detalle se lee de arriba abajo en un orden fijo.
+  describe('layout (spec 18)', () => {
     const text = (): string => (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
     const order = { ...mockWorkOrder, createdAt: '2026-09-20T10:30:00.000Z' };
     const note = {
@@ -272,7 +272,7 @@ describe('WorkOrderDetail', () => {
     });
   });
 
-  describe('who took it and how it was closed (spec 013d)', () => {
+  describe('who took it and how it was closed (spec 17)', () => {
     const text = (): string => (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
     const taker = { id: '2', name: 'Técnico Mecánico de Guardia', at: '2026-09-25T13:00:00.000Z' };
     const note = {
@@ -395,8 +395,8 @@ describe('WorkOrderDetail', () => {
     expect(routerMock.navigate).toHaveBeenCalledExactlyOnceWith(['/work-orders']);
   });
 
-  // Cancelar una orden pendiente (spec 019): administrador y team leader, con confirmación.
-  describe('cancel order (spec 019)', () => {
+  // Cancelar una orden pendiente (spec 20): administrador y team leader, con confirmación.
+  describe('cancel order (spec 20)', () => {
     const pendingOrder = { ...mockWorkOrder, createdAt: '2026-09-20T10:30:00.000Z' };
     const cancelledResult = { ...pendingOrder, status: 'cancelled' };
     const message = () => TestBed.inject(MessageService).message();

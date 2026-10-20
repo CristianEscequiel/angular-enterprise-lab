@@ -239,7 +239,7 @@ describe('work order permissions', () => {
     });
   });
 
-  describe('canTakeWorkOrder (spec 013d)', () => {
+  describe('canTakeWorkOrder (spec 17)', () => {
     it.each(SPECIALTIES)(
       'a guardia technician (%s) takes only pronto-intervencion',
       (specialty) => {
@@ -291,7 +291,7 @@ describe('work order permissions', () => {
     });
   });
 
-  describe('canResolveWorkOrder (spec 013d)', () => {
+  describe('canResolveWorkOrder (spec 17)', () => {
     const mine = technician('mecanico', 'guardia');
     const taker = { id: mine.id, name: mine.displayName, at: '2026-09-25T10:00:00Z' };
     const order = (over: Partial<Pick<WorkOrder, 'type' | 'status' | 'takenBy'>> = {}) => ({
@@ -342,7 +342,7 @@ describe('work order permissions', () => {
     });
   });
 
-  describe('canReleaseWorkOrder (spec 013d)', () => {
+  describe('canReleaseWorkOrder (spec 17)', () => {
     it.each<[string, AuthUser]>([
       ['administrador', administrador],
       ['team leader', teamLeader],
@@ -366,8 +366,8 @@ describe('work order permissions', () => {
     });
   });
 
-  // Spec 019: cancelar una orden pendiente (administrador y team leader).
-  describe('canCancelWorkOrder (spec 019)', () => {
+  // Spec 20: cancelar una orden pendiente (administrador y team leader).
+  describe('canCancelWorkOrder (spec 20)', () => {
     const ALL_STATUSES: WorkOrderStatus[] = ['pending', 'in-progress', 'completed', 'cancelled'];
     const NOT_PENDING: WorkOrderStatus[] = ['in-progress', 'completed', 'cancelled'];
 

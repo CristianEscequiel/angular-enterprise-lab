@@ -377,7 +377,7 @@ describe('PartTree', () => {
       expect(item('Sello').getAttribute('aria-selected')).toBe('true');
     });
 
-    it('works with the actions hidden: that is how the order form (013d) uses it', () => {
+    it('works with the actions hidden: that is how the order form (17) uses it', () => {
       const selected: PartNode[] = [];
       component.selectPart.subscribe((node) => selected.push(node));
       render(undefined, { showActions: false });

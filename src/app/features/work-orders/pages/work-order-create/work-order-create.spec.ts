@@ -179,7 +179,7 @@ describe('WorkOrderCreate', () => {
     expect(submitButton?.disabled).toBe(true);
   });
 
-  describe('machine and part reference (spec 013d)', () => {
+  describe('machine and part reference (spec 17)', () => {
     const lastRequest = (): WorkOrderCreateRequest =>
       workOrdersServiceMock.create.mock.calls[0]?.[0] as WorkOrderCreateRequest;
 

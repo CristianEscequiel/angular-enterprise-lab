@@ -3,7 +3,7 @@ export const WORK_ORDER_STATUSES = ['pending', 'in-progress', 'completed', 'canc
 // Estados cerrados: son terminales (una orden cerrada no se reabre) y exigen un comentario de cierre.
 export const CLOSED_WORK_ORDER_STATUSES = ['completed', 'cancelled'] as const;
 
-// El comentario de cierre del técnico (spec 013d) tiene que ser sustancial: entre 50 y 500
+// El comentario de cierre del técnico (spec 17) tiene que ser sustancial: entre 50 y 500
 // caracteres, sin contar los espacios de los bordes.
 export const CLOSING_NOTE_MIN_LENGTH = 50;
 export const CLOSING_NOTE_MAX_LENGTH = 500;
@@ -42,7 +42,7 @@ export function isValidClosingComment(value: unknown): value is string {
   return length >= CLOSING_NOTE_MIN_LENGTH && length <= CLOSING_NOTE_MAX_LENGTH;
 }
 
-// Quién tomó la orden (spec 013d): `name` es un snapshot del `displayName`, como el breadcrumb.
+// Quién tomó la orden (spec 17): `name` es un snapshot del `displayName`, como el breadcrumb.
 export interface WorkOrderTaker {
   id: string;
   name: string;
@@ -87,7 +87,7 @@ export function isWorkOrderClosingNote(value: unknown): value is WorkOrderClosin
   );
 }
 
-// Referencia de la orden al maestro de máquinas y partes (spec 013a). `breadcrumb` lo arma el servidor
+// Referencia de la orden al maestro de máquinas y partes (spec 14). `breadcrumb` lo arma el servidor
 // como un SNAPSHOT de
 // los nombres al crear la orden (máquina > nivel 1 > … > parte): no se recalcula, así que la orden
 // conserva el nombre que tenía la parte aunque luego se renombre en el maestro. `comment` describe la
@@ -130,7 +130,7 @@ export interface WorkOrder {
   priority: WorkOrderPriority;
   status: WorkOrderStatus;
   createdAt: string;
-  // Quién la tiene (spec 013d). Invariantes: `pending` → sin dueño (`null` = liberada); `in-progress`
+  // Quién la tiene (spec 17). Invariantes: `pending` → sin dueño (`null` = liberada); `in-progress`
   // → con dueño; cerrada → con dueño y `closingNote` (con `authorId` igual al dueño).
   takenBy?: WorkOrderTaker | null;
   closingNote?: WorkOrderClosingNote;

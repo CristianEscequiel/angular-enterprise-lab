@@ -62,7 +62,7 @@ export class WorkOrderEdit implements OnInit {
       return;
     }
 
-    // El tipo y la máquina/parte se fijan al crear (spec 013d): solo se envían los campos editables,
+    // El tipo y la máquina/parte se fijan al crear (spec 17): solo se envían los campos editables,
     // uno por uno (el valor del formulario trae también `machineId`/`partId`/`comment`, que no lo son).
     const changes: WorkOrderUpdateRequest = {
       title: workOrderData.title,

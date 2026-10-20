@@ -2,7 +2,7 @@ import { AuthUser, UserRole } from '@core/auth/auth.model';
 
 // Política de permisos de técnicos y equipos. Es una fuente única: los guards de ruta y las páginas
 // (botones, acciones) la consultan en vez de repetir reglas por rol. Son reglas de navegación/UX:
-// la autorización real será del backend (spec 018).
+// la autorización real será del backend (spec 19).
 
 // Ver y dar de alta/modificar técnicos: Administrador y TeamLeader. Solo Administrador elimina.
 const TECHNICIAN_MANAGER_ROLES: readonly UserRole[] = [

@@ -39,7 +39,7 @@ export class WorkOrderCreate implements OnInit {
   private readonly machineSelection = new Subject<string | null>();
 
   readonly isSubmitting = signal(false);
-  // Errores de la API que la página muestra en su lugar (spec 018, REQ-9.3 y 9.4).
+  // Errores de la API que la página muestra en su lugar (spec 19, REQ-9.3 y 9.4).
   readonly machineRefError = signal<string | null>(null);
   readonly fieldErrors = signal<Readonly<Record<string, string>>>({});
   // La página decide qué tipos ofrece según el rol; el formulario solo los muestra.

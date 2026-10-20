@@ -33,7 +33,7 @@ export const matchWorkOrderIdEdit: UrlMatcher = (segments) => {
   return { consumed: segments, posParams: { id: idSegment } };
 };
 
-// /work-orders/:id/resolve — página de cierre de la orden (spec 013d).
+// /work-orders/:id/resolve — página de cierre de la orden (spec 17).
 export const matchWorkOrderIdResolve: UrlMatcher = (segments) => {
   const [idSegment, suffixSegment] = segments;
 

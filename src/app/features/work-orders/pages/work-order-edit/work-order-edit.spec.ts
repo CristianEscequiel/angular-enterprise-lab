@@ -216,7 +216,7 @@ describe('WorkOrderEdit', () => {
     });
   });
 
-  describe('owner, status and closing note (spec 013d)', () => {
+  describe('owner, status and closing note (spec 17)', () => {
     const takenBy = {
       id: '2',
       name: 'Técnico Mecánico de Guardia',

@@ -41,7 +41,7 @@ function closingCommentValidator(control: AbstractControl): ValidationErrors | n
   return isValidClosingComment(control.value) ? null : { closingComment: true };
 }
 
-// Página de cierre de una orden (spec 013d): el técnico que la tomó la ve en solo lectura y solo puede
+// Página de cierre de una orden (spec 17): el técnico que la tomó la ve en solo lectura y solo puede
 // elegir el resultado (completada o cancelada) y dejar su comentario, que es obligatorio. La lógica de
 // negocio vive acá (CLAUDE.md): el formulario solo recoge datos, el servicio protege el estado.
 @Component({

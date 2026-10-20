@@ -27,7 +27,7 @@ describe('Header', () => {
     return buttons.find((button) => button.textContent?.includes('Cerrar sesión')) ?? null;
   }
 
-  // Spec 014 (REQ-6.2): cada página tiene su h1; el nombre del sitio no compite con él.
+  // Spec 18 (REQ-6.2): cada página tiene su h1; el nombre del sitio no compite con él.
   describe('site title', () => {
     it('shows the site name as a paragraph, not as a heading', () => {
       expect.assertions(3);

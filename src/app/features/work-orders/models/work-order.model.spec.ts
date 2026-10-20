@@ -116,7 +116,7 @@ describe('isWorkOrderMachineRef', () => {
   });
 });
 
-describe('closing note (spec 013d)', () => {
+describe('closing note (spec 17)', () => {
   describe('isClosedStatus', () => {
     it.each(['completed', 'cancelled'])('is true for %s', (status) => {
       expect(isClosedStatus(status)).toBe(true);

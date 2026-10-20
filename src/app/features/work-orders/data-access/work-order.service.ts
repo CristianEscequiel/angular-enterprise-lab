@@ -176,7 +176,7 @@ export class WorkOrdersService {
       .pipe(catchError((error: unknown) => throwError(() => this.translateWriteError(error))));
   }
 
-  // Las tres transiciones de estado (spec 013d). La API las valida y las hace atómicas: el dueño sale
+  // Las tres transiciones de estado (spec 17). La API las valida y las hace atómicas: el dueño sale
   // del token (nunca del cuerpo) y un conflicto responde `409` con el estado real y, si hay dueño,
   // quién es. Acá solo se traduce ese `409` a `WorkOrderStateError`; no se lee la orden antes.
 
@@ -206,7 +206,7 @@ export class WorkOrdersService {
       .pipe(catchError((error: unknown) => throwError(() => this.translateTransitionError(error))));
   }
 
-  // Cancelar una orden pendiente (spec 019). `404` → la orden ya no existe; `409` → error de estado;
+  // Cancelar una orden pendiente (spec 20). `404` → la orden ya no existe; `409` → error de estado;
   // el resto se propaga tal cual (el `403` lo avisa el interceptor).
   cancel(id: string): Observable<WorkOrder> {
     return this.http.post<WorkOrder>(`${this.url(id)}/cancel`, null).pipe(

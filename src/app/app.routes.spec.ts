@@ -474,7 +474,7 @@ describe('app routes', () => {
       },
     );
 
-    // Página de cierre de la orden (spec 013d): solo los técnicos.
+    // Página de cierre de la orden (spec 17): solo los técnicos.
     it('lets a technician open the closing page of an order', async () => {
       expect.assertions(4);
       loginAs(users.tecnico);
@@ -806,7 +806,7 @@ describe('app routes', () => {
     });
   });
 
-  // Criterio 3 de 013a: solo `administrador` y `team-leader-mantenimiento` gestionan máquinas y partes.
+  // Criterio 3 de 14: solo `administrador` y `team-leader-mantenimiento` gestionan máquinas y partes.
   describe('machines routes (machines and parts tree)', () => {
     const warning = () => TestBed.inject(MessageService).message();
     const page = () => harness.routeNativeElement?.textContent ?? '';
